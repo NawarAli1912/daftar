@@ -6,6 +6,9 @@ import com.daftar.app.kernel.db.CustomerDao
 import com.daftar.app.kernel.db.LedgerDao
 import com.daftar.app.kernel.db.LedgerEntryEntity
 import com.daftar.app.kernel.db.SaleDao
+import com.daftar.app.kernel.db.SaleLineEntity
+import com.daftar.app.kernel.db.StockDao
+import com.daftar.app.kernel.db.StockSourceEntity
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.ledger.LedgerLine
 import com.daftar.app.kernel.ledger.LedgerMath
@@ -22,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 sealed interface DayCard {
     val happenedAt: Long
@@ -42,6 +46,7 @@ sealed interface DayCard {
         val total: Long,
         val paidNow: Long,
         override val happenedAt: Long,
+        val lines: List<SaleLineEntity> = emptyList(),
     ) : DayCard {
         override val key: String get() = saleId
     }
@@ -50,13 +55,15 @@ sealed interface DayCard {
 @HiltViewModel
 class TodayViewModel @Inject constructor(
     ledgerDao: LedgerDao,
-    saleDao: SaleDao,
+    private val saleDao: SaleDao,
     customerDao: CustomerDao,
+    stockDao: StockDao,
 ) : ViewModel() {
 
     data class State(
         val cards: List<DayCard> = emptyList(),
         val paymentsTotal: Long = 0L,
+        val sources: List<StockSourceEntity> = emptyList(),
     )
 
     private val zone: ZoneId = ZoneId.systemDefault()
@@ -87,7 +94,8 @@ class TodayViewModel @Inject constructor(
                 ledgerDao.observeDay(dayStart, dayEnd),
                 saleDao.observeDay(dayStart, dayEnd),
                 customerDao.observeAll(),
-            ) { ledger, sales, customers ->
+                stockDao.observeSources(),
+            ) { ledger, sales, customers, sources ->
             val names = customers.associate { it.id to it.name }
             val paymentsTotal = LedgerMath.paymentsTotal(
                 ledger.map { LedgerLine(EntryKind.valueOf(it.kind), it.amount, it.voided) }
@@ -114,13 +122,20 @@ class TodayViewModel @Inject constructor(
                     ),
                     paidNow = paidBySale[saleWithLines.sale.id] ?: 0L,
                     happenedAt = saleWithLines.sale.happenedAt,
+                    lines = visibleLines,
                 )
             }
 
                 State(
                     cards = (ledgerCards + saleCards).sortedByDescending { it.happenedAt },
                     paymentsTotal = paymentsTotal,
+                    sources = sources,
                 )
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
+
+    // FR-4.6: re-point a sold line's attributed source; profit recalculates from it.
+    fun repoint(lineId: String, sourceId: String?) {
+        viewModelScope.launch { saleDao.repointLine(lineId, sourceId, System.currentTimeMillis()) }
+    }
 }

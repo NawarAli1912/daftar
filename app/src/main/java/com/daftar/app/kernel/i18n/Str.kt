@@ -150,6 +150,7 @@ object Str {
     val savePackage get() = s("Save package", "حفظ الحزمة")
     val packageKind get() = s("Kind", "النوع")
     val nItems get() = s("items", "صنف")
+    val repointHint get() = s("Tap a source to correct where each item came from", "اضغطي على مصدر لتصحيح مصدر كل قطعة")
 
     val profitTab get() = s("Profit", "الأرباح")
     val soldLabel get() = s("Sold", "المُباع")

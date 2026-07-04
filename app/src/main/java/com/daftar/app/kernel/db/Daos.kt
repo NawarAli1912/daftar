@@ -135,6 +135,10 @@ interface SaleDao {
     )
     fun observeDay(dayStart: Long, dayEnd: Long): Flow<List<SaleWithLines>>
 
+    // FR-4.6: re-point a sold line to its true source; per-source profit recalculates.
+    @Query("UPDATE sale_lines SET attributedSourceId = :sourceId, updatedAt = :now WHERE id = :id")
+    suspend fun repointLine(id: String, sourceId: String?, now: Long)
+
     @Query("UPDATE sales SET voided = 1, updatedAt = :now WHERE id = :saleId")
     suspend fun voidSaleRow(saleId: String, now: Long)
 

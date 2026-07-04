@@ -18,15 +18,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -43,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.daftar.app.kernel.db.StockSourceEntity
 import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.theme.DaftarColors
@@ -86,6 +91,7 @@ fun TodayScreen(
     var showChooser by remember { mutableStateOf(false) }
     var entrySheet by remember { mutableStateOf<EntryType?>(null) }
     var showSaleScreen by remember { mutableStateOf(false) }
+    var detailSaleId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     AnimatedVisibility(
@@ -146,7 +152,7 @@ fun TodayScreen(
                             if (index > 0) Hairline(Modifier.padding(horizontal = 16.dp))
                             when (card) {
                                 is DayCard.Ledger -> LedgerEntryRow(card)
-                                is DayCard.Sale -> SaleEntryRow(card)
+                                is DayCard.Sale -> SaleEntryRow(card, onClick = { detailSaleId = card.saleId })
                             }
                         }
                         SumLine(
@@ -217,6 +223,18 @@ fun TodayScreen(
             onDismiss = { entrySheet = null },
         )
     }
+
+    val detailSale = detailSaleId?.let { id ->
+        state.cards.firstOrNull { it is DayCard.Sale && it.saleId == id } as? DayCard.Sale
+    }
+    detailSale?.let { sale ->
+        SaleDetailSheet(
+            sale = sale,
+            sources = state.sources,
+            onRepoint = { lineId, sourceId -> todayViewModel.repoint(lineId, sourceId) },
+            onDismiss = { detailSaleId = null },
+        )
+    }
 }
 
 @Composable
@@ -278,18 +296,84 @@ private fun LedgerEntryRow(card: DayCard.Ledger) {
 }
 
 @Composable
-private fun SaleEntryRow(card: DayCard.Sale) {
-    LedgerRow(
-        title = card.customerName ?: Str.unspecified,
-        subtitle = buildString {
-            append(Str.sale)
-            if (card.linesSummary.isNotEmpty()) append(" · ${card.linesSummary}")
-            append(" · ${formatTime(card.happenedAt)}")
-        },
-        amountText = Str.money(card.total),
-        amountColor = DaftarColors.Teal,
-        trailingNote = if (card.paidNow in 1 until card.total) {
-            "${Str.paidShort} ${Str.money(card.paidNow)}"
-        } else null,
-    )
+private fun SaleEntryRow(card: DayCard.Sale, onClick: () -> Unit) {
+    Column(Modifier.clickable(onClick = onClick)) {
+        LedgerRow(
+            title = card.customerName ?: Str.unspecified,
+            subtitle = buildString {
+                append(Str.sale)
+                if (card.linesSummary.isNotEmpty()) append(" · ${card.linesSummary}")
+                append(" · ${formatTime(card.happenedAt)}")
+            },
+            amountText = Str.money(card.total),
+            amountColor = DaftarColors.Teal,
+            trailingNote = if (card.paidNow in 1 until card.total) {
+                "${Str.paidShort} ${Str.money(card.paidNow)}"
+            } else null,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SaleDetailSheet(
+    sale: DayCard.Sale,
+    sources: List<StockSourceEntity>,
+    onRepoint: (lineId: String, sourceId: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = DaftarColors.Surface1) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                "${sale.customerName ?: Str.unspecified} · ${Str.sale}",
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text(
+                Str.repointHint,
+                style = MaterialTheme.typography.bodyMedium,
+                color = DaftarColors.TextSecondary,
+            )
+            sale.lines.forEach { line ->
+                Column {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            "${line.typeName} ×${Str.count(line.qty)}",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            Str.money(line.agreedUnit * line.qty),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = DaftarColors.Teal,
+                        )
+                    }
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            FilterChip(
+                                selected = line.attributedSourceId == null,
+                                onClick = { onRepoint(line.id, null) },
+                                label = { Text(Str.unspecified) },
+                            )
+                        }
+                        items(sources, key = { it.id }) { source ->
+                            FilterChip(
+                                selected = line.attributedSourceId == source.id,
+                                onClick = { onRepoint(line.id, source.id) },
+                                label = { Text(source.label) },
+                            )
+                        }
+                    }
+                }
+                Hairline()
+            }
+        }
+    }
 }

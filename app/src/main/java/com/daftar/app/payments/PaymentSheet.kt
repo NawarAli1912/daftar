@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.daftar.app.kernel.db.CustomerEntity
+import com.daftar.app.kernel.db.ItemTypeEntity
 import com.daftar.app.kernel.format.ArabicNumbers
 import com.daftar.app.kernel.theme.DaftarColors
 
@@ -32,11 +33,14 @@ import com.daftar.app.kernel.theme.DaftarColors
 @Composable
 fun PaymentSheet(
     customers: List<CustomerEntity>,
-    onSave: (amount: Long, customerId: String?) -> Unit,
+    types: List<ItemTypeEntity>,
+    suggestionLabel: (typeId: String, askedUnit: Long) -> String,
+    onSave: (amount: Long, customerId: String?, itemTypeId: String?, askedUnit: Long?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var amountText by remember { mutableStateOf("") }
     var selectedCustomerId by remember { mutableStateOf<String?>(null) }
+    var selectedType by remember { mutableStateOf<ItemTypeEntity?>(null) }
     val amount = ArabicNumbers.parseAmount(amountText)
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = DaftarColors.Surface1) {
@@ -57,6 +61,41 @@ fun PaymentSheet(
                 textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (types.isNotEmpty()) {
+                Text(
+                    "عن ماذا؟ (اختياري — D37)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = DaftarColors.TextSecondary,
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(
+                            selected = selectedType == null,
+                            onClick = { selectedType = null },
+                            label = { Text("غير محدد") },
+                        )
+                    }
+                    items(types, key = { it.id }) { type ->
+                        FilterChip(
+                            selected = selectedType?.id == type.id,
+                            onClick = {
+                                selectedType = type
+                                if (amountText.isBlank()) {
+                                    amountText = type.askingPrice.toString()
+                                }
+                            },
+                            label = { Text("${type.name} ${ArabicNumbers.format(type.askingPrice)}") },
+                        )
+                    }
+                }
+                selectedType?.let { type ->
+                    Text(
+                        "المصدر تقريباً: ${suggestionLabel(type.id, type.askingPrice)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = DaftarColors.TextSecondary,
+                    )
+                }
+            }
             Text(
                 "من؟ (اختياري — D11)",
                 style = MaterialTheme.typography.labelMedium,
@@ -79,7 +118,9 @@ fun PaymentSheet(
                 }
             }
             Button(
-                onClick = { onSave(amount, selectedCustomerId) },
+                onClick = {
+                    onSave(amount, selectedCustomerId, selectedType?.id, selectedType?.askingPrice)
+                },
                 enabled = amount > 0,
                 modifier = Modifier.fillMaxWidth(),
             ) {

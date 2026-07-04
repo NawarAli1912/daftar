@@ -27,6 +27,10 @@ data class LedgerEntryEntity(
     val updatedAt: Long,
     val voided: Boolean = false,
     val saleId: String? = null,
+    // D37: optional type tag on payments; attribution stored per D36
+    val itemTypeId: String? = null,
+    val askedUnit: Long? = null,
+    val attributedSourceId: String? = null,
 )
 
 @Entity(tableName = "item_types", indices = [Index(value = ["name"], unique = true)])

@@ -133,12 +133,15 @@ fun TodayScreen(
     }
 
     if (showPaymentSheet) {
+        val types by paymentViewModel.types.collectAsState()
         PaymentSheet(
             customers = customers,
-            onSave = { amount, customerId ->
+            types = types,
+            suggestionLabel = paymentViewModel::suggestionLabel,
+            onSave = { amount, customerId, itemTypeId, askedUnit ->
                 showPaymentSheet = false
                 scope.launch {
-                    val entryId = paymentViewModel.record(amount, customerId)
+                    val entryId = paymentViewModel.record(amount, customerId, itemTypeId, askedUnit)
                     val result = snackbarHostState.showSnackbar(
                         message = "تم تسجيل الدفعة — ${ArabicNumbers.format(amount)}",
                         actionLabel = "تراجع",

@@ -3,66 +3,105 @@ package com.daftar.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.Assessment
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.daftar.app.customers.CustomersScreen
+import com.daftar.app.kernel.theme.DaftarColors
+import com.daftar.app.kernel.theme.DaftarTheme
+import com.daftar.app.today.TodayScreen
+import dagger.hilt.android.AndroidEntryPoint
 
-private val Cairo = FontFamily(Font(R.font.cairo))
-
-private val Surface0 = Color(0xFF0E0E10)
-private val TextPrimary = Color(0xFFF4F4F5)
-private val Teal = Color(0xFF2DD4BF)
-
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Surface0)
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "مرحباً — هذا دفتر",
-                        fontFamily = Cairo,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 28.sp,
-                        color = TextPrimary
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = "نص تجريبي بخط القاهرة، من اليمين إلى اليسار:",
-                        fontFamily = Cairo,
-                        fontSize = 18.sp,
-                        color = TextPrimary
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "بنطال ٧٬٥٠٠ — فستان ٥٬٠٠٠ — جاكيت ١٠٬٠٠٠",
-                        fontFamily = Cairo,
-                        fontSize = 18.sp,
-                        color = Teal
+            DaftarTheme {
+                MainScaffold()
+            }
+        }
+    }
+}
+
+private data class Tab(val title: String, val icon: ImageVector)
+
+private val tabs = listOf(
+    Tab("اليوم", Icons.Outlined.MenuBook),
+    Tab("الزبائن", Icons.Outlined.Group),
+    Tab("المواعيد", Icons.Outlined.Alarm),
+    Tab("الحساب", Icons.Outlined.Assessment),
+)
+
+@Composable
+private fun MainScaffold() {
+    var selected by rememberSaveable { mutableIntStateOf(0) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    Scaffold(
+        containerColor = DaftarColors.Surface0,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            NavigationBar(containerColor = DaftarColors.Surface1) {
+                tabs.forEachIndexed { index, tab ->
+                    NavigationBarItem(
+                        selected = selected == index,
+                        onClick = { selected = index },
+                        icon = { Icon(tab.icon, contentDescription = tab.title) },
+                        label = { Text(tab.title) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = DaftarColors.OnTeal,
+                            selectedTextColor = DaftarColors.Teal,
+                            indicatorColor = DaftarColors.Teal,
+                            unselectedIconColor = DaftarColors.TextSecondary,
+                            unselectedTextColor = DaftarColors.TextSecondary,
+                        ),
                     )
                 }
             }
+        },
+    ) { padding ->
+        Box(Modifier.padding(padding)) {
+            when (selected) {
+                0 -> TodayScreen(snackbarHostState)
+                1 -> CustomersScreen()
+                2 -> Placeholder("المواعيد — قريباً")
+                3 -> Placeholder("الحساب — قريباً")
+            }
         }
+    }
+}
+
+@Composable
+private fun Placeholder(text: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = DaftarColors.TextSecondary,
+        )
     }
 }

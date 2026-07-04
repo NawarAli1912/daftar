@@ -15,7 +15,6 @@ import com.daftar.app.kernel.ledger.SourceSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -25,6 +24,7 @@ class PaymentViewModel @Inject constructor(
     private val ledgerDao: LedgerDao,
     customerDao: CustomerDao,
     itemTypeDao: ItemTypeDao,
+    sourcesRepository: com.daftar.app.stock.SourcesRepository,
 ) : ViewModel() {
 
     val customers: StateFlow<List<CustomerEntity>> =
@@ -35,9 +35,13 @@ class PaymentViewModel @Inject constructor(
         itemTypeDao.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    // Interim (D34): no stock sources until the stock slice exists — suggestion is غير محدد.
-    private val sources = MutableStateFlow<List<SourceSnapshot>>(emptyList())
-    private val sourceNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    private val sources: StateFlow<List<SourceSnapshot>> =
+        sourcesRepository.snapshots
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val sourceNames: StateFlow<Map<String, String>> =
+        sourcesRepository.names
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     fun suggestionLabel(typeId: String, askedUnit: Long): String =
         when (val result = Attributor.attribute(typeId, askedUnit, sources.value)) {

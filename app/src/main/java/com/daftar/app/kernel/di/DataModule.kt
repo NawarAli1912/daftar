@@ -7,6 +7,7 @@ import com.daftar.app.kernel.db.DaftarDatabase
 import com.daftar.app.kernel.db.ItemTypeDao
 import com.daftar.app.kernel.db.LedgerDao
 import com.daftar.app.kernel.db.SaleDao
+import com.daftar.app.kernel.db.StockDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -36,4 +37,7 @@ object DataModule {
 
     @Provides
     fun saleDao(db: DaftarDatabase): SaleDao = db.saleDao()
+
+    @Provides
+    fun stockDao(db: DaftarDatabase): StockDao = db.stockDao()
 }

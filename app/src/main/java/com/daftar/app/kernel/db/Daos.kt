@@ -47,6 +47,22 @@ interface ItemTypeDao {
     fun observeAll(): Flow<List<ItemTypeEntity>>
 }
 
+@Dao
+interface StockDao {
+
+    @Insert
+    suspend fun insertSource(source: StockSourceEntity)
+
+    @Insert
+    suspend fun insertIntakeLine(line: IntakeLineEntity)
+
+    @Query("SELECT * FROM stock_sources WHERE voided = 0 ORDER BY arrivedAt DESC")
+    fun observeSources(): Flow<List<StockSourceEntity>>
+
+    @Query("SELECT * FROM intake_lines WHERE voided = 0")
+    fun observeIntakeLines(): Flow<List<IntakeLineEntity>>
+}
+
 data class SaleWithLines(
     @Embedded val sale: SaleEntity,
     @Relation(parentColumn = "id", entityColumn = "saleId")
@@ -55,6 +71,9 @@ data class SaleWithLines(
 
 @Dao
 interface SaleDao {
+
+    @Query("SELECT * FROM sale_lines WHERE voided = 0")
+    fun observeAllLines(): Flow<List<SaleLineEntity>>
 
     @Insert
     suspend fun insertSale(sale: SaleEntity)

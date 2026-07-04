@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.daftar.app.customers.CustomersScreen
 import com.daftar.app.kernel.theme.DaftarColors
 import com.daftar.app.kernel.theme.DaftarTheme
+import com.daftar.app.stock.StockScreen
 import com.daftar.app.today.TodayScreen
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -89,7 +90,7 @@ private fun MainScaffold() {
                 0 -> TodayScreen(snackbarHostState)
                 1 -> CustomersScreen()
                 2 -> Placeholder("المواعيد — قريباً")
-                3 -> Placeholder("الحساب — قريباً")
+                3 -> StockScreen()
             }
         }
     }

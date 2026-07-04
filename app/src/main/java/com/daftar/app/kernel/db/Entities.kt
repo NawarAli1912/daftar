@@ -52,6 +52,31 @@ data class SaleEntity(
     val voided: Boolean = false,
 )
 
+@Entity(tableName = "stock_sources", indices = [Index("updatedAt")])
+data class StockSourceEntity(
+    @PrimaryKey val id: String,
+    val kind: String,
+    val label: String,
+    val costUsd: Long?,
+    val costLocal: Long?,
+    val arrivedAt: Long,
+    val updatedAt: Long,
+    val voided: Boolean = false,
+)
+
+@Entity(tableName = "intake_lines", indices = [Index("sourceId"), Index("updatedAt")])
+data class IntakeLineEntity(
+    @PrimaryKey val id: String,
+    val sourceId: String,
+    val itemTypeId: String,
+    val typeName: String,
+    val qty: Int,
+    val unitCost: Long?,
+    val pricePoint: Long,
+    val updatedAt: Long,
+    val voided: Boolean = false,
+)
+
 @Entity(tableName = "sale_lines", indices = [Index("saleId"), Index("updatedAt")])
 data class SaleLineEntity(
     @PrimaryKey val id: String,

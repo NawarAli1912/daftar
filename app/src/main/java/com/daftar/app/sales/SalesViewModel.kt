@@ -16,7 +16,6 @@ import com.daftar.app.kernel.ledger.Attributor
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.ledger.LedgerMath
 import com.daftar.app.kernel.ledger.SourceSnapshot
-import kotlinx.coroutines.flow.MutableStateFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
@@ -33,11 +32,14 @@ data class DraftLine(
     val agreedUnit: Long,
 )
 
+data class SaleChip(val typeId: String, val name: String, val price: Long)
+
 @HiltViewModel
 class SalesViewModel @Inject constructor(
     private val saleDao: SaleDao,
     private val ledgerDao: LedgerDao,
     private val itemTypeDao: ItemTypeDao,
+    private val sourcesRepository: com.daftar.app.stock.SourcesRepository,
     customerDao: CustomerDao,
 ) : ViewModel() {
 
@@ -49,10 +51,21 @@ class SalesViewModel @Inject constructor(
         customerDao.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    // Interim (D34): no stock sources exist until the stock slice is built; the live
-    // suggestion honestly says غير محدد. The stock slice replaces this with real sources.
-    private val sources = MutableStateFlow<List<SourceSnapshot>>(emptyList())
-    private val sourceNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    private val sources: StateFlow<List<SourceSnapshot>> =
+        sourcesRepository.snapshots
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val sourceNames: StateFlow<Map<String, String>> =
+        sourcesRepository.names
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    // Chips = distinct (type + price) from intake price points ∪ global types (D34/D38)
+    val chips: StateFlow<List<SaleChip>> =
+        kotlinx.coroutines.flow.combine(sourcesRepository.pricePointChips, types) { points, globalTypes ->
+            val fromStock = points.map { SaleChip(it.typeId, it.typeName, it.price) }
+            val fromTypes = globalTypes.map { SaleChip(it.id, it.name, it.askingPrice) }
+            (fromStock + fromTypes).distinctBy { it.typeId to it.price }.sortedBy { it.name }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun suggestionLabel(typeId: String, askedUnit: Long): String =
         when (val result = Attributor.attribute(typeId, askedUnit, sources.value)) {

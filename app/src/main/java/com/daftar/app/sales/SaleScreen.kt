@@ -56,7 +56,7 @@ fun SaleScreen(
     onClose: () -> Unit,
     viewModel: SalesViewModel = hiltViewModel(),
 ) {
-    val types by viewModel.types.collectAsState()
+    val chips by viewModel.chips.collectAsState()
     val customers by viewModel.customers.collectAsState()
     val basket = remember { mutableStateListOf<DraftLine>() }
     var selectedCustomerId by remember { mutableStateOf<String?>(null) }
@@ -85,11 +85,12 @@ fun SaleScreen(
         }
 
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            types.forEach { type ->
+            chips.forEach { chip ->
                 AssistChip(
                     onClick = {
                         val existing = basket.indexOfFirst {
-                            it.typeId == type.id && it.agreedUnit == it.askedUnit
+                            it.typeId == chip.typeId && it.askedUnit == chip.price &&
+                                it.agreedUnit == it.askedUnit
                         }
                         if (existing >= 0) {
                             basket[existing] = basket[existing]
@@ -97,16 +98,16 @@ fun SaleScreen(
                         } else {
                             basket.add(
                                 DraftLine(
-                                    typeId = type.id,
-                                    typeName = type.name,
+                                    typeId = chip.typeId,
+                                    typeName = chip.name,
                                     qty = 1,
-                                    askedUnit = type.askingPrice,
-                                    agreedUnit = type.askingPrice,
+                                    askedUnit = chip.price,
+                                    agreedUnit = chip.price,
                                 )
                             )
                         }
                     },
-                    label = { Text("${type.name} ${ArabicNumbers.format(type.askingPrice)}") },
+                    label = { Text("${chip.name} ${ArabicNumbers.format(chip.price)}") },
                 )
             }
             AssistChip(

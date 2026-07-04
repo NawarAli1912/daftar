@@ -1,0 +1,9 @@
+# design documents stay local until published with official versions
+docs/
+
+# toolchain (populated once the Android project lands)
+.gradle/
+build/
+local.properties
+.idea/
+*.apk

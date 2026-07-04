@@ -72,6 +72,8 @@ object Str {
     val save get() = s("Save", "حفظ")
     val cancel get() = s("Cancel", "إلغاء")
 
+    val customersTitle get() = s("Customers", "الزبائن")
+    val totalOutstanding get() = s("Total owed to the shop", "إجمالي الديون للمحل")
     val noCustomers get() = s("No customers yet — add the first one", "لا زبائن بعد — أضيفي أول زبون")
     val newCustomer get() = s("New customer", "زبون جديد")
     val fromContacts get() = s("From contacts", "من جهات الاتصال")

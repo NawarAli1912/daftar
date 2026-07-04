@@ -8,9 +8,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -45,32 +47,56 @@ import com.daftar.app.kernel.ledger.BalanceSide
 import com.daftar.app.kernel.ledger.LedgerMath
 import com.daftar.app.kernel.theme.DaftarColors
 import com.daftar.app.kernel.ui.AmountField
+import com.daftar.app.kernel.ui.Eyebrow
+import com.daftar.app.kernel.ui.Hairline
+import com.daftar.app.kernel.ui.LedgerRow
+import com.daftar.app.kernel.ui.SectionCard
+import com.daftar.app.kernel.ui.SumLine
 
 @Composable
 fun CustomersScreen(viewModel: CustomersViewModel = hiltViewModel()) {
     val rows by viewModel.rows.collectAsState()
     var showAdd by remember { mutableStateOf(false) }
 
+    val outstanding = rows.filter { it.balance > 0 }.sumOf { it.balance }
     Box(Modifier.fillMaxSize()) {
-        if (rows.isEmpty()) {
-            Text(
-                text = Str.noCustomers,
-                style = MaterialTheme.typography.bodyLarge,
-                color = DaftarColors.TextSecondary,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(rows, key = { it.customer.id }) { row -> CustomerCard(row) }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 120.dp),
+        ) {
+            item {
+                Eyebrow(Str.customersTitle)
+                Spacer(Modifier.height(4.dp))
+            }
+            if (rows.isEmpty()) {
+                item {
+                    Spacer(Modifier.height(48.dp))
+                    Text(
+                        text = Str.noCustomers,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = DaftarColors.TextSecondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            } else {
+                item {
+                    SectionCard(modifier = Modifier.padding(top = 8.dp)) {
+                        rows.forEachIndexed { index, row ->
+                            if (index > 0) Hairline(Modifier.padding(horizontal = 16.dp))
+                            CustomerRow(row)
+                        }
+                        if (outstanding > 0) SumLine(Str.totalOutstanding, Str.money(outstanding), DaftarColors.Amber)
+                    }
+                }
             }
         }
         ExtendedFloatingActionButton(
             onClick = { showAdd = true },
             icon = { Icon(Icons.Outlined.PersonAdd, contentDescription = null) },
             text = { Text(Str.newCustomer) },
+            containerColor = DaftarColors.Teal,
+            contentColor = DaftarColors.OnTeal,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(16.dp),
@@ -89,41 +115,19 @@ fun CustomersScreen(viewModel: CustomersViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun CustomerCard(row: CustomersViewModel.Row) {
-    Card(colors = CardDefaults.cardColors(containerColor = DaftarColors.Surface1)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(row.customer.name, style = MaterialTheme.typography.titleMedium)
-            BalanceText(row.balance)
-        }
+private fun CustomerRow(row: CustomersViewModel.Row) {
+    val (note, color) = when (LedgerMath.side(row.balance)) {
+        BalanceSide.OWES_SHOP -> Str.owesShop to DaftarColors.Amber
+        BalanceSide.SHOP_OWES -> Str.shopOwes to DaftarColors.Green
+        BalanceSide.SETTLED -> null to DaftarColors.TextSecondary
     }
-}
-
-@Composable
-private fun BalanceText(balance: Long) {
-    val amount = Str.money(kotlin.math.abs(balance))
-    when (LedgerMath.side(balance)) {
-        BalanceSide.OWES_SHOP -> Text(
-            "${Str.owesShop} $amount",
-            style = MaterialTheme.typography.labelLarge,
-            color = DaftarColors.Amber,
-        )
-        BalanceSide.SHOP_OWES -> Text(
-            "${Str.shopOwes} $amount",
-            style = MaterialTheme.typography.labelLarge,
-            color = DaftarColors.Green,
-        )
-        BalanceSide.SETTLED -> Text(
-            Str.money(0),
-            style = MaterialTheme.typography.labelLarge,
-            color = DaftarColors.TextSecondary,
-        )
-    }
+    LedgerRow(
+        title = row.customer.name,
+        subtitle = row.customer.phone,
+        amountText = Str.money(kotlin.math.abs(row.balance)),
+        amountColor = color,
+        trailingNote = note,
+    )
 }
 
 @Composable

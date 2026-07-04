@@ -17,6 +17,8 @@ import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.ledger.SourceKind
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 // D42/D44 demo: one tap fills the app with realistic data so the UX can be judged full.
 class DemoSeeder @Inject constructor(
@@ -29,10 +31,11 @@ class DemoSeeder @Inject constructor(
 ) {
     private fun uid() = UUID.randomUUID().toString()
 
-    suspend fun clear() = db.clearAllTables()
+    // clearAllTables() is a blocking Room call — must not run on the main thread.
+    suspend fun clear() = withContext(Dispatchers.IO) { db.clearAllTables() }
 
     suspend fun load() {
-        db.clearAllTables()
+        withContext(Dispatchers.IO) { db.clearAllTables() }
         val now = System.currentTimeMillis()
         val today = now - 3 * 60 * 60 * 1000
 

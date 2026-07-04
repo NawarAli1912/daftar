@@ -8,6 +8,8 @@ import com.daftar.app.kernel.db.ItemTypeDao
 import com.daftar.app.kernel.db.ItemTypeEntity
 import com.daftar.app.kernel.db.LedgerDao
 import com.daftar.app.kernel.db.LedgerEntryEntity
+import com.daftar.app.kernel.db.ReminderDao
+import com.daftar.app.kernel.db.ReminderEntity
 import com.daftar.app.kernel.db.SaleDao
 import com.daftar.app.kernel.db.SaleEntity
 import com.daftar.app.kernel.db.SaleLineEntity
@@ -15,6 +17,7 @@ import com.daftar.app.kernel.db.StockDao
 import com.daftar.app.kernel.db.StockSourceEntity
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.ledger.SourceKind
+import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +28,7 @@ class DemoSeeder @Inject constructor(
     private val db: DaftarDatabase,
     private val customerDao: CustomerDao,
     private val ledgerDao: LedgerDao,
+    private val reminderDao: ReminderDao,
     private val itemTypeDao: ItemTypeDao,
     private val saleDao: SaleDao,
     private val stockDao: StockDao,
@@ -61,6 +65,11 @@ class DemoSeeder @Inject constructor(
         listOf(samira, huda, fatima).forEach { customerDao.insert(it) }
         ledgerDao.insert(LedgerEntryEntity(uid(), EntryKind.OPENING_BALANCE.name, samira.id, 15_000, now - 20L * 86_400_000, now))
         ledgerDao.insert(LedgerEntryEntity(uid(), EntryKind.OPENING_BALANCE.name, fatima.id, 6_000, now - 10L * 86_400_000, now))
+
+        // Reminders: سميرة overdue, هدى due soon; فاطمة falls through to the default (1st of next month)
+        val todayDate = LocalDate.now()
+        reminderDao.insert(ReminderEntity(uid(), samira.id, todayDate.minusDays(3).toEpochDay(), now, now))
+        reminderDao.insert(ReminderEntity(uid(), huda.id, todayDate.plusDays(2).toEpochDay(), now, now))
 
         // Today's book: a sale (partly paid), a standalone payment, a return
         val saleId = uid()

@@ -38,6 +38,22 @@ interface LedgerDao {
 }
 
 @Dao
+interface ReminderDao {
+
+    @Insert
+    suspend fun insert(reminder: ReminderEntity)
+
+    @Query("SELECT * FROM reminders WHERE voided = 0")
+    fun observeAll(): Flow<List<ReminderEntity>>
+
+    @Query("SELECT * FROM reminders WHERE customerId = :customerId AND voided = 0 LIMIT 1")
+    suspend fun findByCustomer(customerId: String): ReminderEntity?
+
+    @Query("UPDATE reminders SET dueEpochDay = :dueEpochDay, updatedAt = :now WHERE customerId = :customerId AND voided = 0")
+    suspend fun updateDue(customerId: String, dueEpochDay: Long, now: Long)
+}
+
+@Dao
 interface ItemTypeDao {
 
     @Insert

@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -15,7 +14,6 @@ import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -30,10 +28,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.daftar.app.customers.CustomersScreen
+import com.daftar.app.reminders.RemindersScreen
 import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.theme.DaftarColors
 import com.daftar.app.kernel.theme.DaftarTheme
@@ -103,20 +101,9 @@ private fun MainScaffold() {
             when (selected) {
                 0 -> TodayScreen(snackbarHostState)
                 1 -> CustomersScreen()
-                2 -> Placeholder(Str.reminders_soon)
+                2 -> RemindersScreen()
                 3 -> StockScreen()
             }
         }
-    }
-}
-
-@Composable
-private fun Placeholder(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = DaftarColors.TextSecondary,
-        )
     }
 }

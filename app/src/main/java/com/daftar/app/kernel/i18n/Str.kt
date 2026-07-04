@@ -39,6 +39,18 @@ object Str {
     val paidShort get() = s("paid", "دفع")
     val reminders_soon get() = s("Reminders — coming soon", "المواعيد — قريباً")
 
+    val remindersTitle get() = s("Reminders", "المواعيد")
+    val noReminders get() = s("No debts due right now", "لا ديون مستحقة حالياً")
+    val remindAgain get() = s("Remind again in…", "ذكّريني بعد…")
+    val snoozeWeek get() = s("A week", "أسبوع")
+    val snoozeTwoWeeks get() = s("Two weeks", "أسبوعان")
+    val snoozeMonth get() = s("A month", "شهر")
+    val dueToday get() = s("Due today", "الاستحقاق اليوم")
+    val overduePrefix get() = s("Overdue", "متأخر")
+    val dueInPrefix get() = s("Due in", "الاستحقاق بعد")
+    val days get() = s("days", "يوم")
+    val day get() = s("day", "يوم")
+
     val newEntry get() = s("New entry", "قيد جديد")
     val entryReturn get() = s("Return", "إرجاع")
     val newReturn get() = s("New return", "إرجاع جديد")

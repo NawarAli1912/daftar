@@ -33,6 +33,18 @@ data class LedgerEntryEntity(
     val attributedSourceId: String? = null,
 )
 
+// Reminders (Flow 2): one active row per customer holds when to next chase the debt.
+// dueEpochDay is a date (LocalDate.toEpochDay), not a timestamp — reminders are day-grained.
+@Entity(tableName = "reminders", indices = [Index("customerId"), Index("updatedAt")])
+data class ReminderEntity(
+    @PrimaryKey val id: String,
+    val customerId: String,
+    val dueEpochDay: Long,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val voided: Boolean = false,
+)
+
 @Entity(tableName = "item_types", indices = [Index(value = ["name"], unique = true)])
 data class ItemTypeEntity(
     @PrimaryKey val id: String,

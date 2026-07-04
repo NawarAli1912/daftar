@@ -6,6 +6,7 @@ import com.daftar.app.kernel.db.CustomerDao
 import com.daftar.app.kernel.db.DaftarDatabase
 import com.daftar.app.kernel.db.ItemTypeDao
 import com.daftar.app.kernel.db.LedgerDao
+import com.daftar.app.kernel.db.ReminderDao
 import com.daftar.app.kernel.db.SaleDao
 import com.daftar.app.kernel.db.StockDao
 import dagger.Module
@@ -31,6 +32,9 @@ object DataModule {
 
     @Provides
     fun ledgerDao(db: DaftarDatabase): LedgerDao = db.ledgerDao()
+
+    @Provides
+    fun reminderDao(db: DaftarDatabase): ReminderDao = db.reminderDao()
 
     @Provides
     fun itemTypeDao(db: DaftarDatabase): ItemTypeDao = db.itemTypeDao()

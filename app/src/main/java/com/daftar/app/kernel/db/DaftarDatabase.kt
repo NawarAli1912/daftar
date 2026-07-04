@@ -7,18 +7,20 @@ import androidx.room.RoomDatabase
     entities = [
         CustomerEntity::class,
         LedgerEntryEntity::class,
+        ReminderEntity::class,
         ItemTypeEntity::class,
         SaleEntity::class,
         SaleLineEntity::class,
         StockSourceEntity::class,
         IntakeLineEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class DaftarDatabase : RoomDatabase() {
     abstract fun customerDao(): CustomerDao
     abstract fun ledgerDao(): LedgerDao
+    abstract fun reminderDao(): ReminderDao
     abstract fun itemTypeDao(): ItemTypeDao
     abstract fun saleDao(): SaleDao
     abstract fun stockDao(): StockDao

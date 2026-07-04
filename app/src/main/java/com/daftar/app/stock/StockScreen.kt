@@ -70,11 +70,41 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
                 onClick = { section = 1 },
                 label = { Text(Str.typesTitle) },
             )
+            FilterChip(
+                selected = section == 2,
+                onClick = { section = 2 },
+                label = { Text(Str.demo) },
+            )
         }
         when (section) {
             0 -> SourcesSection(viewModel)
-            else -> TypesSection(viewModel)
+            1 -> TypesSection(viewModel)
+            else -> DemoSection(viewModel)
         }
+    }
+}
+
+@Composable
+private fun DemoSection(viewModel: StockViewModel) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text(
+            "Fill the app with realistic sample data to feel the real experience, or clear everything to start fresh.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = DaftarColors.TextSecondary,
+        )
+        androidx.compose.material3.Button(
+            onClick = { viewModel.loadDemo() },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(Str.loadDemo) }
+        androidx.compose.material3.OutlinedButton(
+            onClick = { viewModel.clearAll() },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(Str.clearAll) }
     }
 }
 

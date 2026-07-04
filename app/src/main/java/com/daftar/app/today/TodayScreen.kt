@@ -20,13 +20,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ShoppingBag
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -74,7 +70,8 @@ fun TodayScreen(
 ) {
     val state by todayViewModel.state.collectAsState()
     val customers by paymentViewModel.customers.collectAsState()
-    var showPaymentSheet by remember { mutableStateOf(false) }
+    var showChooser by remember { mutableStateOf(false) }
+    var entrySheet by remember { mutableStateOf<EntryType?>(null) }
     var showSaleScreen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -138,40 +135,53 @@ fun TodayScreen(
                 }
             }
         }
-        Column(
+        ExtendedFloatingActionButton(
+            onClick = { showChooser = true },
+            icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+            text = { Text(Str.newEntry) },
+            containerColor = DaftarColors.Teal,
+            contentColor = DaftarColors.OnTeal,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(16.dp),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            SmallFloatingActionButton(
-                onClick = { showPaymentSheet = true },
-                containerColor = DaftarColors.Surface2,
-                contentColor = DaftarColors.Teal,
-            ) {
-                Icon(Icons.Outlined.Add, contentDescription = Str.payment)
-            }
-            ExtendedFloatingActionButton(
-                onClick = { showSaleScreen = true },
-                icon = { Icon(Icons.Outlined.ShoppingBag, contentDescription = null) },
-                text = { Text(Str.sale) },
-            )
-        }
+        )
     }
 
-    if (showPaymentSheet) {
+    if (showChooser) {
+        EntryChooser(
+            onPick = { type ->
+                showChooser = false
+                when (type) {
+                    EntryType.SALE -> showSaleScreen = true
+                    else -> entrySheet = type
+                }
+            },
+            onDismiss = { showChooser = false },
+        )
+    }
+
+    if (entrySheet != null) {
+        val isReturn = entrySheet == EntryType.RETURN
         val types by paymentViewModel.types.collectAsState()
         PaymentSheet(
             customers = customers,
             types = types,
             suggestionLabel = paymentViewModel::suggestionLabel,
+            title = if (isReturn) Str.newReturn else Str.newPayment,
+            saveLabel = if (isReturn) Str.saveReturn else Str.savePayment,
+            onAddCustomer = { name, onCreated ->
+                scope.launch { paymentViewModel.addCustomerInline(name)?.let(onCreated) }
+            },
             onSave = { amount, customerId, itemTypeId, askedUnit ->
-                showPaymentSheet = false
+                entrySheet = null
                 scope.launch {
-                    val entryId = paymentViewModel.record(amount, customerId, itemTypeId, askedUnit)
+                    val entryId = paymentViewModel.record(
+                        amount, customerId, itemTypeId, askedUnit,
+                        kind = if (isReturn) EntryKind.RETURN else EntryKind.PAYMENT,
+                    )
+                    val label = if (isReturn) Str.saveReturn else Str.paymentSaved
                     val result = snackbarHostState.showSnackbar(
-                        message = "${Str.paymentSaved} — ${Str.money(amount)}",
+                        message = "$label — ${Str.money(amount)}",
                         actionLabel = Str.undo,
                         duration = SnackbarDuration.Long,
                     )
@@ -180,7 +190,7 @@ fun TodayScreen(
                     }
                 }
             },
-            onDismiss = { showPaymentSheet = false },
+            onDismiss = { entrySheet = null },
         )
     }
 }
@@ -189,14 +199,19 @@ fun TodayScreen(
 private fun LedgerEntryRow(card: DayCard.Ledger) {
     val kindLabel = when (card.entry.kind) {
         EntryKind.OPENING_BALANCE.name -> Str.oldDebt
+        EntryKind.RETURN.name -> Str.entryReturn
         else -> Str.payment
     }
-    val isDebt = card.entry.kind == EntryKind.OPENING_BALANCE.name
+    val color = when (card.entry.kind) {
+        EntryKind.OPENING_BALANCE.name -> DaftarColors.Amber
+        EntryKind.RETURN.name -> DaftarColors.Green
+        else -> DaftarColors.Teal
+    }
     LedgerRow(
         title = card.customerName ?: Str.unspecified,
         subtitle = "$kindLabel · ${formatTime(card.entry.happenedAt)}",
         amountText = Str.money(card.entry.amount),
-        amountColor = if (isDebt) DaftarColors.Amber else DaftarColors.Teal,
+        amountColor = color,
     )
 }
 

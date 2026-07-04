@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.stateIn
 @HiltViewModel
 class PaymentViewModel @Inject constructor(
     private val ledgerDao: LedgerDao,
-    customerDao: CustomerDao,
+    private val customerDao: CustomerDao,
     itemTypeDao: ItemTypeDao,
     sourcesRepository: com.daftar.app.stock.SourcesRepository,
 ) : ViewModel() {
@@ -54,6 +54,7 @@ class PaymentViewModel @Inject constructor(
         customerId: String?,
         itemTypeId: String? = null,
         askedUnit: Long? = null,
+        kind: EntryKind = EntryKind.PAYMENT,
     ): String {
         val now = System.currentTimeMillis()
         val id = UUID.randomUUID().toString()
@@ -68,7 +69,7 @@ class PaymentViewModel @Inject constructor(
         ledgerDao.insert(
             LedgerEntryEntity(
                 id = id,
-                kind = EntryKind.PAYMENT.name,
+                kind = kind.name,
                 customerId = customerId,
                 amount = amount,
                 happenedAt = now,
@@ -76,6 +77,19 @@ class PaymentViewModel @Inject constructor(
                 itemTypeId = itemTypeId,
                 askedUnit = askedUnit,
                 attributedSourceId = attributed,
+            )
+        )
+        return id
+    }
+
+    suspend fun addCustomerInline(name: String): String? {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return null
+        val now = System.currentTimeMillis()
+        val id = UUID.randomUUID().toString()
+        customerDao.insert(
+            com.daftar.app.kernel.db.CustomerEntity(
+                id = id, name = trimmed, phone = null, createdAt = now, updatedAt = now,
             )
         )
         return id

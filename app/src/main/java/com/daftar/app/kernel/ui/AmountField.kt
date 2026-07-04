@@ -25,7 +25,7 @@ fun AmountField(
     onValue: (Long) -> Unit,
     label: String,
     modifier: Modifier = Modifier,
-    step: Long = 500,
+    step: Long = 5000,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),

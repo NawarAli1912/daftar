@@ -1,6 +1,6 @@
 package com.daftar.app.kernel.ledger
 
-enum class EntryKind { PAYMENT, OPENING_BALANCE, SALE }
+enum class EntryKind { PAYMENT, OPENING_BALANCE, SALE, RETURN }
 
 enum class BalanceSide { OWES_SHOP, SHOP_OWES, SETTLED }
 
@@ -24,6 +24,7 @@ object LedgerMath {
                 EntryKind.OPENING_BALANCE -> line.amount
                 EntryKind.SALE -> line.amount
                 EntryKind.PAYMENT -> -line.amount
+                EntryKind.RETURN -> -line.amount // credit: reduces what she owes (D13, may go negative D22)
             }
         }
 

@@ -96,4 +96,23 @@ class LedgerMathTest {
     fun `giveaway lines are valid at zero (D24)`() {
         assertEquals(0L, LedgerMath.lineTotal(qty = 3, unitPrice = 0))
     }
+
+    private fun ret(amount: Long, voided: Boolean = false) =
+        LedgerLine(EntryKind.RETURN, amount, voided)
+
+    @Test
+    fun `a return credits the balance like a payment (D13)`() {
+        assertEquals(2_000L, LedgerMath.balance(listOf(opening(5_000), ret(3_000))))
+    }
+
+    @Test
+    fun `a return with no debt pushes the balance negative - shop owes her (D22)`() {
+        assertEquals(-3_000L, LedgerMath.balance(listOf(ret(3_000))))
+    }
+
+    @Test
+    fun `returns do not count as cash received today`() {
+        val lines = listOf(payment(5_000), ret(4_000), sale(9_000))
+        assertEquals(5_000L, LedgerMath.paymentsTotal(lines))
+    }
 }

@@ -21,8 +21,12 @@ import kotlinx.coroutines.launch
 class StockViewModel @Inject constructor(
     private val stockDao: StockDao,
     private val itemTypeDao: ItemTypeDao,
+    private val demoSeeder: com.daftar.app.demo.DemoSeeder,
     sourcesRepository: SourcesRepository,
 ) : ViewModel() {
+
+    fun loadDemo() = viewModelScope.launch { demoSeeder.load() }
+    fun clearAll() = viewModelScope.launch { demoSeeder.clear() }
 
     data class SourceRow(
         val source: StockSourceEntity,

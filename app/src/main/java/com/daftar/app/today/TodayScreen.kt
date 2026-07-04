@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.daftar.app.kernel.format.ArabicNumbers
+import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.theme.DaftarColors
 import com.daftar.app.payments.PaymentSheet
 import com.daftar.app.payments.PaymentViewModel
@@ -149,9 +150,13 @@ private fun EntryCard(item: TodayViewModel.Item) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val kindLabel = when (item.entry.kind) {
+                EntryKind.OPENING_BALANCE.name -> "دين قديم"
+                else -> "دفعة"
+            }
             Column {
                 Text(
-                    "دفعة — ${item.customerName ?: "غير محدد"}",
+                    "$kindLabel — ${item.customerName ?: "غير محدد"}",
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
@@ -163,7 +168,7 @@ private fun EntryCard(item: TodayViewModel.Item) {
             Text(
                 ArabicNumbers.format(item.entry.amount),
                 style = MaterialTheme.typography.titleMedium,
-                color = DaftarColors.Teal,
+                color = if (item.entry.kind == EntryKind.OPENING_BALANCE.name) DaftarColors.Amber else DaftarColors.Teal,
             )
         }
     }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.daftar.app.kernel.db.CustomerDao
 import com.daftar.app.kernel.db.CustomerEntity
 import com.daftar.app.kernel.db.LedgerDao
+import com.daftar.app.kernel.db.LedgerEntryEntity
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.ledger.LedgerLine
 import com.daftar.app.kernel.ledger.LedgerMath
@@ -20,7 +21,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class CustomersViewModel @Inject constructor(
     private val customerDao: CustomerDao,
-    ledgerDao: LedgerDao,
+    private val ledgerDao: LedgerDao,
 ) : ViewModel() {
 
     data class Row(val customer: CustomerEntity, val balance: Long)
@@ -36,20 +37,33 @@ class CustomersViewModel @Inject constructor(
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun addCustomer(name: String, phone: String?) {
+    fun addCustomer(name: String, phone: String?, openingBalance: Long = 0L) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             val now = System.currentTimeMillis()
+            val customerId = UUID.randomUUID().toString()
             customerDao.insert(
                 CustomerEntity(
-                    id = UUID.randomUUID().toString(),
+                    id = customerId,
                     name = trimmed,
                     phone = phone?.trim()?.takeIf { it.isNotEmpty() },
                     createdAt = now,
                     updatedAt = now,
                 )
             )
+            if (openingBalance > 0) {
+                ledgerDao.insert(
+                    LedgerEntryEntity(
+                        id = UUID.randomUUID().toString(),
+                        kind = EntryKind.OPENING_BALANCE.name,
+                        customerId = customerId,
+                        amount = openingBalance,
+                        happenedAt = now,
+                        updatedAt = now,
+                    )
+                )
+            }
         }
     }
 }

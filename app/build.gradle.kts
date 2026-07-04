@@ -6,6 +6,10 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+// iCloud syncs ~/Desktop and creates " 2" conflict copies inside build outputs
+// mid-build; the .nosync suffix excludes the folder from iCloud entirely.
+layout.buildDirectory.set(layout.projectDirectory.dir("build.nosync"))
+
 android {
     namespace = "com.daftar.app"
     compileSdk = 36

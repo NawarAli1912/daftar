@@ -10,3 +10,4 @@ local.properties
 
 # macos
 .DS_Store
+build.nosync/

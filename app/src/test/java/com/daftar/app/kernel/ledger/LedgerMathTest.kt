@@ -49,6 +49,9 @@ class LedgerMathTest {
         assertEquals(BalanceSide.SETTLED, LedgerMath.side(0L))
     }
 
+    private fun sale(amount: Long, voided: Boolean = false) =
+        LedgerLine(EntryKind.SALE, amount, voided)
+
     @Test
     fun `day total counts non-voided payments only`() {
         val lines = listOf(
@@ -56,7 +59,41 @@ class LedgerMathTest {
             payment(3_000),
             payment(9_000, voided = true),
             opening(20_000),
+            sale(15_000),
         )
         assertEquals(8_000L, LedgerMath.paymentsTotal(lines))
+    }
+
+    @Test
+    fun `a sale increases the balance and its payment reduces it (D13, D20)`() {
+        val lines = listOf(sale(15_000), payment(5_000))
+        assertEquals(10_000L, LedgerMath.balance(lines))
+    }
+
+    @Test
+    fun `voided sale rows leave the balance untouched (undo cascade, D21)`() {
+        val lines = listOf(sale(15_000, voided = true), payment(5_000, voided = true))
+        assertEquals(0L, LedgerMath.balance(lines))
+    }
+
+    @Test
+    fun `line total is quantity times per-unit price (D29)`() {
+        assertEquals(130_000L, LedgerMath.lineTotal(qty = 2, unitPrice = 65_000))
+        assertEquals(65_000L, LedgerMath.lineTotal(qty = 1, unitPrice = 65_000))
+    }
+
+    @Test
+    fun `sale total sums non-voided lines`() {
+        val lines = listOf(
+            SaleLineAmounts(qty = 2, agreedUnit = 65_000, voided = false),
+            SaleLineAmounts(qty = 1, agreedUnit = 10_000, voided = false),
+            SaleLineAmounts(qty = 5, agreedUnit = 9_999, voided = true),
+        )
+        assertEquals(140_000L, LedgerMath.saleTotal(lines))
+    }
+
+    @Test
+    fun `giveaway lines are valid at zero (D24)`() {
+        assertEquals(0L, LedgerMath.lineTotal(qty = 3, unitPrice = 0))
     }
 }

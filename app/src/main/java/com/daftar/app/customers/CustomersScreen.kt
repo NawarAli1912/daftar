@@ -135,30 +135,21 @@ private fun AddCustomerDialog(
     val context = LocalContext.current
 
     val pickContact = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickContact()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        context.contentResolver.query(
-            uri,
-            arrayOf(
-                ContactsContract.Contacts.DISPLAY_NAME,
-                ContactsContract.Contacts._ID,
-                ContactsContract.Contacts.HAS_PHONE_NUMBER,
-            ),
-            null, null, null,
-        )?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use
-            name = cursor.getString(0) ?: ""
-            val contactId = cursor.getString(1)
-            val hasPhone = cursor.getInt(2) > 0
-            if (hasPhone) {
-                context.contentResolver.query(
-                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                    arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                    arrayOf(contactId), null,
-                )?.use { phones ->
-                    if (phones.moveToFirst()) phone = phones.getString(0) ?: ""
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = result.data?.data ?: return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.query(
+                uri,
+                arrayOf(
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ),
+                null, null, null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    name = cursor.getString(0) ?: ""
+                    phone = cursor.getString(1) ?: ""
                 }
             }
         }
@@ -170,7 +161,13 @@ private fun AddCustomerDialog(
         title = { Text("زبون جديد", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                TextButton(onClick = { pickContact.launch(null) }) {
+                TextButton(onClick = {
+                    pickContact.launch(
+                        android.content.Intent(android.content.Intent.ACTION_PICK).apply {
+                            type = ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
+                        }
+                    )
+                }) {
                     Icon(Icons.Outlined.Contacts, contentDescription = null)
                     Text("  من جهات الاتصال")
                 }

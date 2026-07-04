@@ -68,7 +68,7 @@ private fun formatTime(epochMillis: Long): String =
     Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).format(timeFormat)
 
 private fun formatDay(date: LocalDate): String {
-    val locale = if (Str.arabic) Locale("ar") else Locale.US
+    val locale = if (Str.arabic) Locale.forLanguageTag("ar") else Locale.US
     return date.format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
 }
 

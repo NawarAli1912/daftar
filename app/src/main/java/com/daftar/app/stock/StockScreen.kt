@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ import com.daftar.app.kernel.ui.LedgerRow
 import com.daftar.app.kernel.ui.QtyField
 import com.daftar.app.kernel.ui.SectionCard
 import com.daftar.app.kernel.ui.SumLine
+import com.daftar.app.reminders.RemindersWorker
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -101,6 +103,7 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
 
 @Composable
 private fun DemoSection(viewModel: StockViewModel) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -120,6 +123,10 @@ private fun DemoSection(viewModel: StockViewModel) {
             onClick = { viewModel.clearAll() },
             modifier = Modifier.fillMaxWidth(),
         ) { Text(Str.clearAll) }
+        androidx.compose.material3.OutlinedButton(
+            onClick = { RemindersWorker.runNow(context) },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(Str.testReminderAlert) }
     }
 }
 

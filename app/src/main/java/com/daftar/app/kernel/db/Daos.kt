@@ -16,6 +16,9 @@ interface CustomerDao {
 
     @Query("SELECT * FROM customers WHERE voided = 0 ORDER BY name")
     fun observeAll(): Flow<List<CustomerEntity>>
+
+    @Query("SELECT * FROM customers WHERE voided = 0")
+    suspend fun getAll(): List<CustomerEntity>
 }
 
 @Dao
@@ -29,6 +32,9 @@ interface LedgerDao {
 
     @Query("SELECT * FROM ledger_entries WHERE voided = 0")
     fun observeAll(): Flow<List<LedgerEntryEntity>>
+
+    @Query("SELECT * FROM ledger_entries WHERE voided = 0")
+    suspend fun getAll(): List<LedgerEntryEntity>
 
     @Query(
         "SELECT * FROM ledger_entries WHERE voided = 0 " +
@@ -45,6 +51,9 @@ interface ReminderDao {
 
     @Query("SELECT * FROM reminders WHERE voided = 0")
     fun observeAll(): Flow<List<ReminderEntity>>
+
+    @Query("SELECT * FROM reminders WHERE voided = 0")
+    suspend fun getAll(): List<ReminderEntity>
 
     @Query("SELECT * FROM reminders WHERE customerId = :customerId AND voided = 0 LIMIT 1")
     suspend fun findByCustomer(customerId: String): ReminderEntity?

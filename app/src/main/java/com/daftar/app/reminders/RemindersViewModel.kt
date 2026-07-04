@@ -7,9 +7,6 @@ import com.daftar.app.kernel.db.CustomerEntity
 import com.daftar.app.kernel.db.LedgerDao
 import com.daftar.app.kernel.db.ReminderDao
 import com.daftar.app.kernel.db.ReminderEntity
-import com.daftar.app.kernel.ledger.EntryKind
-import com.daftar.app.kernel.ledger.LedgerLine
-import com.daftar.app.kernel.ledger.LedgerMath
 import com.daftar.app.kernel.ledger.ReminderMath
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
@@ -44,23 +41,8 @@ class RemindersViewModel @Inject constructor(
             ledgerDao.observeAll(),
             reminderDao.observeAll(),
         ) { customers, entries, reminders ->
-            val today = LocalDate.now()
-            val entriesByCustomer = entries.groupBy { it.customerId }
-            val dueByCustomer = reminders.associate { it.customerId to LocalDate.ofEpochDay(it.dueEpochDay) }
-            customers.mapNotNull { customer ->
-                val lines = entriesByCustomer[customer.id].orEmpty()
-                    .map { LedgerLine(EntryKind.valueOf(it.kind), it.amount, it.voided) }
-                val balance = LedgerMath.balance(lines)
-                if (balance <= 0) return@mapNotNull null
-                val due = dueByCustomer[customer.id] ?: ReminderMath.defaultDue(today)
-                Row(
-                    customer = customer,
-                    balance = balance,
-                    due = due,
-                    daysUntil = ReminderMath.daysUntil(due, today),
-                    urgency = ReminderMath.urgency(due, today),
-                )
-            }.sortedBy { it.due }
+            ReminderBook.build(customers, entries, reminders, LocalDate.now())
+                .map { Row(it.customer, it.balance, it.due, it.daysUntil, it.urgency) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun snooze(customerId: String, snooze: ReminderMath.Snooze) {

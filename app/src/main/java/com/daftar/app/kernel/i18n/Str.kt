@@ -53,6 +53,11 @@ object Str {
     val dueInPrefix get() = s("Due in", "الاستحقاق بعد")
     val days get() = s("days", "يوم")
     val day get() = s("day", "يوم")
+    val notifChannelName get() = s("Reminders", "المواعيد")
+    val notifChannelDesc get() = s("Daily reminder of debts that are due", "تذكير يومي بالديون المستحقة")
+    val notifTitle get() = s("Debts due today", "ديون مستحقة اليوم")
+    val testReminderAlert get() = s("Test reminder alert", "تجربة تنبيه المواعيد")
+    val listSeparator get() = s(", ", "، ")
 
     val newEntry get() = s("New entry", "قيد جديد")
     val entryReturn get() = s("Return", "إرجاع")

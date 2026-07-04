@@ -11,7 +11,7 @@ import androidx.room.RoomDatabase
         SaleEntity::class,
         SaleLineEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class DaftarDatabase : RoomDatabase() {

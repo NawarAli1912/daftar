@@ -126,6 +126,7 @@ fun SaleScreen(
         basket.forEachIndexed { index, line ->
             BasketLineCard(
                 line = line,
+                suggestionLabel = viewModel.suggestionLabel(line.typeId, line.askedUnit),
                 onQtyChange = { qty -> if (qty >= 1) basket[index] = line.copy(qty = qty) },
                 onPriceChange = { price -> basket[index] = line.copy(agreedUnit = price) },
                 onRemove = { basket.removeAt(index) },
@@ -216,6 +217,7 @@ fun SaleScreen(
 @Composable
 private fun BasketLineCard(
     line: DraftLine,
+    suggestionLabel: String,
     onQtyChange: (Int) -> Unit,
     onPriceChange: (Long) -> Unit,
     onRemove: () -> Unit,
@@ -277,6 +279,12 @@ private fun BasketLineCard(
                     color = DaftarColors.Teal,
                 )
             }
+            Text(
+                "المصدر تقريباً: $suggestionLabel",
+                style = MaterialTheme.typography.labelMedium,
+                color = DaftarColors.TextSecondary,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
     }
 }

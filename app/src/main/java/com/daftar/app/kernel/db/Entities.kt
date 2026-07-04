@@ -59,4 +59,6 @@ data class SaleLineEntity(
     val agreedUnit: Long,
     val updatedAt: Long,
     val voided: Boolean = false,
+    // D36: attribution computed once at save, stored; null = غير محدد
+    val attributedSourceId: String? = null,
 )

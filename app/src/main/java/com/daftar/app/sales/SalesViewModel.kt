@@ -11,8 +11,12 @@ import com.daftar.app.kernel.db.LedgerEntryEntity
 import com.daftar.app.kernel.db.SaleDao
 import com.daftar.app.kernel.db.SaleEntity
 import com.daftar.app.kernel.db.SaleLineEntity
+import com.daftar.app.kernel.ledger.Attribution
+import com.daftar.app.kernel.ledger.Attributor
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.ledger.LedgerMath
+import com.daftar.app.kernel.ledger.SourceSnapshot
+import kotlinx.coroutines.flow.MutableStateFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
@@ -44,6 +48,23 @@ class SalesViewModel @Inject constructor(
     val customers: StateFlow<List<CustomerEntity>> =
         customerDao.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Interim (D34): no stock sources exist until the stock slice is built; the live
+    // suggestion honestly says غير محدد. The stock slice replaces this with real sources.
+    private val sources = MutableStateFlow<List<SourceSnapshot>>(emptyList())
+    private val sourceNames = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    fun suggestionLabel(typeId: String, askedUnit: Long): String =
+        when (val result = Attributor.attribute(typeId, askedUnit, sources.value)) {
+            is Attribution.ToSource -> sourceNames.value[result.sourceId] ?: "غير محدد"
+            Attribution.Unmatched -> "غير محدد"
+        }
+
+    private fun attributedSourceId(typeId: String, askedUnit: Long): String? =
+        when (val result = Attributor.attribute(typeId, askedUnit, sources.value)) {
+            is Attribution.ToSource -> result.sourceId
+            Attribution.Unmatched -> null
+        }
 
     fun addType(name: String, askingPrice: Long) {
         val trimmed = name.trim()
@@ -79,6 +100,7 @@ class SalesViewModel @Inject constructor(
                     askedUnit = line.askedUnit,
                     agreedUnit = line.agreedUnit,
                     updatedAt = now,
+                    attributedSourceId = attributedSourceId(line.typeId, line.askedUnit),
                 )
             }
         )

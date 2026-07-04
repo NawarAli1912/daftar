@@ -92,6 +92,22 @@ interface StockDao {
 
     @Query("SELECT * FROM intake_lines WHERE voided = 0")
     fun observeIntakeLines(): Flow<List<IntakeLineEntity>>
+
+    // Item-first editing (Beta v1): items are manipulated in place.
+    @Query("UPDATE intake_lines SET qty = :qty, pricePoint = :price, updatedAt = :now WHERE id = :id")
+    suspend fun updateIntakeLine(id: String, qty: Int, price: Long, now: Long)
+
+    @Query("UPDATE intake_lines SET sourceId = :sourceId, updatedAt = :now WHERE id = :id")
+    suspend fun moveIntakeLine(id: String, sourceId: String, now: Long)
+
+    @Query("UPDATE intake_lines SET voided = 1, updatedAt = :now WHERE id = :id")
+    suspend fun voidIntakeLine(id: String, now: Long)
+
+    @Query("UPDATE stock_sources SET label = :label, costUsd = :costUsd, costLocal = :costLocal, updatedAt = :now WHERE id = :id")
+    suspend fun updateSource(id: String, label: String, costUsd: Long?, costLocal: Long?, now: Long)
+
+    @Query("UPDATE stock_sources SET voided = 1, updatedAt = :now WHERE id = :id")
+    suspend fun voidSource(id: String, now: Long)
 }
 
 data class SaleWithLines(

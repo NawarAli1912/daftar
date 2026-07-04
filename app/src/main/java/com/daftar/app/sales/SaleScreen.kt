@@ -1,5 +1,6 @@
 package com.daftar.app.sales
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -64,6 +65,9 @@ fun SaleScreen(
     var showAddCustomer by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val total = basket.sumOf { LedgerMath.lineTotal(it.qty, it.agreedUnit) }
+
+    // Back closes the sale sheet instead of leaving the app (open dialogs consume back first).
+    BackHandler { onClose() }
 
     Column(
         modifier = Modifier

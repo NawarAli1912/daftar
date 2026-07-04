@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -65,6 +66,10 @@ private data class Tab(val title: String, val icon: ImageVector)
 private fun MainScaffold() {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Back from any tab returns to اليوم rather than dropping out of the app;
+    // only اليوم (the home page) exits on back. Overlays/sheets handle their own back first.
+    BackHandler(enabled = selected != 0) { selected = 0 }
 
     // Ask for the notification permission once (Android 13+) so the daily reminder
     // digest can be delivered; declining leaves the in-app المواعيد tab fully working.

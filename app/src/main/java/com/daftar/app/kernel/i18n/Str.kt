@@ -134,6 +134,23 @@ object Str {
     val cost get() = s("Cost", "التكلفة")
     val pieces get() = s("pieces", "قطعة")
 
+    // Beta v1 — item-first stock
+    val itemsTab get() = s("Items", "البضاعة")
+    val packagesTab get() = s("Packages", "الحزم")
+    val noItems get() = s("No stock yet — add a package", "لا بضاعة بعد — أضيفي حزمة")
+    val noPackages get() = s("No packages yet — add a bale, market pickings, or store stock", "لا حزم بعد — أضيفي بالة أو شراء من السوق أو بضاعة المحل")
+    val addItemFab get() = s("+ item", "+ صنف")
+    val addItemTitle get() = s("Add item", "إضافة صنف")
+    val newPackage get() = s("New package", "حزمة جديدة")
+    val editPackage get() = s("Edit package", "تعديل الحزمة")
+    val editItem get() = s("Edit item", "تعديل الصنف")
+    val movePackage get() = s("Package", "الحزمة")
+    val packageItems get() = s("Items in this package", "أصناف الحزمة")
+    val addRow get() = s("Add", "إضافة")
+    val savePackage get() = s("Save package", "حفظ الحزمة")
+    val packageKind get() = s("Kind", "النوع")
+    val nItems get() = s("items", "صنف")
+
     val profitTab get() = s("Profit", "الأرباح")
     val soldLabel get() = s("Sold", "المُباع")
     val remainingLabel get() = s("In stock", "المتبقي")

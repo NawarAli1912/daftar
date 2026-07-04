@@ -1,6 +1,12 @@
 package com.daftar.app.today
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -72,7 +78,11 @@ fun TodayScreen(
     var showSaleScreen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    if (showSaleScreen) {
+    AnimatedVisibility(
+        visible = showSaleScreen,
+        enter = slideInVertically(initialOffsetY = { it / 3 }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it / 3 }) + fadeOut(),
+    ) {
         SaleScreen(
             onSave = { lines, customerId, paidNow ->
                 showSaleScreen = false
@@ -90,8 +100,8 @@ fun TodayScreen(
             },
             onClose = { showSaleScreen = false },
         )
-        return
     }
+    if (showSaleScreen) return
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -115,7 +125,7 @@ fun TodayScreen(
                 }
             } else {
                 item {
-                    SectionCard(modifier = Modifier.padding(top = 8.dp)) {
+                    SectionCard(modifier = Modifier.padding(top = 8.dp).animateContentSize()) {
                         state.cards.forEachIndexed { index, card ->
                             if (index > 0) Hairline(Modifier.padding(horizontal = 16.dp))
                             when (card) {

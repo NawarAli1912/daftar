@@ -18,6 +18,7 @@ import com.daftar.app.kernel.db.StockSourceEntity
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.ledger.SourceKind
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +42,6 @@ class DemoSeeder @Inject constructor(
     suspend fun load() {
         withContext(Dispatchers.IO) { db.clearAllTables() }
         val now = System.currentTimeMillis()
-        val today = now - 3 * 60 * 60 * 1000
 
         // Types
         val dress = ItemTypeEntity(uid(), "فستان", 8_000, now, now)
@@ -71,16 +71,65 @@ class DemoSeeder @Inject constructor(
         reminderDao.insert(ReminderEntity(uid(), samira.id, todayDate.minusDays(3).toEpochDay(), now, now))
         reminderDao.insert(ReminderEntity(uid(), huda.id, todayDate.plusDays(2).toEpochDay(), now, now))
 
-        // Today's book: a sale (partly paid), a standalone payment, a return
+        // A full book across the last three days plus today — flip back through it
+        // from the day-book's ‹ › navigation. Balances land at: سميرة 11k, هدى 11k, فاطمة 8k.
+
+        // ── 3 days ago ──
+        sale(huda.id, at(3, 10), paid = 10_000, listOf(Line(jacket, 1, 10_000, 10_000, bale.id)))
+        entry(EntryKind.PAYMENT, samira.id, 3_000, at(3, 12))
+        sale(null, at(3, 16), paid = 16_000, listOf(Line(dress, 2, 8_000, 8_000, store.id)))
+
+        // ── 2 days ago ──
+        sale(fatima.id, at(2, 11), paid = 4_000, listOf(Line(pants, 2, 7_500, 7_000, bale.id)))
+        sale(null, at(2, 15), paid = 7_500, listOf(Line(pants, 1, 7_500, 7_500, bale.id)))
+
+        // ── yesterday ──
+        entry(EntryKind.PAYMENT, fatima.id, 5_000, at(1, 10))
+        sale(samira.id, at(1, 14), paid = 6_000, listOf(Line(jacket, 1, 10_000, 10_000, bale.id)))
+
+        // ── today ──
+        sale(
+            huda.id, at(0, 12), paid = 10_000,
+            listOf(
+                Line(pants, 2, 7_500, 6_500, bale.id),
+                Line(dress, 1, 8_000, 8_000, store.id),
+            ),
+        )
+        entry(EntryKind.PAYMENT, samira.id, 5_000, at(0, 13))
+        entry(EntryKind.RETURN, fatima.id, 3_000, at(0, 14))
+    }
+
+    private data class Line(
+        val type: ItemTypeEntity,
+        val qty: Int,
+        val asked: Long,
+        val agreed: Long,
+        val sourceId: String,
+    )
+
+    private fun at(daysAgo: Int, hour: Int): Long =
+        LocalDate.now().minusDays(daysAgo.toLong())
+            .atTime(hour, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+    private suspend fun sale(customerId: String?, time: Long, paid: Long, lines: List<Line>) {
         val saleId = uid()
-        saleDao.insertSale(SaleEntity(saleId, huda.id, today, today))
-        saleDao.insertLines(listOf(
-            SaleLineEntity(uid(), saleId, pants.id, "بنطال", 2, 7_500, 6_500, today, attributedSourceId = bale.id),
-            SaleLineEntity(uid(), saleId, dress.id, "فستان", 1, 8_000, 8_000, today, attributedSourceId = store.id),
-        ))
-        ledgerDao.insert(LedgerEntryEntity(uid(), EntryKind.SALE.name, huda.id, 21_000, today, today, saleId = saleId))
-        ledgerDao.insert(LedgerEntryEntity(uid(), EntryKind.PAYMENT.name, huda.id, 10_000, today, today, saleId = saleId))
-        ledgerDao.insert(LedgerEntryEntity(uid(), EntryKind.PAYMENT.name, samira.id, 5_000, today + 600_000, today + 600_000))
-        ledgerDao.insert(LedgerEntryEntity(uid(), EntryKind.RETURN.name, fatima.id, 3_000, today + 1_200_000, today + 1_200_000))
+        saleDao.insertSale(SaleEntity(saleId, customerId, time, time))
+        saleDao.insertLines(
+            lines.map {
+                SaleLineEntity(
+                    uid(), saleId, it.type.id, it.type.name, it.qty, it.asked, it.agreed, time,
+                    attributedSourceId = it.sourceId,
+                )
+            }
+        )
+        val total = lines.sumOf { it.qty * it.agreed }
+        ledgerDao.insert(LedgerEntryEntity(uid(), EntryKind.SALE.name, customerId, total, time, time, saleId = saleId))
+        if (paid > 0) {
+            ledgerDao.insert(LedgerEntryEntity(uid(), EntryKind.PAYMENT.name, customerId, paid, time, time, saleId = saleId))
+        }
+    }
+
+    private suspend fun entry(kind: EntryKind, customerId: String?, amount: Long, time: Long) {
+        ledgerDao.insert(LedgerEntryEntity(uid(), kind.name, customerId, amount, time, time))
     }
 }

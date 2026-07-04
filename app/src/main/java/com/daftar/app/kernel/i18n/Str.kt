@@ -27,7 +27,10 @@ object Str {
     val tabAccount get() = s("Account", "الحساب")
 
     val todayBook get() = s("Today's book", "دفتر اليوم")
+    val dayBook get() = s("Day book", "الدفتر")
     val receivedToday get() = s("Received today", "مقبوضات اليوم")
+    val receivedThatDay get() = s("Received that day", "مقبوضات ذلك اليوم")
+    val noEntriesThisDay get() = s("No entries this day", "لا حركات في هذا اليوم")
     val emptyDay get() = s("Empty day — record the first sale", "صفحة اليوم فارغة — سجّلي أول بيع")
     val sale get() = s("Sale", "بيع")
     val payment get() = s("Payment", "دفعة")

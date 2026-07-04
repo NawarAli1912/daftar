@@ -1,7 +1,8 @@
 package com.daftar.app.today
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,9 +20,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -52,14 +56,21 @@ import com.daftar.app.payments.PaymentViewModel
 import com.daftar.app.sales.SaleScreen
 import com.daftar.app.sales.SalesViewModel
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
 
 private fun formatTime(epochMillis: Long): String =
     Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).format(timeFormat)
+
+private fun formatDay(date: LocalDate): String {
+    val locale = if (Str.arabic) Locale("ar") else Locale.US
+    return date.format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
+}
 
 @Composable
 fun TodayScreen(
@@ -69,6 +80,8 @@ fun TodayScreen(
     salesViewModel: SalesViewModel = hiltViewModel(),
 ) {
     val state by todayViewModel.state.collectAsState()
+    val selectedDate by todayViewModel.selectedDate.collectAsState()
+    val isToday = selectedDate == LocalDate.now()
     val customers by paymentViewModel.customers.collectAsState()
     var showChooser by remember { mutableStateOf(false) }
     var entrySheet by remember { mutableStateOf<EntryType?>(null) }
@@ -106,14 +119,20 @@ fun TodayScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 160.dp),
         ) {
             item {
-                Eyebrow(Str.todayBook)
+                DayHeader(
+                    label = if (isToday) Str.tabToday else formatDay(selectedDate),
+                    isToday = isToday,
+                    onPrev = todayViewModel::previousDay,
+                    onNext = todayViewModel::nextDay,
+                    onToday = todayViewModel::goToToday,
+                )
                 Spacer(Modifier.height(4.dp))
             }
             if (state.cards.isEmpty()) {
                 item {
                     Spacer(Modifier.height(48.dp))
                     Text(
-                        Str.emptyDay,
+                        if (isToday) Str.emptyDay else Str.noEntriesThisDay,
                         style = MaterialTheme.typography.bodyLarge,
                         color = DaftarColors.TextSecondary,
                         modifier = Modifier.fillMaxWidth(),
@@ -130,21 +149,26 @@ fun TodayScreen(
                                 is DayCard.Sale -> SaleEntryRow(card)
                             }
                         }
-                        SumLine(Str.receivedToday, Str.money(state.paymentsTotal))
+                        SumLine(
+                            if (isToday) Str.receivedToday else Str.receivedThatDay,
+                            Str.money(state.paymentsTotal),
+                        )
                     }
                 }
             }
         }
-        ExtendedFloatingActionButton(
-            onClick = { showChooser = true },
-            icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-            text = { Text(Str.newEntry) },
-            containerColor = DaftarColors.Teal,
-            contentColor = DaftarColors.OnTeal,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(16.dp),
-        )
+        if (isToday) {
+            ExtendedFloatingActionButton(
+                onClick = { showChooser = true },
+                icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                text = { Text(Str.newEntry) },
+                containerColor = DaftarColors.Teal,
+                contentColor = DaftarColors.OnTeal,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp),
+            )
+        }
     }
 
     if (showChooser) {
@@ -192,6 +216,44 @@ fun TodayScreen(
             },
             onDismiss = { entrySheet = null },
         )
+    }
+}
+
+@Composable
+private fun DayHeader(
+    label: String,
+    isToday: Boolean,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onToday: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onPrev) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = null,
+                tint = DaftarColors.TextSecondary,
+            )
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .then(if (isToday) Modifier else Modifier.clickable(onClick = onToday)),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Eyebrow(Str.dayBook)
+            Text(label, style = MaterialTheme.typography.titleMedium)
+        }
+        IconButton(onClick = onNext, enabled = !isToday) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = if (isToday) DaftarColors.Hairline else DaftarColors.TextSecondary,
+            )
+        }
     }
 }
 

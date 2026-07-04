@@ -14,9 +14,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 
 sealed interface DayCard {
@@ -56,17 +60,34 @@ class TodayViewModel @Inject constructor(
     )
 
     private val zone: ZoneId = ZoneId.systemDefault()
-    private val dayStart: Long =
-        LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
-    private val dayEnd: Long =
-        LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
 
+    // The day-book is a page you can flip: the selected date drives which day is shown.
+    private val _selectedDate = MutableStateFlow(LocalDate.now(zone))
+    val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
+
+    fun previousDay() {
+        _selectedDate.value = _selectedDate.value.minusDays(1)
+    }
+
+    fun nextDay() {
+        val next = _selectedDate.value.plusDays(1)
+        if (!next.isAfter(LocalDate.now(zone))) _selectedDate.value = next // never past today
+    }
+
+    fun goToToday() {
+        _selectedDate.value = LocalDate.now(zone)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<State> =
-        combine(
-            ledgerDao.observeDay(dayStart, dayEnd),
-            saleDao.observeDay(dayStart, dayEnd),
-            customerDao.observeAll(),
-        ) { ledger, sales, customers ->
+        _selectedDate.flatMapLatest { date ->
+            val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
+            val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            combine(
+                ledgerDao.observeDay(dayStart, dayEnd),
+                saleDao.observeDay(dayStart, dayEnd),
+                customerDao.observeAll(),
+            ) { ledger, sales, customers ->
             val names = customers.associate { it.id to it.name }
             val paymentsTotal = LedgerMath.paymentsTotal(
                 ledger.map { LedgerLine(EntryKind.valueOf(it.kind), it.amount, it.voided) }
@@ -96,9 +117,10 @@ class TodayViewModel @Inject constructor(
                 )
             }
 
-            State(
-                cards = (ledgerCards + saleCards).sortedByDescending { it.happenedAt },
-                paymentsTotal = paymentsTotal,
-            )
+                State(
+                    cards = (ledgerCards + saleCards).sortedByDescending { it.happenedAt },
+                    paymentsTotal = paymentsTotal,
+                )
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 }

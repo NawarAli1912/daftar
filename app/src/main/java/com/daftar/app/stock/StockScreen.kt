@@ -16,8 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -36,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,7 +43,10 @@ import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.ledger.SourceKind
 import com.daftar.app.kernel.theme.DaftarColors
 import com.daftar.app.kernel.ui.AmountField
+import com.daftar.app.kernel.ui.Hairline
+import com.daftar.app.kernel.ui.LedgerRow
 import com.daftar.app.kernel.ui.QtyField
+import com.daftar.app.kernel.ui.SectionCard
 
 internal fun kindLabel(kind: String): String = when (kind) {
     SourceKind.BALE.name -> Str.bale
@@ -132,7 +134,7 @@ private fun SourcesSection(viewModel: StockViewModel) {
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 140.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(rows, key = { it.source.id }) { row ->
                     SourceCard(row, onAddIntake = { intakeFor = row.source.id })
@@ -204,61 +206,70 @@ private fun SourcesSection(viewModel: StockViewModel) {
 
 @Composable
 private fun SourceCard(row: StockViewModel.SourceRow, onAddIntake: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = DaftarColors.Surface1)) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(row.source.label, style = MaterialTheme.typography.titleMedium)
+    val lines = row.lines.filterNot { it.voided }
+    val totalPieces = lines.sumOf { it.qty }
+    SectionCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(row.source.label, style = MaterialTheme.typography.bodyLarge)
+                val sub = buildString {
+                    append(kindLabel(row.source.kind))
+                    row.source.costUsd?.let { usd -> append(" · ${Str.cost} $${Str.money(usd)}") }
+                }
                 Text(
-                    kindLabel(row.source.kind),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = DaftarColors.Teal,
-                )
-            }
-            row.source.costUsd?.let { usd ->
-                Text(
-                    "${Str.cost}: $${Str.money(usd)}" +
-                        (row.source.costLocal?.let { " (${Str.money(it)})" } ?: ""),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = DaftarColors.TextSecondary,
-                )
-            }
-            if (row.lines.isEmpty()) {
-                Text(
-                    Str.notCounted,
+                    sub,
                     style = MaterialTheme.typography.labelMedium,
                     color = DaftarColors.TextSecondary,
                 )
-            } else {
-                row.lines.filterNot { it.voided }.forEach { line ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            "${line.typeName} @ ${Str.money(line.pricePoint)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            "×${line.qty}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = DaftarColors.TextSecondary,
-                        )
-                    }
+            }
+            if (totalPieces > 0) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        Str.count(totalPieces),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = DaftarColors.Teal,
+                    )
+                    Text(
+                        Str.pieces,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = DaftarColors.TextSecondary,
+                    )
                 }
             }
-            Text(
-                Str.addCounting,
-                style = MaterialTheme.typography.labelLarge,
-                color = DaftarColors.Teal,
-                modifier = Modifier
-                    .padding(top = 6.dp)
-                    .clickable(onClick = onAddIntake),
-            )
         }
+        if (lines.isEmpty()) {
+            Text(
+                Str.notCounted,
+                style = MaterialTheme.typography.labelMedium,
+                color = DaftarColors.TextSecondary,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            )
+        } else {
+            lines.forEach { line ->
+                Hairline(Modifier.padding(horizontal = 16.dp))
+                LedgerRow(
+                    title = line.typeName,
+                    subtitle = "@ ${Str.money(line.pricePoint)}",
+                    amountText = "×${Str.count(line.qty)}",
+                    amountColor = DaftarColors.TextSecondary,
+                )
+            }
+        }
+        Hairline(Modifier.padding(horizontal = 16.dp))
+        Text(
+            Str.addCounting,
+            style = MaterialTheme.typography.labelLarge,
+            color = DaftarColors.Teal,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onAddIntake)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        )
     }
 }
 

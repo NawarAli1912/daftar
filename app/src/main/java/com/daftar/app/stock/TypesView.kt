@@ -1,5 +1,6 @@
 package com.daftar.app.stock
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,8 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -33,13 +32,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.daftar.app.kernel.db.ItemTypeEntity
 import com.daftar.app.kernel.db.StockSourceEntity
 import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.theme.DaftarColors
 import com.daftar.app.kernel.ui.AmountField
+import com.daftar.app.kernel.ui.Hairline
 import com.daftar.app.kernel.ui.QtyField
+import com.daftar.app.kernel.ui.SectionCard
 
 @Composable
 fun TypesSection(viewModel: StockViewModel) {
@@ -61,14 +63,18 @@ fun TypesSection(viewModel: StockViewModel) {
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(rows, key = { it.type.id }) { row ->
-                    TypeCard(
-                        row = row,
-                        onEdit = { editing = row.type },
-                        onAssociate = { associating = row.type },
-                    )
+                item {
+                    SectionCard {
+                        rows.forEachIndexed { index, row ->
+                            if (index > 0) Hairline(Modifier.padding(horizontal = 16.dp))
+                            TypeCard(
+                                row = row,
+                                onEdit = { editing = row.type },
+                                onAssociate = { associating = row.type },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -127,20 +133,15 @@ private fun TypeCard(
     onEdit: () -> Unit,
     onAssociate: () -> Unit,
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = DaftarColors.Surface1)) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(row.type.name, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    Str.money(row.type.askingPrice),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = DaftarColors.Teal,
-                )
-            }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onEdit)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(row.type.name, style = MaterialTheme.typography.bodyLarge)
             if (row.associations.isEmpty()) {
                 Text(
                     Str.noSourceLink,
@@ -149,26 +150,26 @@ private fun TypeCard(
                 )
             } else {
                 row.associations.forEach { assoc ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            "${assoc.sourceLabel} @ ${Str.money(assoc.price)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            "${Str.remaining}${assoc.remaining}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (assoc.remaining > 0) DaftarColors.TextSecondary else DaftarColors.Amber,
-                        )
-                    }
+                    Text(
+                        "${assoc.sourceLabel} @ ${Str.money(assoc.price)} · ${Str.remaining}${Str.count(assoc.remaining)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (assoc.remaining > 0) DaftarColors.TextSecondary else DaftarColors.Amber,
+                    )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                TextButton(onClick = onEdit) { Text(Str.editPrice) }
-                TextButton(onClick = onAssociate) { Text(Str.addToSource) }
-            }
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                Str.money(row.type.askingPrice),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = DaftarColors.Teal,
+            )
+            Text(
+                Str.addToSource,
+                style = MaterialTheme.typography.labelMedium,
+                color = DaftarColors.Teal,
+                modifier = Modifier.clickable(onClick = onAssociate),
+            )
         }
     }
 }

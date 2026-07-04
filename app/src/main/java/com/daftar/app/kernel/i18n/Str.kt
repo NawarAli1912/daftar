@@ -112,4 +112,5 @@ object Str {
     val noSourceLink get() = s("Not linked to a source — sells as unspecified", "غير مرتبط بمصدر — يُباع ويُنسب غير محدد")
     val inStoreNow get() = s("In store now", "الموجود حالياً")
     val cost get() = s("Cost", "التكلفة")
+    val pieces get() = s("pieces", "قطعة")
 }

@@ -60,20 +60,51 @@ class StockViewModel @Inject constructor(
 
     fun addIntakeLine(sourceId: String, type: ItemTypeEntity, qty: Int, pricePoint: Long, unitCost: Long?) {
         if (qty <= 0 || pricePoint <= 0) return
+        viewModelScope.launch { insertLine(sourceId, type, qty, pricePoint, unitCost) }
+    }
+
+    // D39: store clothes go into a singleton implicit source — one step, no ceremony
+    fun addStoreClothes(type: ItemTypeEntity, qty: Int, salePricePerUnit: Long, unitBuyPrice: Long?) {
+        if (qty <= 0 || salePricePerUnit <= 0) return
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            stockDao.insertIntakeLine(
-                IntakeLineEntity(
-                    id = UUID.randomUUID().toString(),
-                    sourceId = sourceId,
-                    itemTypeId = type.id,
-                    typeName = type.name,
-                    qty = qty,
-                    unitCost = unitCost,
-                    pricePoint = pricePoint,
-                    updatedAt = now,
+            val existing = stockDao.findByKind(SourceKind.PRE_APP.name)
+            val sourceId = existing?.id ?: UUID.randomUUID().toString().also { id ->
+                val now = System.currentTimeMillis()
+                stockDao.insertSource(
+                    StockSourceEntity(
+                        id = id,
+                        kind = SourceKind.PRE_APP.name,
+                        label = "بضاعة المحل",
+                        costUsd = null,
+                        costLocal = null,
+                        arrivedAt = now,
+                        updatedAt = now,
+                    )
                 )
-            )
+            }
+            insertLine(sourceId, type, qty, salePricePerUnit, unitBuyPrice)
         }
+    }
+
+    private suspend fun insertLine(
+        sourceId: String,
+        type: ItemTypeEntity,
+        qty: Int,
+        pricePoint: Long,
+        unitCost: Long?,
+    ) {
+        val now = System.currentTimeMillis()
+        stockDao.insertIntakeLine(
+            IntakeLineEntity(
+                id = UUID.randomUUID().toString(),
+                sourceId = sourceId,
+                itemTypeId = type.id,
+                typeName = type.name,
+                qty = qty,
+                unitCost = unitCost,
+                pricePoint = pricePoint,
+                updatedAt = now,
+            )
+        )
     }
 }

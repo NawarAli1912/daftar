@@ -59,6 +59,9 @@ interface StockDao {
     @Query("SELECT * FROM stock_sources WHERE voided = 0 ORDER BY arrivedAt DESC")
     fun observeSources(): Flow<List<StockSourceEntity>>
 
+    @Query("SELECT * FROM stock_sources WHERE kind = :kind AND voided = 0 LIMIT 1")
+    suspend fun findByKind(kind: String): StockSourceEntity?
+
     @Query("SELECT * FROM intake_lines WHERE voided = 0")
     fun observeIntakeLines(): Flow<List<IntakeLineEntity>>
 }

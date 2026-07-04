@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -54,6 +55,7 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
     val rows by viewModel.rows.collectAsState()
     val types by viewModel.types.collectAsState()
     var showAddSource by remember { mutableStateOf(false) }
+    var showStoreClothes by remember { mutableStateOf(false) }
     var intakeFor by remember { mutableStateOf<String?>(null) }
 
     Box(Modifier.fillMaxSize()) {
@@ -82,13 +84,39 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
                 }
             }
         }
-        ExtendedFloatingActionButton(
-            onClick = { showAddSource = true },
-            icon = { Icon(Icons.Outlined.Archive, contentDescription = null) },
-            text = { Text("مصدر جديد") },
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.Start,
+        ) {
+            ExtendedFloatingActionButton(
+                onClick = { showStoreClothes = true },
+                icon = { Icon(Icons.Outlined.Checkroom, contentDescription = null) },
+                text = { Text("+ بضاعة المحل") },
+                containerColor = DaftarColors.Surface2,
+                contentColor = DaftarColors.Teal,
+            )
+            ExtendedFloatingActionButton(
+                onClick = { showAddSource = true },
+                icon = { Icon(Icons.Outlined.Archive, contentDescription = null) },
+                text = { Text("مصدر جديد") },
+            )
+        }
+    }
+
+    if (showStoreClothes) {
+        AddIntakeDialog(
+            title = "بضاعة المحل — إضافة",
+            priceLabel = "سعر البيع للقطعة",
+            costLabel = "سعر الشراء للقطعة (اختياري)",
+            types = types,
+            onSave = { type, qty, price, unitCost ->
+                viewModel.addStoreClothes(type, qty, price, unitCost)
+                showStoreClothes = false
+            },
+            onDismiss = { showStoreClothes = false },
         )
     }
 
@@ -104,6 +132,9 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
 
     intakeFor?.let { sourceId ->
         AddIntakeDialog(
+            title = "جلسة عدّ — سطر جديد",
+            priceLabel = "نقطة السعر",
+            costLabel = "كلفة القطعة (اختياري)",
             types = types,
             onSave = { type, qty, price, unitCost ->
                 viewModel.addIntakeLine(sourceId, type, qty, price, unitCost)
@@ -194,7 +225,7 @@ private fun AddSourceDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(SourceKind.entries.toList()) { entry ->
+                    items(listOf(SourceKind.BALE, SourceKind.MARKET)) { entry ->
                         FilterChip(
                             selected = kind == entry,
                             onClick = { kind = entry },
@@ -237,6 +268,9 @@ private fun AddSourceDialog(
 
 @Composable
 private fun AddIntakeDialog(
+    title: String,
+    priceLabel: String,
+    costLabel: String,
     types: List<ItemTypeEntity>,
     onSave: (ItemTypeEntity, Int, Long, Long?) -> Unit,
     onDismiss: () -> Unit,
@@ -252,7 +286,7 @@ private fun AddIntakeDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = DaftarColors.Surface1,
-        title = { Text("جلسة عدّ — سطر جديد", style = MaterialTheme.typography.titleLarge) },
+        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (types.isEmpty()) {
@@ -285,7 +319,7 @@ private fun AddIntakeDialog(
                 OutlinedTextField(
                     value = priceText,
                     onValueChange = { new -> priceText = new.filter { it.isDigit() } },
-                    label = { Text("نقطة السعر") },
+                    label = { Text(priceLabel) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
@@ -293,7 +327,7 @@ private fun AddIntakeDialog(
                 OutlinedTextField(
                     value = costText,
                     onValueChange = { new -> costText = new.filter { it.isDigit() } },
-                    label = { Text("كلفة القطعة (اختياري)") },
+                    label = { Text(costLabel) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),

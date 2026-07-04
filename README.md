@@ -14,7 +14,7 @@ Arabic-only, RTL, offline-first Android.
 
 ## Stack
 
-- **Android:** Kotlin + Jetpack Compose + Room (planned)
+- **Android:** Kotlin + Jetpack Compose + Room + Hilt (planned)
 - **Backend:** ASP.NET Core + PostgreSQL, single-writer timestamp-cursor delta sync (planned)
 
 ## Process — design first, documented end to end
@@ -22,7 +22,7 @@ Arabic-only, RTL, offline-first Android.
 1. **Brainstorming & context** — understanding the shop before designing anything
 2. **Decision log** — every product decision numbered, with its why
 3. **UX prototype before code** — 10 annotated Arabic RTL screens, reviewed with the real user
-4. **Event storming → domain model (DDD)** — flows as domain events, then aggregates, then code built around the domain (hexagonal)
+4. **Event storming → domain model (DDD)** — flows as domain events, then aggregates, then code built as vertical slices around a shared domain kernel (D16)
 
 Work is tracked in ClickUp; each task gets its own branch and merges to `main` as a pull request, with commits referencing their ticket. The design documents (journal, decision log, prototype) are maintained privately and published here with official versions.
 

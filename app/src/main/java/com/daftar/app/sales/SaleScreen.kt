@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -18,15 +19,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -208,7 +210,7 @@ fun SaleScreen(
     }
 
     if (showAddType) {
-        AddTypeDialog(
+        AddTypeSheet(
             onSave = { name, price ->
                 viewModel.addType(name, price)
                 showAddType = false
@@ -218,7 +220,7 @@ fun SaleScreen(
     }
 
     if (showAddCustomer) {
-        QuickNameDialog(
+        QuickNameSheet(
             title = Str.newCustomer,
             onSave = { name ->
                 scope.launch {
@@ -231,30 +233,37 @@ fun SaleScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QuickNameDialog(
+private fun QuickNameSheet(
     title: String,
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = DaftarColors.Surface1,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
-        text = {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = DaftarColors.Surface1) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text(Str.name) },
                 singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
             )
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(name) }, enabled = name.isNotBlank()) { Text(Str.save) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
-    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onDismiss) { Text(Str.cancel) }
+                Spacer(Modifier.weight(1f))
+                Button(onClick = { onSave(name) }, enabled = name.isNotBlank()) { Text(Str.save) }
+            }
+        }
+    }
 }
 
 @Composable
@@ -326,31 +335,35 @@ private fun BasketLineCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddTypeDialog(onSave: (String, Long) -> Unit, onDismiss: () -> Unit) {
+private fun AddTypeSheet(onSave: (String, Long) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var price by remember { mutableLongStateOf(0L) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = DaftarColors.Surface1,
-        title = { Text(Str.newType, style = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(Str.name) },
-                    singleLine = true,
-                )
-                AmountField(value = price, onValue = { price = it }, label = Str.basePrice)
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = DaftarColors.Surface1) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(Str.newType, style = MaterialTheme.typography.titleLarge)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(Str.name) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            AmountField(value = price, onValue = { price = it }, label = Str.basePrice)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onDismiss) { Text(Str.cancel) }
+                Spacer(Modifier.weight(1f))
+                Button(onClick = { onSave(name, price) }, enabled = name.isNotBlank() && price > 0) {
+                    Text(Str.save)
+                }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onSave(name, price) },
-                enabled = name.isNotBlank() && price > 0,
-            ) { Text(Str.save) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
-    )
+        }
+    }
 }

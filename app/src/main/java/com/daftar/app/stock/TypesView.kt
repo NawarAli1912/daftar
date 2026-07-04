@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,9 +15,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -89,7 +92,7 @@ fun TypesSection(viewModel: StockViewModel) {
     }
 
     if (showAdd) {
-        TypeDialog(
+        TypeSheet(
             title = Str.newType,
             initialName = "",
             initialPrice = 0L,
@@ -102,7 +105,7 @@ fun TypesSection(viewModel: StockViewModel) {
     }
 
     editing?.let { type ->
-        TypeDialog(
+        TypeSheet(
             title = Str.editType,
             initialName = type.name,
             initialPrice = type.askingPrice,
@@ -115,7 +118,7 @@ fun TypesSection(viewModel: StockViewModel) {
     }
 
     associating?.let { type ->
-        AssociateDialog(
+        AssociateSheet(
             type = type,
             sources = sourceRows.map { it.source },
             onSave = { sourceId, qty, price, cost ->
@@ -174,8 +177,9 @@ private fun TypeCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TypeDialog(
+private fun TypeSheet(
     title: String,
     initialName: String,
     initialPrice: Long,
@@ -184,33 +188,37 @@ private fun TypeDialog(
 ) {
     var name by remember { mutableStateOf(initialName) }
     var price by remember { mutableLongStateOf(initialPrice) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = DaftarColors.Surface1,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(Str.name) },
-                    singleLine = true,
-                )
-                AmountField(value = price, onValue = { price = it }, label = Str.basePrice)
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = DaftarColors.Surface1) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(Str.name) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            AmountField(value = price, onValue = { price = it }, label = Str.basePrice)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onDismiss) { Text(Str.cancel) }
+                Spacer(Modifier.weight(1f))
+                Button(onClick = { onSave(name, price) }, enabled = name.isNotBlank() && price > 0) {
+                    Text(Str.save)
+                }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onSave(name, price) },
-                enabled = name.isNotBlank() && price > 0,
-            ) { Text(Str.save) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
-    )
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AssociateDialog(
+private fun AssociateSheet(
     type: ItemTypeEntity,
     sources: List<StockSourceEntity>,
     onSave: (sourceId: String, qty: Int, price: Long, cost: Long?) -> Unit,
@@ -221,39 +229,38 @@ private fun AssociateDialog(
     var price by remember { mutableLongStateOf(type.askingPrice) }
     var cost by remember { mutableLongStateOf(0L) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = DaftarColors.Surface1,
-        title = { Text("${type.name} — ${Str.addToSourceTitle}", style = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (sources.isEmpty()) {
-                    Text(
-                        Str.noSources,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = DaftarColors.TextSecondary,
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = DaftarColors.Surface1) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("${type.name} — ${Str.addToSourceTitle}", style = MaterialTheme.typography.titleLarge)
+            if (sources.isEmpty()) {
+                Text(Str.noSources, style = MaterialTheme.typography.bodyMedium, color = DaftarColors.TextSecondary)
+            }
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(sources, key = { it.id }) { source ->
+                    FilterChip(
+                        selected = selectedSourceId == source.id,
+                        onClick = { selectedSourceId = source.id },
+                        label = { Text(source.label) },
                     )
                 }
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(sources, key = { it.id }) { source ->
-                        FilterChip(
-                            selected = selectedSourceId == source.id,
-                            onClick = { selectedSourceId = source.id },
-                            label = { Text(source.label) },
-                        )
-                    }
-                }
-                QtyField(value = qty, onValue = { qty = it }, label = Str.qtyApprox)
-                AmountField(value = price, onValue = { price = it }, label = Str.pricePoint)
-                AmountField(value = cost, onValue = { cost = it }, label = Str.unitCostOptional)
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { selectedSourceId?.let { onSave(it, qty, price, cost.takeIf { c -> c > 0 }) } },
-                enabled = selectedSourceId != null && qty > 0 && price > 0,
-            ) { Text(Str.save) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
-    )
+            QtyField(value = qty, onValue = { qty = it }, label = Str.qtyApprox)
+            AmountField(value = price, onValue = { price = it }, label = Str.pricePoint)
+            AmountField(value = cost, onValue = { cost = it }, label = Str.unitCostOptional)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onDismiss) { Text(Str.cancel) }
+                Spacer(Modifier.weight(1f))
+                Button(
+                    onClick = { selectedSourceId?.let { onSave(it, qty, price, cost.takeIf { c -> c > 0 }) } },
+                    enabled = selectedSourceId != null && qty > 0 && price > 0,
+                ) { Text(Str.save) }
+            }
+        }
+    }
 }

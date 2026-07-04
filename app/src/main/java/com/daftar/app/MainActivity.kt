@@ -3,8 +3,11 @@ package com.daftar.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Alarm
@@ -20,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -30,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.daftar.app.customers.CustomersScreen
+import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.theme.DaftarColors
 import com.daftar.app.kernel.theme.DaftarTheme
 import com.daftar.app.stock.StockScreen
@@ -50,21 +55,30 @@ class MainActivity : ComponentActivity() {
 
 private data class Tab(val title: String, val icon: ImageVector)
 
-private val tabs = listOf(
-    Tab("اليوم", Icons.Outlined.MenuBook),
-    Tab("الزبائن", Icons.Outlined.Group),
-    Tab("المواعيد", Icons.Outlined.Alarm),
-    Tab("الحساب", Icons.Outlined.Assessment),
-)
-
 @Composable
 private fun MainScaffold() {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val tabs = listOf(
+        Tab(Str.tabToday, Icons.Outlined.MenuBook),
+        Tab(Str.tabCustomers, Icons.Outlined.Group),
+        Tab(Str.tabReminders, Icons.Outlined.Alarm),
+        Tab(Str.tabAccount, Icons.Outlined.Assessment),
+    )
 
     Scaffold(
         containerColor = DaftarColors.Surface0,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = { Str.arabic = !Str.arabic }) {
+                    Text(Str.appToggle, color = DaftarColors.TextSecondary)
+                }
+            }
+        },
         bottomBar = {
             NavigationBar(containerColor = DaftarColors.Surface1) {
                 tabs.forEachIndexed { index, tab ->
@@ -89,7 +103,7 @@ private fun MainScaffold() {
             when (selected) {
                 0 -> TodayScreen(snackbarHostState)
                 1 -> CustomersScreen()
-                2 -> Placeholder("المواعيد — قريباً")
+                2 -> Placeholder(Str.reminders_soon)
                 3 -> StockScreen()
             }
         }

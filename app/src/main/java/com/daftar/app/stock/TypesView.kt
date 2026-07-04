@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.AlertDialog
@@ -20,7 +19,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -28,17 +26,20 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.daftar.app.kernel.db.ItemTypeEntity
-import com.daftar.app.kernel.format.ArabicNumbers
+import com.daftar.app.kernel.db.StockSourceEntity
+import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.theme.DaftarColors
+import com.daftar.app.kernel.ui.AmountField
+import com.daftar.app.kernel.ui.QtyField
 
 @Composable
 fun TypesSection(viewModel: StockViewModel) {
@@ -52,14 +53,14 @@ fun TypesSection(viewModel: StockViewModel) {
         if (rows.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "لا أصناف بعد — أضيفي أول صنف",
+                    Str.noTypes,
                     style = MaterialTheme.typography.bodyLarge,
                     color = DaftarColors.TextSecondary,
                 )
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(rows, key = { it.type.id }) { row ->
@@ -74,7 +75,7 @@ fun TypesSection(viewModel: StockViewModel) {
         ExtendedFloatingActionButton(
             onClick = { showAdd = true },
             icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-            text = { Text("صنف جديد") },
+            text = { Text(Str.newType) },
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(16.dp),
@@ -83,9 +84,9 @@ fun TypesSection(viewModel: StockViewModel) {
 
     if (showAdd) {
         TypeDialog(
-            title = "صنف جديد",
+            title = Str.newType,
             initialName = "",
-            initialPrice = "",
+            initialPrice = 0L,
             onSave = { name, price ->
                 viewModel.addType(name, price)
                 showAdd = false
@@ -96,9 +97,9 @@ fun TypesSection(viewModel: StockViewModel) {
 
     editing?.let { type ->
         TypeDialog(
-            title = "تعديل الصنف",
+            title = Str.editType,
             initialName = type.name,
-            initialPrice = type.askingPrice.toString(),
+            initialPrice = type.askingPrice,
             onSave = { name, price ->
                 viewModel.updateType(type.id, name, price)
                 editing = null
@@ -112,9 +113,7 @@ fun TypesSection(viewModel: StockViewModel) {
             type = type,
             sources = sourceRows.map { it.source },
             onSave = { sourceId, qty, price, cost ->
-                sourceRows.firstOrNull { it.source.id == sourceId }?.let {
-                    viewModel.addIntakeLine(sourceId, type, qty, price, cost)
-                }
+                viewModel.addIntakeLine(sourceId, type, qty, price, cost)
                 associating = null
             },
             onDismiss = { associating = null },
@@ -137,14 +136,14 @@ private fun TypeCard(
             ) {
                 Text(row.type.name, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    ArabicNumbers.format(row.type.askingPrice),
+                    Str.money(row.type.askingPrice),
                     style = MaterialTheme.typography.titleMedium,
                     color = DaftarColors.Teal,
                 )
             }
             if (row.associations.isEmpty()) {
                 Text(
-                    "غير مرتبط بمصدر — يُباع ويُنسب غير محدد",
+                    Str.noSourceLink,
                     style = MaterialTheme.typography.labelMedium,
                     color = DaftarColors.TextSecondary,
                 )
@@ -155,11 +154,11 @@ private fun TypeCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
-                            "${assoc.sourceLabel} @ ${ArabicNumbers.format(assoc.price)}",
+                            "${assoc.sourceLabel} @ ${Str.money(assoc.price)}",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
-                            "متبقٍ ~${ArabicNumbers.format(assoc.remaining.toLong())}",
+                            "${Str.remaining}${assoc.remaining}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (assoc.remaining > 0) DaftarColors.TextSecondary else DaftarColors.Amber,
                         )
@@ -167,8 +166,8 @@ private fun TypeCard(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                TextButton(onClick = onEdit) { Text("تعديل السعر") }
-                TextButton(onClick = onAssociate) { Text("+ إضافة لمصدر") }
+                TextButton(onClick = onEdit) { Text(Str.editPrice) }
+                TextButton(onClick = onAssociate) { Text(Str.addToSource) }
             }
         }
     }
@@ -178,13 +177,12 @@ private fun TypeCard(
 private fun TypeDialog(
     title: String,
     initialName: String,
-    initialPrice: String,
+    initialPrice: Long,
     onSave: (String, Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf(initialName) }
-    var priceText by remember { mutableStateOf(initialPrice) }
-    val price = ArabicNumbers.parseAmount(priceText)
+    var price by remember { mutableLongStateOf(initialPrice) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = DaftarColors.Surface1,
@@ -194,53 +192,43 @@ private fun TypeDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("الاسم") },
+                    label = { Text(Str.name) },
                     singleLine = true,
                 )
-                OutlinedTextField(
-                    value = priceText,
-                    onValueChange = { new -> priceText = new.filter { it.isDigit() } },
-                    label = { Text("السعر الأساسي") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                )
+                AmountField(value = price, onValue = { price = it }, label = Str.basePrice)
             }
         },
         confirmButton = {
             TextButton(
                 onClick = { onSave(name, price) },
                 enabled = name.isNotBlank() && price > 0,
-            ) { Text("حفظ") }
+            ) { Text(Str.save) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
     )
 }
 
 @Composable
 private fun AssociateDialog(
     type: ItemTypeEntity,
-    sources: List<com.daftar.app.kernel.db.StockSourceEntity>,
+    sources: List<StockSourceEntity>,
     onSave: (sourceId: String, qty: Int, price: Long, cost: Long?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var selectedSourceId by remember { mutableStateOf<String?>(null) }
-    var qtyText by remember { mutableStateOf("") }
-    var priceText by remember { mutableStateOf(type.askingPrice.toString()) }
-    var costText by remember { mutableStateOf("") }
-    val qty = ArabicNumbers.parseAmount(qtyText).toInt()
-    val price = ArabicNumbers.parseAmount(priceText)
-    val cost = ArabicNumbers.parseAmount(costText).takeIf { it > 0 }
+    var qty by remember { mutableIntStateOf(0) }
+    var price by remember { mutableLongStateOf(type.askingPrice) }
+    var cost by remember { mutableLongStateOf(0L) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = DaftarColors.Surface1,
-        title = { Text("${type.name} — إضافة لمصدر", style = MaterialTheme.typography.titleLarge) },
+        title = { Text("${type.name} — ${Str.addToSourceTitle}", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (sources.isEmpty()) {
                     Text(
-                        "لا مصادر بعد — أنشئي مصدراً أولاً",
+                        Str.noSources,
                         style = MaterialTheme.typography.bodyMedium,
                         color = DaftarColors.TextSecondary,
                     )
@@ -254,38 +242,17 @@ private fun AssociateDialog(
                         )
                     }
                 }
-                OutlinedTextField(
-                    value = qtyText,
-                    onValueChange = { new -> qtyText = new.filter { it.isDigit() } },
-                    label = { Text("الكمية (تقريباً)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                )
-                OutlinedTextField(
-                    value = priceText,
-                    onValueChange = { new -> priceText = new.filter { it.isDigit() } },
-                    label = { Text("نقطة السعر") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                )
-                OutlinedTextField(
-                    value = costText,
-                    onValueChange = { new -> costText = new.filter { it.isDigit() } },
-                    label = { Text("كلفة القطعة (اختياري)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                )
+                QtyField(value = qty, onValue = { qty = it }, label = Str.qtyApprox)
+                AmountField(value = price, onValue = { price = it }, label = Str.pricePoint)
+                AmountField(value = cost, onValue = { cost = it }, label = Str.unitCostOptional)
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { selectedSourceId?.let { onSave(it, qty, price, cost) } },
+                onClick = { selectedSourceId?.let { onSave(it, qty, price, cost.takeIf { c -> c > 0 }) } },
                 enabled = selectedSourceId != null && qty > 0 && price > 0,
-            ) { Text("حفظ") }
+            ) { Text(Str.save) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
     )
 }

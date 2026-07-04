@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Checkroom
@@ -30,29 +29,32 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.daftar.app.kernel.db.ItemTypeEntity
-import com.daftar.app.kernel.format.ArabicNumbers
+import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.ledger.SourceKind
 import com.daftar.app.kernel.theme.DaftarColors
+import com.daftar.app.kernel.ui.AmountField
+import com.daftar.app.kernel.ui.QtyField
 
-private fun kindLabel(kind: String): String = when (kind) {
-    SourceKind.BALE.name -> "بالة"
-    SourceKind.MARKET.name -> "شراء من السوق"
-    else -> "بضاعة المحل"
+internal fun kindLabel(kind: String): String = when (kind) {
+    SourceKind.BALE.name -> Str.bale
+    SourceKind.MARKET.name -> Str.market
+    else -> Str.storeClothes
 }
 
 @Composable
 fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
-    var section by remember { mutableStateOf(0) }
+    var section by remember { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
@@ -61,12 +63,12 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
             FilterChip(
                 selected = section == 0,
                 onClick = { section = 0 },
-                label = { Text("المصادر") },
+                label = { Text(Str.sources) },
             )
             FilterChip(
                 selected = section == 1,
                 onClick = { section = 1 },
-                label = { Text("الأصناف") },
+                label = { Text(Str.typesTitle) },
             )
         }
         when (section) {
@@ -80,28 +82,30 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
 private fun SourcesSection(viewModel: StockViewModel) {
     val rows by viewModel.rows.collectAsState()
     val types by viewModel.types.collectAsState()
+    val typeRows by viewModel.typeRows.collectAsState()
     var showAddSource by remember { mutableStateOf(false) }
     var showStoreClothes by remember { mutableStateOf(false) }
     var intakeFor by remember { mutableStateOf<String?>(null) }
+    val existingFor: (String) -> List<StockViewModel.TypeAssociation> = { typeId ->
+        typeRows.firstOrNull { it.type.id == typeId }?.associations.orEmpty()
+    }
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            if (rows.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "لا مصادر بعد — سجّلي بالة أو بضاعة المحل الحالية",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = DaftarColors.TextSecondary,
-                    )
-                }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(rows, key = { it.source.id }) { row ->
-                        SourceCard(row, onAddIntake = { intakeFor = row.source.id })
-                    }
+        if (rows.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    Str.noSources,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = DaftarColors.TextSecondary,
+                )
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 140.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(rows, key = { it.source.id }) { row ->
+                    SourceCard(row, onAddIntake = { intakeFor = row.source.id })
                 }
             }
         }
@@ -115,24 +119,25 @@ private fun SourcesSection(viewModel: StockViewModel) {
             ExtendedFloatingActionButton(
                 onClick = { showStoreClothes = true },
                 icon = { Icon(Icons.Outlined.Checkroom, contentDescription = null) },
-                text = { Text("+ بضاعة المحل") },
+                text = { Text(Str.addStoreClothes) },
                 containerColor = DaftarColors.Surface2,
                 contentColor = DaftarColors.Teal,
             )
             ExtendedFloatingActionButton(
                 onClick = { showAddSource = true },
                 icon = { Icon(Icons.Outlined.Archive, contentDescription = null) },
-                text = { Text("مصدر جديد") },
+                text = { Text(Str.newSource) },
             )
         }
     }
 
     if (showStoreClothes) {
         AddIntakeDialog(
-            title = "بضاعة المحل — إضافة",
-            priceLabel = "سعر البيع للقطعة",
-            costLabel = "سعر الشراء للقطعة (اختياري)",
+            title = Str.addStoreTitle,
+            priceLabel = Str.salePricePerUnit,
+            costLabel = Str.buyPriceOptional,
             types = types,
+            existingFor = existingFor,
             onSave = { type, qty, price, unitCost ->
                 viewModel.addStoreClothes(type, qty, price, unitCost)
                 showStoreClothes = false
@@ -153,10 +158,11 @@ private fun SourcesSection(viewModel: StockViewModel) {
 
     intakeFor?.let { sourceId ->
         AddIntakeDialog(
-            title = "جلسة عدّ — سطر جديد",
-            priceLabel = "نقطة السعر",
-            costLabel = "كلفة القطعة (اختياري)",
+            title = Str.countingSession,
+            priceLabel = Str.pricePoint,
+            costLabel = Str.unitCostOptional,
             types = types,
+            existingFor = existingFor,
             onSave = { type, qty, price, unitCost ->
                 viewModel.addIntakeLine(sourceId, type, qty, price, unitCost)
                 intakeFor = null
@@ -184,15 +190,15 @@ private fun SourceCard(row: StockViewModel.SourceRow, onAddIntake: () -> Unit) {
             }
             row.source.costUsd?.let { usd ->
                 Text(
-                    "التكلفة: $${ArabicNumbers.format(usd)}" +
-                        (row.source.costLocal?.let { " (${ArabicNumbers.format(it)})" } ?: ""),
+                    "${Str.cost}: $${Str.money(usd)}" +
+                        (row.source.costLocal?.let { " (${Str.money(it)})" } ?: ""),
                     style = MaterialTheme.typography.labelMedium,
                     color = DaftarColors.TextSecondary,
                 )
             }
             if (row.lines.isEmpty()) {
                 Text(
-                    "لم تُعدّ بعد — العدّ اختياري ولا يوقف البيع",
+                    Str.notCounted,
                     style = MaterialTheme.typography.labelMedium,
                     color = DaftarColors.TextSecondary,
                 )
@@ -203,11 +209,11 @@ private fun SourceCard(row: StockViewModel.SourceRow, onAddIntake: () -> Unit) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
-                            "${line.typeName} @ ${ArabicNumbers.format(line.pricePoint)}",
+                            "${line.typeName} @ ${Str.money(line.pricePoint)}",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
-                            "×${ArabicNumbers.format(line.qty.toLong())}",
+                            "×${line.qty}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = DaftarColors.TextSecondary,
                         )
@@ -215,7 +221,7 @@ private fun SourceCard(row: StockViewModel.SourceRow, onAddIntake: () -> Unit) {
                 }
             }
             Text(
-                "+ جلسة عدّ",
+                Str.addCounting,
                 style = MaterialTheme.typography.labelLarge,
                 color = DaftarColors.Teal,
                 modifier = Modifier
@@ -233,16 +239,14 @@ private fun AddSourceDialog(
 ) {
     var kind by remember { mutableStateOf(SourceKind.BALE) }
     var label by remember { mutableStateOf("") }
-    var usdText by remember { mutableStateOf("") }
-    var localText by remember { mutableStateOf("") }
-    val usd = ArabicNumbers.parseAmount(usdText).takeIf { it > 0 }
-    val local = ArabicNumbers.parseAmount(localText).takeIf { it > 0 }
-    val valid = label.isNotBlank() && (kind != SourceKind.BALE || usd != null)
+    var usd by remember { mutableLongStateOf(0L) }
+    var local by remember { mutableLongStateOf(0L) }
+    val valid = label.isNotBlank() && (kind != SourceKind.BALE || usd > 0)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = DaftarColors.Surface1,
-        title = { Text("مصدر جديد", style = MaterialTheme.typography.titleLarge) },
+        title = { Text(Str.newSource, style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -257,52 +261,46 @@ private fun AddSourceDialog(
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
-                    label = { Text("الاسم (بالة شباط…)") },
+                    label = { Text(Str.sourceLabel) },
                     singleLine = true,
                 )
-                OutlinedTextField(
-                    value = usdText,
-                    onValueChange = { new -> usdText = new.filter { it.isDigit() } },
-                    label = { Text(if (kind == SourceKind.BALE) "التكلفة بالدولار (إلزامي)" else "التكلفة بالدولار (اختياري)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
+                AmountField(
+                    value = usd,
+                    onValue = { usd = it },
+                    label = if (kind == SourceKind.BALE) Str.costUsdRequired else Str.costUsdOptional,
+                    step = 50,
                 )
-                OutlinedTextField(
-                    value = localText,
-                    onValueChange = { new -> localText = new.filter { it.isDigit() } },
-                    label = { Text("المعادل المحلي (اختياري)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
+                AmountField(
+                    value = local,
+                    onValue = { local = it },
+                    label = Str.costLocalOptional,
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(kind, label, usd, local) }, enabled = valid) {
-                Text("حفظ")
-            }
+            TextButton(
+                onClick = { onSave(kind, label, usd.takeIf { it > 0 }, local.takeIf { it > 0 }) },
+                enabled = valid,
+            ) { Text(Str.save) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
     )
 }
 
 @Composable
-private fun AddIntakeDialog(
+internal fun AddIntakeDialog(
     title: String,
     priceLabel: String,
     costLabel: String,
     types: List<ItemTypeEntity>,
+    existingFor: (String) -> List<StockViewModel.TypeAssociation>,
     onSave: (ItemTypeEntity, Int, Long, Long?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var selectedType by remember { mutableStateOf<ItemTypeEntity?>(null) }
-    var qtyText by remember { mutableStateOf("") }
-    var priceText by remember { mutableStateOf("") }
-    var costText by remember { mutableStateOf("") }
-    val qty = ArabicNumbers.parseAmount(qtyText).toInt()
-    val price = ArabicNumbers.parseAmount(priceText)
-    val unitCost = ArabicNumbers.parseAmount(costText).takeIf { it > 0 }
+    var qty by remember { mutableIntStateOf(0) }
+    var price by remember { mutableLongStateOf(0L) }
+    var cost by remember { mutableLongStateOf(0L) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -312,7 +310,7 @@ private fun AddIntakeDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (types.isEmpty()) {
                     Text(
-                        "لا أصناف بعد — أضيفي صنفاً من شاشة البيع (+ صنف)",
+                        Str.noTypesHint,
                         style = MaterialTheme.typography.bodyMedium,
                         color = DaftarColors.TextSecondary,
                     )
@@ -323,44 +321,35 @@ private fun AddIntakeDialog(
                             selected = selectedType?.id == type.id,
                             onClick = {
                                 selectedType = type
-                                if (priceText.isBlank()) priceText = type.askingPrice.toString()
+                                if (price == 0L) price = type.askingPrice
                             },
                             label = { Text(type.name) },
                         )
                     }
                 }
-                OutlinedTextField(
-                    value = qtyText,
-                    onValueChange = { new -> qtyText = new.filter { it.isDigit() } },
-                    label = { Text("الكمية (تقريباً)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                )
-                OutlinedTextField(
-                    value = priceText,
-                    onValueChange = { new -> priceText = new.filter { it.isDigit() } },
-                    label = { Text(priceLabel) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                )
-                OutlinedTextField(
-                    value = costText,
-                    onValueChange = { new -> costText = new.filter { it.isDigit() } },
-                    label = { Text(costLabel) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                )
+                selectedType?.let { type ->
+                    val existing = existingFor(type.id)
+                    if (existing.isNotEmpty()) {
+                        Text(
+                            "${Str.inStoreNow}: " + existing.joinToString(" · ") {
+                                "${it.sourceLabel} @ ${Str.money(it.price)} ×${it.remaining}"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = DaftarColors.Teal,
+                        )
+                    }
+                }
+                QtyField(value = qty, onValue = { qty = it }, label = Str.qtyApprox)
+                AmountField(value = price, onValue = { price = it }, label = priceLabel)
+                AmountField(value = cost, onValue = { cost = it }, label = costLabel)
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { selectedType?.let { onSave(it, qty, price, unitCost) } },
+                onClick = { selectedType?.let { onSave(it, qty, price, cost.takeIf { c -> c > 0 }) } },
                 enabled = selectedType != null && qty > 0 && price > 0,
-            ) { Text("حفظ") }
+            ) { Text(Str.save) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
     )
 }

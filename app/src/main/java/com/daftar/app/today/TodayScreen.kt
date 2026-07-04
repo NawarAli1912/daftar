@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.daftar.app.kernel.format.ArabicNumbers
+import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.theme.DaftarColors
 import com.daftar.app.payments.PaymentSheet
@@ -71,8 +72,8 @@ fun TodayScreen(
                 scope.launch {
                     val saleId = salesViewModel.record(lines, customerId, paidNow)
                     val result = snackbarHostState.showSnackbar(
-                        message = "تم تسجيل البيع",
-                        actionLabel = "تراجع",
+                        message = Str.saleSaved,
+                        actionLabel = Str.undo,
                         duration = SnackbarDuration.Long,
                     )
                     if (result == SnackbarResult.ActionPerformed) {
@@ -91,7 +92,7 @@ fun TodayScreen(
             if (state.cards.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        "صفحة اليوم فارغة — سجّلي أول بيع",
+                        Str.emptyDay,
                         style = MaterialTheme.typography.bodyLarge,
                         color = DaftarColors.TextSecondary,
                     )
@@ -122,12 +123,12 @@ fun TodayScreen(
                 containerColor = DaftarColors.Surface2,
                 contentColor = DaftarColors.Teal,
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = "دفعة")
+                Icon(Icons.Outlined.Add, contentDescription = Str.payment)
             }
             ExtendedFloatingActionButton(
                 onClick = { showSaleScreen = true },
                 icon = { Icon(Icons.Outlined.ShoppingBag, contentDescription = null) },
-                text = { Text("بيع") },
+                text = { Text(Str.sale) },
             )
         }
     }
@@ -143,8 +144,8 @@ fun TodayScreen(
                 scope.launch {
                     val entryId = paymentViewModel.record(amount, customerId, itemTypeId, askedUnit)
                     val result = snackbarHostState.showSnackbar(
-                        message = "تم تسجيل الدفعة — ${ArabicNumbers.format(amount)}",
-                        actionLabel = "تراجع",
+                        message = "${Str.paymentSaved} — ${Str.money(amount)}",
+                        actionLabel = Str.undo,
                         duration = SnackbarDuration.Long,
                     )
                     if (result == SnackbarResult.ActionPerformed) {
@@ -166,7 +167,7 @@ private fun TotalsHeader(paymentsTotal: Long) {
         colors = CardDefaults.cardColors(containerColor = DaftarColors.Surface1),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("دفتر اليوم", style = MaterialTheme.typography.headlineSmall)
+            Text(Str.todayBook, style = MaterialTheme.typography.headlineSmall)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -174,12 +175,12 @@ private fun TotalsHeader(paymentsTotal: Long) {
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    "مقبوضات اليوم",
+                    Str.receivedToday,
                     style = MaterialTheme.typography.bodyMedium,
                     color = DaftarColors.TextSecondary,
                 )
                 Text(
-                    ArabicNumbers.format(paymentsTotal),
+                    Str.money(paymentsTotal),
                     style = MaterialTheme.typography.titleMedium,
                     color = DaftarColors.Teal,
                 )
@@ -191,8 +192,8 @@ private fun TotalsHeader(paymentsTotal: Long) {
 @Composable
 private fun LedgerCard(card: DayCard.Ledger) {
     val kindLabel = when (card.entry.kind) {
-        EntryKind.OPENING_BALANCE.name -> "دين قديم"
-        else -> "دفعة"
+        EntryKind.OPENING_BALANCE.name -> Str.oldDebt
+        else -> Str.payment
     }
     Card(colors = CardDefaults.cardColors(containerColor = DaftarColors.Surface1)) {
         Row(
@@ -204,7 +205,7 @@ private fun LedgerCard(card: DayCard.Ledger) {
         ) {
             Column {
                 Text(
-                    "$kindLabel — ${card.customerName ?: "غير محدد"}",
+                    "$kindLabel — ${card.customerName ?: Str.unspecified}",
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
@@ -214,7 +215,7 @@ private fun LedgerCard(card: DayCard.Ledger) {
                 )
             }
             Text(
-                ArabicNumbers.format(card.entry.amount),
+                Str.money(card.entry.amount),
                 style = MaterialTheme.typography.titleMedium,
                 color = if (card.entry.kind == EntryKind.OPENING_BALANCE.name) {
                     DaftarColors.Amber
@@ -238,7 +239,7 @@ private fun SaleCard(card: DayCard.Sale) {
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "بيع — ${card.customerName ?: "غير محدد"}",
+                    "${Str.sale} — ${card.customerName ?: Str.unspecified}",
                     style = MaterialTheme.typography.titleMedium,
                 )
                 if (card.linesSummary.isNotEmpty()) {
@@ -256,13 +257,13 @@ private fun SaleCard(card: DayCard.Sale) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    ArabicNumbers.format(card.total),
+                    Str.money(card.total),
                     style = MaterialTheme.typography.titleMedium,
                     color = DaftarColors.Teal,
                 )
                 if (card.paidNow > 0 && card.paidNow < card.total) {
                     Text(
-                        "دفع ${ArabicNumbers.format(card.paidNow)}",
+                        "${Str.paidShort} ${Str.money(card.paidNow)}",
                         style = MaterialTheme.typography.labelMedium,
                         color = DaftarColors.TextSecondary,
                     )

@@ -6,7 +6,6 @@ import com.daftar.app.kernel.db.CustomerDao
 import com.daftar.app.kernel.db.LedgerDao
 import com.daftar.app.kernel.db.LedgerEntryEntity
 import com.daftar.app.kernel.db.SaleDao
-import com.daftar.app.kernel.format.ArabicNumbers
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.ledger.LedgerLine
 import com.daftar.app.kernel.ledger.LedgerMath
@@ -87,7 +86,7 @@ class TodayViewModel @Inject constructor(
                     saleId = saleWithLines.sale.id,
                     customerName = saleWithLines.sale.customerId?.let(names::get),
                     linesSummary = visibleLines.joinToString(" · ") {
-                        "${it.typeName} ×${ArabicNumbers.format(it.qty.toLong())}"
+                        "${it.typeName} ×${it.qty}"
                     },
                     total = LedgerMath.saleTotal(
                         saleWithLines.lines.map { SaleLineAmounts(it.qty, it.agreedUnit, it.voided) }

@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
@@ -26,7 +24,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -34,20 +31,20 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.daftar.app.kernel.format.ArabicNumbers
+import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.ledger.LedgerMath
 import com.daftar.app.kernel.theme.DaftarColors
+import com.daftar.app.kernel.ui.AmountField
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -60,9 +57,8 @@ fun SaleScreen(
     val customers by viewModel.customers.collectAsState()
     val basket = remember { mutableStateListOf<DraftLine>() }
     var selectedCustomerId by remember { mutableStateOf<String?>(null) }
-    var paidNowText by remember { mutableStateOf("") }
+    var paidNow by remember { mutableLongStateOf(0L) }
     var showAddType by remember { mutableStateOf(false) }
-    val paidNow = ArabicNumbers.parseAmount(paidNowText)
     val total = basket.sumOf { LedgerMath.lineTotal(it.qty, it.agreedUnit) }
 
     Column(
@@ -78,9 +74,9 @@ fun SaleScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("بيع", style = MaterialTheme.typography.headlineSmall)
+            Text(Str.sale, style = MaterialTheme.typography.headlineSmall)
             IconButton(onClick = onClose) {
-                Icon(Icons.Outlined.Close, contentDescription = "إغلاق")
+                Icon(Icons.Outlined.Close, contentDescription = Str.close)
             }
         }
 
@@ -107,18 +103,18 @@ fun SaleScreen(
                             )
                         }
                     },
-                    label = { Text("${chip.name} ${ArabicNumbers.format(chip.price)}") },
+                    label = { Text("${chip.name} ${Str.money(chip.price)}") },
                 )
             }
             AssistChip(
                 onClick = { showAddType = true },
-                label = { Text("+ صنف") },
+                label = { Text(Str.addTypeChip) },
             )
         }
 
         if (basket.isEmpty()) {
             Text(
-                "اضغطي على صنف لإضافته للسلة",
+                Str.basketHint,
                 style = MaterialTheme.typography.bodyMedium,
                 color = DaftarColors.TextSecondary,
             )
@@ -135,7 +131,7 @@ fun SaleScreen(
         }
 
         Text(
-            "الزبون (اختياري)",
+            Str.customerOptional,
             style = MaterialTheme.typography.labelMedium,
             color = DaftarColors.TextSecondary,
         )
@@ -144,7 +140,7 @@ fun SaleScreen(
                 FilterChip(
                     selected = selectedCustomerId == null,
                     onClick = { selectedCustomerId = null },
-                    label = { Text("غير محدد") },
+                    label = { Text(Str.unspecified) },
                 )
             }
             items(customers, key = { it.id }) { customer ->
@@ -156,23 +152,15 @@ fun SaleScreen(
             }
         }
 
-        OutlinedTextField(
-            value = paidNowText,
-            onValueChange = { new -> paidNowText = new.filter { it.isDigit() } },
-            label = { Text("المدفوع الآن") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true,
-            textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        AmountField(value = paidNow, onValue = { paidNow = it }, label = Str.paidNow)
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("الإجمالي", style = MaterialTheme.typography.titleMedium)
+            Text(Str.total, style = MaterialTheme.typography.titleMedium)
             Text(
-                ArabicNumbers.format(total),
+                Str.money(total),
                 style = MaterialTheme.typography.titleMedium,
                 color = DaftarColors.Teal,
             )
@@ -183,12 +171,12 @@ fun SaleScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    "الباقي دين",
+                    Str.remainderDebt,
                     style = MaterialTheme.typography.bodyMedium,
                     color = DaftarColors.TextSecondary,
                 )
                 Text(
-                    ArabicNumbers.format(total - paidNow),
+                    Str.money(total - paidNow),
                     style = MaterialTheme.typography.titleMedium,
                     color = DaftarColors.Amber,
                 )
@@ -200,7 +188,7 @@ fun SaleScreen(
             enabled = basket.isNotEmpty(),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("حفظ البيع")
+            Text(Str.saveSale)
         }
     }
 
@@ -223,7 +211,6 @@ private fun BasketLineCard(
     onPriceChange: (Long) -> Unit,
     onRemove: () -> Unit,
 ) {
-    var priceText by remember(line.typeId) { mutableStateOf(line.agreedUnit.toString()) }
     Card(colors = CardDefaults.cardColors(containerColor = DaftarColors.Surface1)) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
             Row(
@@ -235,57 +222,52 @@ private fun BasketLineCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { onQtyChange(line.qty - 1) }) { Text("−") }
                     Text(
-                        ArabicNumbers.format(line.qty.toLong()),
+                        Str.count(line.qty),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     TextButton(onClick = { onQtyChange(line.qty + 1) }) { Text("+") }
                     IconButton(onClick = onRemove) {
                         Icon(
                             Icons.Outlined.Delete,
-                            contentDescription = "حذف",
+                            contentDescription = Str.delete,
                             tint = DaftarColors.TextSecondary,
                         )
                     }
                 }
             }
+            AmountField(
+                value = line.agreedUnit,
+                onValue = onPriceChange,
+                label = Str.unitPrice,
+            )
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                OutlinedTextField(
-                    value = priceText,
-                    onValueChange = { new ->
-                        priceText = new.filter { it.isDigit() }
-                        onPriceChange(ArabicNumbers.parseAmount(priceText))
-                    },
-                    label = { Text("سعر القطعة") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                    modifier = Modifier.weight(1f),
+                Text(
+                    "${Str.sourceApprox} $suggestionLabel",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = DaftarColors.TextSecondary,
                 )
-                if (line.agreedUnit != line.askedUnit) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (line.agreedUnit != line.askedUnit) {
+                        Text(
+                            Str.money(line.askedUnit),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                textDecoration = TextDecoration.LineThrough
+                            ),
+                            color = DaftarColors.TextSecondary,
+                        )
+                    }
                     Text(
-                        ArabicNumbers.format(line.askedUnit),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            textDecoration = TextDecoration.LineThrough
-                        ),
-                        color = DaftarColors.TextSecondary,
+                        Str.money(LedgerMath.lineTotal(line.qty, line.agreedUnit)),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = DaftarColors.Teal,
                     )
                 }
-                Text(
-                    ArabicNumbers.format(LedgerMath.lineTotal(line.qty, line.agreedUnit)),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = DaftarColors.Teal,
-                )
             }
-            Text(
-                "المصدر تقريباً: $suggestionLabel",
-                style = MaterialTheme.typography.labelMedium,
-                color = DaftarColors.TextSecondary,
-                modifier = Modifier.padding(top = 4.dp),
-            )
         }
     }
 }
@@ -293,36 +275,28 @@ private fun BasketLineCard(
 @Composable
 private fun AddTypeDialog(onSave: (String, Long) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
-    var priceText by remember { mutableStateOf("") }
-    val price = ArabicNumbers.parseAmount(priceText)
+    var price by remember { mutableLongStateOf(0L) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = DaftarColors.Surface1,
-        title = { Text("صنف جديد", style = MaterialTheme.typography.titleLarge) },
+        title = { Text(Str.newType, style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("الاسم (بنطال، فستان…)") },
+                    label = { Text(Str.name) },
                     singleLine = true,
                 )
-                OutlinedTextField(
-                    value = priceText,
-                    onValueChange = { new -> priceText = new.filter { it.isDigit() } },
-                    label = { Text("سعر العرض") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                )
+                AmountField(value = price, onValue = { price = it }, label = Str.basePrice)
             }
         },
         confirmButton = {
             TextButton(
                 onClick = { onSave(name, price) },
                 enabled = name.isNotBlank() && price > 0,
-            ) { Text("حفظ") }
+            ) { Text(Str.save) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
     )
 }

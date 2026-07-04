@@ -65,7 +65,8 @@ private val DaftarTypography = Typography(
 
 @Composable
 fun DaftarTheme(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+    val direction = if (com.daftar.app.kernel.i18n.Str.arabic) LayoutDirection.Rtl else LayoutDirection.Ltr
+    CompositionLocalProvider(LocalLayoutDirection provides direction) {
         MaterialTheme(
             colorScheme = DarkScheme,
             typography = DaftarTypography,

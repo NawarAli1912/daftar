@@ -45,6 +45,9 @@ interface ItemTypeDao {
 
     @Query("SELECT * FROM item_types WHERE voided = 0 ORDER BY name")
     fun observeAll(): Flow<List<ItemTypeEntity>>
+
+    @Query("UPDATE item_types SET name = :name, askingPrice = :price, updatedAt = :now WHERE id = :id")
+    suspend fun update(id: String, name: String, price: Long, now: Long)
 }
 
 @Dao

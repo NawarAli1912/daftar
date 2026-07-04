@@ -52,6 +52,32 @@ private fun kindLabel(kind: String): String = when (kind) {
 
 @Composable
 fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
+    var section by remember { mutableStateOf(0) }
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = section == 0,
+                onClick = { section = 0 },
+                label = { Text("المصادر") },
+            )
+            FilterChip(
+                selected = section == 1,
+                onClick = { section = 1 },
+                label = { Text("الأصناف") },
+            )
+        }
+        when (section) {
+            0 -> SourcesSection(viewModel)
+            else -> TypesSection(viewModel)
+        }
+    }
+}
+
+@Composable
+private fun SourcesSection(viewModel: StockViewModel) {
     val rows by viewModel.rows.collectAsState()
     val types by viewModel.types.collectAsState()
     var showAddSource by remember { mutableStateOf(false) }
@@ -60,11 +86,6 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Text(
-                "المصادر",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(16.dp),
-            )
             if (rows.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(

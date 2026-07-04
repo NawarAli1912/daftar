@@ -21,12 +21,17 @@ import kotlinx.coroutines.launch
 class StockViewModel @Inject constructor(
     private val stockDao: StockDao,
     private val itemTypeDao: ItemTypeDao,
+    sourcesRepository: SourcesRepository,
 ) : ViewModel() {
 
     data class SourceRow(
         val source: StockSourceEntity,
         val lines: List<IntakeLineEntity>,
     )
+
+    data class TypeAssociation(val sourceLabel: String, val price: Long, val remaining: Int)
+
+    data class TypeRow(val type: ItemTypeEntity, val associations: List<TypeAssociation>)
 
     val rows: StateFlow<List<SourceRow>> =
         combine(stockDao.observeSources(), stockDao.observeIntakeLines()) { sources, lines ->
@@ -37,6 +42,56 @@ class StockViewModel @Inject constructor(
     val types: StateFlow<List<ItemTypeEntity>> =
         itemTypeDao.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val typeRows: StateFlow<List<TypeRow>> =
+        combine(
+            itemTypeDao.observeAll(),
+            stockDao.observeSources(),
+            sourcesRepository.snapshots,
+        ) { allTypes, sources, snapshots ->
+            val labels = sources.associate { it.id to it.label }
+            allTypes.map { type ->
+                val associations = snapshots.flatMap { snapshot ->
+                    snapshot.points
+                        .filter { it.typeId == type.id }
+                        .map { point ->
+                            TypeAssociation(
+                                sourceLabel = labels[snapshot.id] ?: "غير محدد",
+                                price = point.price,
+                                remaining = point.estimatedRemaining,
+                            )
+                        }
+                }
+                TypeRow(type, associations)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun updateType(id: String, name: String, price: Long) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || price <= 0) return
+        viewModelScope.launch {
+            itemTypeDao.update(id, trimmed, price, System.currentTimeMillis())
+        }
+    }
+
+    fun addType(name: String, askingPrice: Long) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || askingPrice <= 0) return
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            runCatching {
+                itemTypeDao.insert(
+                    ItemTypeEntity(
+                        id = UUID.randomUUID().toString(),
+                        name = trimmed,
+                        askingPrice = askingPrice,
+                        createdAt = now,
+                        updatedAt = now,
+                    )
+                )
+            }
+        }
+    }
 
     fun addSource(kind: SourceKind, label: String, costUsd: Long?, costLocal: Long?) {
         val trimmed = label.trim()

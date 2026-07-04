@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,13 +19,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -104,7 +105,7 @@ fun CustomersScreen(viewModel: CustomersViewModel = hiltViewModel()) {
     }
 
     if (showAdd) {
-        AddCustomerDialog(
+        AddCustomerSheet(
             onSave = { name, phone, openingBalance ->
                 viewModel.addCustomer(name, phone, openingBalance)
                 showAdd = false
@@ -130,8 +131,9 @@ private fun CustomerRow(row: CustomersViewModel.Row) {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddCustomerDialog(
+private fun AddCustomerSheet(
     onSave: (name: String, phone: String?, openingBalance: Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -161,43 +163,51 @@ private fun AddCustomerDialog(
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = DaftarColors.Surface1,
-        title = { Text(Str.newCustomer, style = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                TextButton(onClick = {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = DaftarColors.Surface1) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(Str.newCustomer, style = MaterialTheme.typography.titleLarge)
+            TextButton(
+                onClick = {
                     pickContact.launch(
                         Intent(Intent.ACTION_PICK).apply {
                             type = ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
                         }
                     )
-                }) {
-                    Icon(Icons.Outlined.Contacts, contentDescription = null)
-                    Text("  ${Str.fromContacts}")
+                },
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                Icon(Icons.Outlined.Contacts, contentDescription = null)
+                Text("  ${Str.fromContacts}")
+            }
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(Str.name) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = { Text(Str.phoneOptional) },
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            AmountField(value = opening, onValue = { opening = it }, label = Str.oldDebtOptional)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onDismiss) { Text(Str.cancel) }
+                Spacer(Modifier.weight(1f))
+                Button(onClick = { onSave(name, phone, opening) }, enabled = name.isNotBlank()) {
+                    Text(Str.save)
                 }
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(Str.name) },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text(Str.phoneOptional) },
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
-                )
-                AmountField(value = opening, onValue = { opening = it }, label = Str.oldDebtOptional)
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(name, phone, opening) }, enabled = name.isNotBlank()) {
-                Text(Str.save)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
-    )
+        }
+    }
 }

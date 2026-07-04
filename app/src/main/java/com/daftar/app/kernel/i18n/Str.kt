@@ -113,4 +113,16 @@ object Str {
     val inStoreNow get() = s("In store now", "الموجود حالياً")
     val cost get() = s("Cost", "التكلفة")
     val pieces get() = s("pieces", "قطعة")
+
+    val profitTab get() = s("Profit", "الأرباح")
+    val soldLabel get() = s("Sold", "المُباع")
+    val remainingLabel get() = s("In stock", "المتبقي")
+    val recovered get() = s("Recovered", "المُسترد")
+    val profitLabel get() = s("Profit", "الربح")
+    val paidBackNote get() = s("paid for itself", "غطّت تكلفتها")
+    val agingNudge get() = s("Aging — a markdown could help it move", "بضاعة قديمة — تخفيض السعر قد يحرّكها")
+    val approxNote get() = s("approx.", "تقريباً")
+    val daysOld get() = s("days in stock", "يوم في المحل")
+    val localCostMissing get() = s("add the local cost to see profit", "أضيفي التكلفة المحلية لعرض الربح")
+    val noProfitData get() = s("No sources to analyse yet", "لا مصادر للتحليل بعد")
 }

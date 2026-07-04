@@ -8,6 +8,7 @@ import com.daftar.app.kernel.db.ItemTypeEntity
 import com.daftar.app.kernel.db.StockDao
 import com.daftar.app.kernel.db.StockSourceEntity
 import com.daftar.app.kernel.ledger.SourceKind
+import com.daftar.app.kernel.ledger.SourceProfit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
@@ -33,6 +34,8 @@ class StockViewModel @Inject constructor(
         val lines: List<IntakeLineEntity>,
     )
 
+    data class ProfitRow(val source: StockSourceEntity, val profit: SourceProfit)
+
     data class TypeAssociation(val sourceLabel: String, val price: Long, val remaining: Int)
 
     data class TypeRow(val type: ItemTypeEntity, val associations: List<TypeAssociation>)
@@ -46,6 +49,12 @@ class StockViewModel @Inject constructor(
     val types: StateFlow<List<ItemTypeEntity>> =
         itemTypeDao.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val profitRows: StateFlow<List<ProfitRow>> =
+        combine(stockDao.observeSources(), sourcesRepository.profits) { sources, profits ->
+            val byId = profits.associateBy { it.sourceId }
+            sources.mapNotNull { source -> byId[source.id]?.let { ProfitRow(source, it) } }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val typeRows: StateFlow<List<TypeRow>> =
         combine(

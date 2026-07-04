@@ -6,8 +6,13 @@ import com.daftar.app.kernel.db.StockDao
 import com.daftar.app.kernel.ledger.AttributedSale
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.ledger.IntakeCount
+import com.daftar.app.kernel.ledger.IntakeQty
+import com.daftar.app.kernel.ledger.ProfitMath
+import com.daftar.app.kernel.ledger.RevenueLine
 import com.daftar.app.kernel.ledger.SnapshotBuilder
+import com.daftar.app.kernel.ledger.SourceCostInput
 import com.daftar.app.kernel.ledger.SourceMeta
+import com.daftar.app.kernel.ledger.SourceProfit
 import com.daftar.app.kernel.ledger.SourceSnapshot
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -44,6 +49,34 @@ class SourcesRepository @Inject constructor(
             sources = sources.map { SourceMeta(it.id, it.arrivedAt, it.voided) },
             intake = intake.map { IntakeCount(it.sourceId, it.itemTypeId, it.pricePoint, it.qty, it.voided) },
             sold = attributedFromSales + attributedFromPayments,
+        )
+    }
+
+    // Stock v2 (D10/D23): "did this source pay for itself?" — cost vs the agreed value
+    // of goods attributed out of it. Revenue = sold sale-lines (agreedUnit × qty) plus
+    // typed payments attributed to a source (the amount received). Both sets are disjoint:
+    // basket-sale payments carry no type/price, so nothing is double-counted.
+    val profits: Flow<List<SourceProfit>> = combine(
+        stockDao.observeSources(),
+        stockDao.observeIntakeLines(),
+        saleDao.observeAllLines(),
+        ledgerDao.observeAll(),
+    ) { sources, intake, saleLines, ledger ->
+        val revenueFromSales = saleLines
+            .filter { it.attributedSourceId != null }
+            .map { RevenueLine(it.attributedSourceId!!, it.agreedUnit * it.qty, it.qty, it.voided) }
+        val revenueFromPayments = ledger
+            .filter {
+                it.kind == EntryKind.PAYMENT.name &&
+                    it.attributedSourceId != null && it.itemTypeId != null && it.askedUnit != null
+            }
+            .map { RevenueLine(it.attributedSourceId!!, it.amount, 1, it.voided) }
+
+        ProfitMath.build(
+            sources = sources.map { SourceCostInput(it.id, it.costUsd, it.costLocal, it.arrivedAt, it.voided) },
+            intake = intake.map { IntakeQty(it.sourceId, it.qty, it.voided) },
+            revenue = revenueFromSales + revenueFromPayments,
+            now = System.currentTimeMillis(),
         )
     }
 

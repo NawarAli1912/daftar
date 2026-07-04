@@ -1,6 +1,7 @@
 package com.daftar.app.stock
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Checkroom
@@ -47,6 +49,9 @@ import com.daftar.app.kernel.ui.Hairline
 import com.daftar.app.kernel.ui.LedgerRow
 import com.daftar.app.kernel.ui.QtyField
 import com.daftar.app.kernel.ui.SectionCard
+import com.daftar.app.kernel.ui.SumLine
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 internal fun kindLabel(kind: String): String = when (kind) {
     SourceKind.BALE.name -> Str.bale
@@ -59,7 +64,9 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
     var section by remember { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             FilterChip(
@@ -75,12 +82,18 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
             FilterChip(
                 selected = section == 2,
                 onClick = { section = 2 },
+                label = { Text(Str.profitTab) },
+            )
+            FilterChip(
+                selected = section == 3,
+                onClick = { section = 3 },
                 label = { Text(Str.demo) },
             )
         }
         when (section) {
             0 -> SourcesSection(viewModel)
             1 -> TypesSection(viewModel)
+            2 -> ProfitSection(viewModel)
             else -> DemoSection(viewModel)
         }
     }
@@ -107,6 +120,116 @@ private fun DemoSection(viewModel: StockViewModel) {
             onClick = { viewModel.clearAll() },
             modifier = Modifier.fillMaxWidth(),
         ) { Text(Str.clearAll) }
+    }
+}
+
+@Composable
+private fun ProfitSection(viewModel: StockViewModel) {
+    val rows by viewModel.profitRows.collectAsState()
+    if (rows.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                Str.noProfitData,
+                style = MaterialTheme.typography.bodyLarge,
+                color = DaftarColors.TextSecondary,
+            )
+        }
+        return
+    }
+    LazyColumn(
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(rows, key = { it.source.id }) { row -> ProfitCard(row) }
+    }
+}
+
+@Composable
+private fun ProfitCard(row: StockViewModel.ProfitRow) {
+    val p = row.profit
+    SectionCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(row.source.label, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "${kindLabel(row.source.kind)} · ${Str.count(p.ageDays)} ${Str.daysOld}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = DaftarColors.TextSecondary,
+                )
+            }
+        }
+        Hairline(Modifier.padding(horizontal = 16.dp))
+        LedgerRow(
+            title = Str.cost,
+            subtitle = p.costLocal?.let { Str.money(it) },
+            amountText = p.costUsd?.let { "$${Str.money(it)}" } ?: "—",
+        )
+        Hairline(Modifier.padding(horizontal = 16.dp))
+        LedgerRow(
+            title = Str.soldLabel,
+            subtitle = "${Str.count(p.soldQty)} ${Str.pieces}",
+            amountText = Str.money(p.soldValue),
+        )
+        Hairline(Modifier.padding(horizontal = 16.dp))
+        LedgerRow(
+            title = Str.remainingLabel,
+            subtitle = null,
+            amountText = Str.count(p.remainingQty),
+            trailingNote = Str.pieces,
+        )
+        val ratio = p.recoveredRatio
+        if (ratio != null) {
+            SumLine(
+                label = Str.recovered,
+                amountText = "${Str.count((ratio * 100).roundToInt())}%",
+                amountColor = if (p.paidBack) DaftarColors.Green else DaftarColors.Amber,
+            )
+            val profit = p.profitLocal!!
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${Str.profitLabel} · ${Str.approxNote}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = DaftarColors.TextSecondary,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    (if (profit >= 0) "+" else "−") + Str.money(abs(profit)),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = if (profit >= 0) DaftarColors.Green else DaftarColors.Red,
+                )
+            }
+        } else {
+            Hairline(Modifier.padding(horizontal = 16.dp))
+            Text(
+                Str.localCostMissing,
+                style = MaterialTheme.typography.labelMedium,
+                color = DaftarColors.TextSecondary,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp),
+            )
+        }
+        if (p.needsMarkdown()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                Text(
+                    Str.agingNudge,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = DaftarColors.Amber,
+                )
+            }
+        }
     }
 }
 

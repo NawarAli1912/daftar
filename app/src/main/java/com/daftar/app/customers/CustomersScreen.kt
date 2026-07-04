@@ -22,6 +22,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -36,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.daftar.app.kernel.format.ArabicNumbers
@@ -131,7 +133,7 @@ private fun AddCustomerDialog(
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var openingText by remember { mutableStateOf("") }
-    val opening = openingText.filter { it.isDigit() }.toLongOrNull() ?: 0L
+    val opening = ArabicNumbers.parseAmount(openingText)
     val context = LocalContext.current
 
     val pickContact = rememberLauncherForActivityResult(
@@ -182,6 +184,7 @@ private fun AddCustomerDialog(
                     onValueChange = { phone = it },
                     label = { Text("الهاتف (اختياري)") },
                     singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
                 )
                 OutlinedTextField(
                     value = openingText,
@@ -189,6 +192,7 @@ private fun AddCustomerDialog(
                     label = { Text("دين قديم (اختياري)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
                 )
             }
         },

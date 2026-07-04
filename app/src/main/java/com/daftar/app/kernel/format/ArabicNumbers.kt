@@ -15,4 +15,12 @@ object ArabicNumbers {
         }
         return if (amount < 0) "-$grouped" else grouped.toString()
     }
+
+    fun toWesternDigits(text: String): String =
+        text.map { char ->
+            if (char in EASTERN_ZERO..'٩') '0' + (char - EASTERN_ZERO) else char
+        }.joinToString("")
+
+    fun parseAmount(text: String): Long =
+        toWesternDigits(text).filter { it in '0'..'9' }.toLongOrNull() ?: 0L
 }

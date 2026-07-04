@@ -40,7 +40,7 @@ class SalesViewModel @Inject constructor(
     private val ledgerDao: LedgerDao,
     private val itemTypeDao: ItemTypeDao,
     private val sourcesRepository: com.daftar.app.stock.SourcesRepository,
-    customerDao: CustomerDao,
+    private val customerDao: CustomerDao,
 ) : ViewModel() {
 
     val types: StateFlow<List<ItemTypeEntity>> =
@@ -69,8 +69,8 @@ class SalesViewModel @Inject constructor(
 
     fun suggestionLabel(typeId: String, askedUnit: Long): String =
         when (val result = Attributor.attribute(typeId, askedUnit, sources.value)) {
-            is Attribution.ToSource -> sourceNames.value[result.sourceId] ?: "غير محدد"
-            Attribution.Unmatched -> "غير محدد"
+            is Attribution.ToSource -> sourceNames.value[result.sourceId] ?: com.daftar.app.kernel.i18n.Str.unspecified
+            Attribution.Unmatched -> com.daftar.app.kernel.i18n.Str.unspecified
         }
 
     private fun attributedSourceId(typeId: String, askedUnit: Long): String? =
@@ -78,6 +78,20 @@ class SalesViewModel @Inject constructor(
             is Attribution.ToSource -> result.sourceId
             Attribution.Unmatched -> null
         }
+
+    // D43: create a customer inline without leaving the sale flow. Returns the new id.
+    suspend fun addCustomerInline(name: String): String? {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return null
+        val now = System.currentTimeMillis()
+        val id = java.util.UUID.randomUUID().toString()
+        customerDao.insert(
+            com.daftar.app.kernel.db.CustomerEntity(
+                id = id, name = trimmed, phone = null, createdAt = now, updatedAt = now,
+            )
+        )
+        return id
+    }
 
     fun addType(name: String, askingPrice: Long) {
         val trimmed = name.trim()

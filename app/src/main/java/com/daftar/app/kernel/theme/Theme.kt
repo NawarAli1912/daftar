@@ -1,6 +1,8 @@
 package com.daftar.app.kernel.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -12,6 +14,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.daftar.app.R
 
@@ -70,6 +73,11 @@ fun DaftarTheme(content: @Composable () -> Unit) {
         MaterialTheme(
             colorScheme = DarkScheme,
             typography = DaftarTypography,
+            shapes = Shapes(
+                small = RoundedCornerShape(10.dp),
+                medium = RoundedCornerShape(14.dp),
+                large = RoundedCornerShape(18.dp),
+            ),
             content = content,
         )
     }

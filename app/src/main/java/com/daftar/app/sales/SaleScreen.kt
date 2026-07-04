@@ -36,6 +36,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
@@ -59,6 +60,8 @@ fun SaleScreen(
     var selectedCustomerId by remember { mutableStateOf<String?>(null) }
     var paidNow by remember { mutableLongStateOf(0L) }
     var showAddType by remember { mutableStateOf(false) }
+    var showAddCustomer by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val total = basket.sumOf { LedgerMath.lineTotal(it.qty, it.agreedUnit) }
 
     Column(
@@ -150,6 +153,12 @@ fun SaleScreen(
                     label = { Text(customer.name) },
                 )
             }
+            item {
+                AssistChip(
+                    onClick = { showAddCustomer = true },
+                    label = { Text(Str.newCustomer) },
+                )
+            }
         }
 
         AmountField(value = paidNow, onValue = { paidNow = it }, label = Str.paidNow)
@@ -201,6 +210,45 @@ fun SaleScreen(
             onDismiss = { showAddType = false },
         )
     }
+
+    if (showAddCustomer) {
+        QuickNameDialog(
+            title = Str.newCustomer,
+            onSave = { name ->
+                scope.launch {
+                    selectedCustomerId = viewModel.addCustomerInline(name)
+                }
+                showAddCustomer = false
+            },
+            onDismiss = { showAddCustomer = false },
+        )
+    }
+}
+
+@Composable
+private fun QuickNameDialog(
+    title: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DaftarColors.Surface1,
+        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(Str.name) },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(name) }, enabled = name.isNotBlank()) { Text(Str.save) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } },
+    )
 }
 
 @Composable

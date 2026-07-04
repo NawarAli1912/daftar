@@ -45,8 +45,8 @@ class PaymentViewModel @Inject constructor(
 
     fun suggestionLabel(typeId: String, askedUnit: Long): String =
         when (val result = Attributor.attribute(typeId, askedUnit, sources.value)) {
-            is Attribution.ToSource -> sourceNames.value[result.sourceId] ?: "غير محدد"
-            Attribution.Unmatched -> "غير محدد"
+            is Attribution.ToSource -> sourceNames.value[result.sourceId] ?: com.daftar.app.kernel.i18n.Str.unspecified
+            Attribution.Unmatched -> com.daftar.app.kernel.i18n.Str.unspecified
         }
 
     suspend fun record(

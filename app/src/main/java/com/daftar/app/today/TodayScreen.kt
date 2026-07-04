@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,12 +34,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.daftar.app.kernel.format.ArabicNumbers
 import com.daftar.app.kernel.i18n.Str
 import com.daftar.app.kernel.ledger.EntryKind
 import com.daftar.app.kernel.theme.DaftarColors
+import com.daftar.app.kernel.ui.Eyebrow
+import com.daftar.app.kernel.ui.Hairline
+import com.daftar.app.kernel.ui.LedgerRow
+import com.daftar.app.kernel.ui.SectionCard
+import com.daftar.app.kernel.ui.SumLine
 import com.daftar.app.payments.PaymentSheet
 import com.daftar.app.payments.PaymentViewModel
 import com.daftar.app.sales.SaleScreen
@@ -87,26 +94,36 @@ fun TodayScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            TotalsHeader(paymentsTotal = state.paymentsTotal)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 160.dp),
+        ) {
+            item {
+                Eyebrow(Str.todayBook)
+                Spacer(Modifier.height(4.dp))
+            }
             if (state.cards.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                item {
+                    Spacer(Modifier.height(48.dp))
                     Text(
                         Str.emptyDay,
                         style = MaterialTheme.typography.bodyLarge,
                         color = DaftarColors.TextSecondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
                     )
                 }
             } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.cards, key = { it.key }) { card ->
-                        when (card) {
-                            is DayCard.Ledger -> LedgerCard(card)
-                            is DayCard.Sale -> SaleCard(card)
+                item {
+                    SectionCard(modifier = Modifier.padding(top = 8.dp)) {
+                        state.cards.forEachIndexed { index, card ->
+                            if (index > 0) Hairline(Modifier.padding(horizontal = 16.dp))
+                            when (card) {
+                                is DayCard.Ledger -> LedgerEntryRow(card)
+                                is DayCard.Sale -> SaleEntryRow(card)
+                            }
                         }
+                        SumLine(Str.receivedToday, Str.money(state.paymentsTotal))
                     }
                 }
             }
@@ -159,116 +176,33 @@ fun TodayScreen(
 }
 
 @Composable
-private fun TotalsHeader(paymentsTotal: Long) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DaftarColors.Surface1),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(Str.todayBook, style = MaterialTheme.typography.headlineSmall)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    Str.receivedToday,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = DaftarColors.TextSecondary,
-                )
-                Text(
-                    Str.money(paymentsTotal),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = DaftarColors.Teal,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun LedgerCard(card: DayCard.Ledger) {
+private fun LedgerEntryRow(card: DayCard.Ledger) {
     val kindLabel = when (card.entry.kind) {
         EntryKind.OPENING_BALANCE.name -> Str.oldDebt
         else -> Str.payment
     }
-    Card(colors = CardDefaults.cardColors(containerColor = DaftarColors.Surface1)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(
-                    "$kindLabel — ${card.customerName ?: Str.unspecified}",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    formatTime(card.entry.happenedAt),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = DaftarColors.TextSecondary,
-                )
-            }
-            Text(
-                Str.money(card.entry.amount),
-                style = MaterialTheme.typography.titleMedium,
-                color = if (card.entry.kind == EntryKind.OPENING_BALANCE.name) {
-                    DaftarColors.Amber
-                } else {
-                    DaftarColors.Teal
-                },
-            )
-        }
-    }
+    val isDebt = card.entry.kind == EntryKind.OPENING_BALANCE.name
+    LedgerRow(
+        title = card.customerName ?: Str.unspecified,
+        subtitle = "$kindLabel · ${formatTime(card.entry.happenedAt)}",
+        amountText = Str.money(card.entry.amount),
+        amountColor = if (isDebt) DaftarColors.Amber else DaftarColors.Teal,
+    )
 }
 
 @Composable
-private fun SaleCard(card: DayCard.Sale) {
-    Card(colors = CardDefaults.cardColors(containerColor = DaftarColors.Surface1)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "${Str.sale} — ${card.customerName ?: Str.unspecified}",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                if (card.linesSummary.isNotEmpty()) {
-                    Text(
-                        card.linesSummary,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = DaftarColors.TextSecondary,
-                    )
-                }
-                Text(
-                    formatTime(card.happenedAt),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = DaftarColors.TextSecondary,
-                )
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    Str.money(card.total),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = DaftarColors.Teal,
-                )
-                if (card.paidNow > 0 && card.paidNow < card.total) {
-                    Text(
-                        "${Str.paidShort} ${Str.money(card.paidNow)}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = DaftarColors.TextSecondary,
-                    )
-                }
-            }
-        }
-    }
+private fun SaleEntryRow(card: DayCard.Sale) {
+    LedgerRow(
+        title = card.customerName ?: Str.unspecified,
+        subtitle = buildString {
+            append(Str.sale)
+            if (card.linesSummary.isNotEmpty()) append(" · ${card.linesSummary}")
+            append(" · ${formatTime(card.happenedAt)}")
+        },
+        amountText = Str.money(card.total),
+        amountColor = DaftarColors.Teal,
+        trailingNote = if (card.paidNow in 1 until card.total) {
+            "${Str.paidShort} ${Str.money(card.paidNow)}"
+        } else null,
+    )
 }

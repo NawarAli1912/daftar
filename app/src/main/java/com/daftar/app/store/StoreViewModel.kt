@@ -2,13 +2,18 @@ package com.daftar.app.store
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 // Undo payload — snapshot of each shelf item's `sold` before the entry, so ↺ تراجع restores it.
 data class Undo(val id: String, val dS: Long, val dC: Long, val before: List<Pair<String, Int>>)
@@ -49,12 +54,33 @@ data class StoreState(
     val payTypeId: String? = null,
 )
 
-class StoreViewModel : ViewModel() {
+@HiltViewModel
+class StoreViewModel @Inject constructor(
+    private val repo: StoreRepository,
+) : ViewModel() {
     private val _state = MutableStateFlow(StoreState())
     val state: StateFlow<StoreState> = _state.asStateFlow()
 
     private val s get() = _state.value
     private fun set(f: (StoreState) -> StoreState) = _state.update(f)
+
+    init {
+        // Load the persisted ledger, then keep the DB in step with the persistable
+        // slice of state (transient sheet/stepper changes don't touch disk).
+        viewModelScope.launch {
+            repo.load()?.let { snap ->
+                _state.update {
+                    it.copy(
+                        seeded = snap.seeded, salesToday = snap.salesToday, cashToday = snap.cashToday,
+                        sources = snap.sources, shelf = snap.shelf, entries = snap.entries,
+                    )
+                }
+            }
+            state.map {
+                StoreSnapshot(it.seeded, it.salesToday, it.cashToday, it.sources, it.shelf, it.entries)
+            }.distinctUntilChanged().drop(1).collect { repo.save(it) }
+        }
+    }
 
     private fun srcLabel(id: String?): String =
         s.sources.find { it.id == id }?.label ?: "غير محدد"

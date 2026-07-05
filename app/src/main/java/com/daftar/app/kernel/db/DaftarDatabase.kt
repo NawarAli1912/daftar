@@ -13,8 +13,12 @@ import androidx.room.RoomDatabase
         SaleLineEntity::class,
         StockSourceEntity::class,
         IntakeLineEntity::class,
+        SourceRow::class,
+        ShelfRow::class,
+        EntryRow::class,
+        StoreMetaRow::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class DaftarDatabase : RoomDatabase() {
@@ -24,4 +28,5 @@ abstract class DaftarDatabase : RoomDatabase() {
     abstract fun itemTypeDao(): ItemTypeDao
     abstract fun saleDao(): SaleDao
     abstract fun stockDao(): StockDao
+    abstract fun storeDao(): StoreDao
 }

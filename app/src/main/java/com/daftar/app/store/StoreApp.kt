@@ -38,12 +38,12 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.daftar.app.kernel.theme.Amiri
 import com.daftar.app.kernel.theme.Plex
 
 @Composable
-fun StoreApp(vm: StoreViewModel = viewModel()) {
+fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     val st by vm.state.collectAsState()
     // Back closes an open sheet first, then falls back to اليوم; only اليوم exits the app.
     val overlayOpen = st.screen != "home" || st.specifyId != null

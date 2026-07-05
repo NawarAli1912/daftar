@@ -55,7 +55,18 @@ data class DayEntry(
     val day: Long = 0,
     val saleAmount: Long = 0,
     val cashAmount: Long = 0,
+    // How this entry changed each shelf item's `sold` count ("id:delta,id:delta"),
+    // so voiding it can put the stock back. Sales add sold (+), returns subtract (−).
+    val stockDelta: String = "",
 )
+
+fun encodeStock(delta: Map<String, Int>): String =
+    delta.entries.filter { it.value != 0 }.joinToString(",") { "${it.key}:${it.value}" }
+
+fun decodeStock(s: String): List<Pair<String, Int>> =
+    if (s.isBlank()) emptyList() else s.split(",").mapNotNull {
+        val p = it.split(":"); if (p.size == 2) p[0] to (p[1].toIntOrNull() ?: 0) else null
+    }
 
 fun entriesForDay(entries: List<DayEntry>, day: Long): List<DayEntry> =
     entries.filter { it.day == day }

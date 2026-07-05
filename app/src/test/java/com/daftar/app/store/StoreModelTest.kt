@@ -139,6 +139,24 @@ class StoreModelTest {
     }
 
     @Test
+    fun `stock delta round-trips so a voided entry can restore the shelf`() {
+        assertEquals("h1:2,h4:1", encodeStock(mapOf("h1" to 2, "h4" to 1)))
+        assertEquals("h9:-1", encodeStock(mapOf("h9" to -1))) // a return puts one back
+        assertEquals("", encodeStock(mapOf("h1" to 0)))       // no-op deltas are dropped
+        assertEquals(listOf("h1" to 2, "h4" to 1), decodeStock("h1:2,h4:1"))
+        assertEquals(emptyList<Pair<String, Int>>(), decodeStock(""))
+    }
+
+    @Test
+    fun `a return credits the balance like a payment`() {
+        val c = Customer("c1", "زبونة", null, 10_000)
+        val entries = listOf(
+            DayEntry("r1", "إرجاع", "", "↩ 4,000", "amber", "c1", debtDelta = -4_000),
+        )
+        assertEquals(6_000L, customerBalance(c, entries)) // 10,000 owed − 4,000 returned
+    }
+
+    @Test
     fun `day labels read today, yesterday, then a dated weekday`() {
         val today = java.time.LocalDate.of(2026, 7, 5).toEpochDay() // a Sunday
         assertEquals("اليوم", dayLabel(today, today))

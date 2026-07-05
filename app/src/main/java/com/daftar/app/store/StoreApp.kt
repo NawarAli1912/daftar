@@ -45,10 +45,14 @@ import com.daftar.app.kernel.theme.Plex
 @Composable
 fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     val st by vm.state.collectAsState()
-    // Back closes an open sheet first, then falls back to اليوم; only اليوم exits the app.
-    val overlayOpen = st.screen != "home" || st.specifyId != null
+    // Back closes an open sheet/overlay first, then falls back to اليوم; only اليوم exits.
+    val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
+        st.detailEntryId != null || st.detailCustomerId != null
     androidx.activity.compose.BackHandler(enabled = st.seeded && (overlayOpen || st.tab != "today")) {
         when {
+            st.custPickerOpen -> vm.closeCustPicker()
+            st.detailEntryId != null -> vm.closeEntry()
+            st.detailCustomerId != null -> vm.closeCustomer()
             st.specifyId != null -> vm.closeSpecify()
             st.screen != "home" -> vm.closeSheet()
             else -> vm.setTab("today")
@@ -70,7 +74,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                     when (st.tab) {
                         "today" -> TodayScreen(st, vm)
                         "cust" -> CustScreen(st, vm)
-                        "appts" -> ApptsScreen(st)
+                        "appts" -> ApptsScreen(st, vm)
                         "account" -> AccountScreen(st, vm)
                     }
                 }
@@ -183,7 +187,7 @@ private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
             }.padding(horizontal = 14.dp),
         ) {
             Column {
-                dayEntries.forEach { e -> EntryRow(e) }
+                dayEntries.forEach { e -> EntryRow(e) { vm.openEntry(e.id) } }
             }
         }
     }
@@ -202,10 +206,10 @@ private fun DayNavArrow(sym: String, enabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EntryRow(e: DayEntry) {
+private fun EntryRow(e: DayEntry, onClick: () -> Unit) {
     val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; else -> cInk }
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 12.dp).padding(start = 26.dp)
+        Modifier.fillMaxWidth().tap(onClick).padding(vertical = 12.dp).padding(start = 26.dp)
             .drawBottomLine(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,
@@ -252,7 +256,7 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
             st.customers.forEach { c ->
                 val bal = customerBalance(c, st.entries)
                 val amt = if (bal > 0) fmt(bal) else if (bal == 0L) "لا شيء" else "لها ${fmt(-bal)}"
-                StaticListRow(c.name, c.phone ?: "زبونة", amt, if (bal > 0) cDebt else cPaid)
+                StaticListRow(c.name, c.phone ?: "زبونة", amt, if (bal > 0) cDebt else cPaid) { vm.openCustomer(c.id) }
             }
         }
     }
@@ -262,7 +266,7 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
 
 // ── المواعيد ──
 @Composable
-private fun ApptsScreen(st: StoreState) {
+private fun ApptsScreen(st: StoreState, vm: StoreViewModel) {
     val ds = debtors(st.customers, st.entries)
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 12.dp)) {
         Text(
@@ -282,15 +286,15 @@ private fun ApptsScreen(st: StoreState) {
         }
     } else {
         Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
-            ds.forEach { d -> StaticListRow(d.customer.name, d.customer.phone ?: "دين مستحق", fmt(d.balance), cDebt) }
+            ds.forEach { d -> StaticListRow(d.customer.name, d.customer.phone ?: "دين مستحق", fmt(d.balance), cDebt) { vm.openCustomer(d.customer.id) } }
         }
     }
 }
 
 @Composable
-private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Color, amtBold: Boolean = true) {
+private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Color, amtBold: Boolean = true, onClick: (() -> Unit)? = null) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 13.dp).drawBottomLine(),
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.tap(onClick) else Modifier).padding(vertical = 13.dp).drawBottomLine(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

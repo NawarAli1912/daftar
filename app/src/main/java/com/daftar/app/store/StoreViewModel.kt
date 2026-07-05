@@ -61,6 +61,12 @@ data class StoreState(
     val pkgAddOpen: Boolean = false,
     val payAmount: Long = 5_000,
     val payTypeId: String? = null,
+    // returns
+    val returnAmount: Long = 5_000,
+    val returnItemId: String? = null,
+    // entry detail (view / void a past entry) + customer detail
+    val detailEntryId: String? = null,
+    val detailCustomerId: String? = null,
 )
 
 @HiltViewModel
@@ -264,6 +270,7 @@ class StoreViewModel @Inject constructor(
             customerId = s.saleCustomerId,
             debtDelta = -amt, // a payment reduces the customer's debt
             day = today(), saleAmount = 0, cashAmount = amt,
+            stockDelta = if (tid != null) encodeStock(mapOf(tid to 1)) else "",
         )
         val before = if (tid != null) listOf(tid to (s.shelf.find { it.id == tid }?.sold ?: 0)) else emptyList()
         val u = Undo(entry.id, before)
@@ -275,6 +282,61 @@ class StoreViewModel @Inject constructor(
             )
         }
         armUndo(u)
+    }
+
+    // ── returns (إرجاع) — value credited back to the customer's balance ──
+    fun openReturn() = set { it.copy(screen = "return", returnAmount = 5_000, returnItemId = null, saleCustomerId = null) }
+    fun returnAmountStep(d: Int) = set { it.copy(returnAmount = maxOf(0, it.returnAmount + d * 500)) }
+    fun returnPickItem(id: String) = set {
+        val item = it.shelf.find { x -> x.id == id }
+        val already = it.returnItemId == id
+        it.copy(returnItemId = if (already) null else id, returnAmount = if (already) it.returnAmount else (item?.tasira ?: it.returnAmount))
+    }
+    fun saveReturn() {
+        val amt = s.returnAmount
+        val iid = s.returnItemId
+        val item = iid?.let { id -> s.shelf.find { it.id == id } }
+        val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
+        val entry = DayEntry(
+            id = "e" + System.currentTimeMillis(),
+            t = "إرجاع" + (item?.let { " — " + it.name } ?: "") + " — " + (cust?.name ?: "نقدي"),
+            d = "الآن · قيمة تُعاد للرصيد" + (item?.let { " · أُعيد للرف" } ?: ""),
+            amt = "↩ " + fmt(amt), cls = "amber",
+            customerId = s.saleCustomerId,
+            debtDelta = -amt, // a return credits her balance
+            day = today(), saleAmount = 0, cashAmount = 0,
+            stockDelta = if (iid != null) encodeStock(mapOf(iid to -1)) else "", // item back on the shelf
+        )
+        val before = if (iid != null) listOf(iid to (s.shelf.find { it.id == iid }?.sold ?: 0)) else emptyList()
+        val u = Undo(entry.id, before)
+        set {
+            it.copy(
+                screen = "home", entries = listOf(entry) + it.entries, viewedDay = it.today,
+                shelf = if (iid != null) it.shelf.map { x -> if (x.id == iid) x.copy(sold = maxOf(0, x.sold - 1)) else x } else it.shelf,
+                undo = u,
+            )
+        }
+        armUndo(u)
+    }
+
+    // ── entry detail: view a past entry and void it (reverses debt, totals, stock) ──
+    fun openEntry(id: String) = set { it.copy(detailEntryId = id) }
+    fun closeEntry() = set { it.copy(detailEntryId = null) }
+    fun voidEntry(id: String) = set {
+        val e = it.entries.find { x -> x.id == id } ?: return@set it
+        val deltas = decodeStock(e.stockDelta)
+        it.copy(
+            entries = it.entries.filterNot { x -> x.id == id },
+            shelf = it.shelf.map { x -> deltas.find { d -> d.first == x.id }?.let { d -> x.copy(sold = maxOf(0, x.sold - d.second)) } ?: x },
+            detailEntryId = null, undo = null,
+        )
+    }
+
+    // ── customer detail: her balance + history + record a payment for her ──
+    fun openCustomer(id: String) = set { it.copy(detailCustomerId = id) }
+    fun closeCustomer() = set { it.copy(detailCustomerId = null) }
+    fun payThisCustomer(id: String) = set {
+        it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = id, detailCustomerId = null)
     }
 
     // ── sale ──
@@ -316,6 +378,8 @@ class StoreViewModel @Inject constructor(
         val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
         val prefix = if (isTrial) "أمانة" else "بيع"
         val who = cust?.name ?: "نقدي"
+        val soldMap = HashMap<String, Int>()
+        s.lines.forEach { l -> soldMap[l.shelfId] = (soldMap[l.shelfId] ?: 0) + l.qty }
         val entry = DayEntry(
             id = "e" + System.currentTimeMillis(),
             t = (if (cust != null) "$prefix — $who" else "$prefix نقدي") + (if (names.isNotEmpty()) " — $names" else ""),
@@ -331,16 +395,15 @@ class StoreViewModel @Inject constructor(
             day = today(),
             saleAmount = if (isTrial) 0 else total, // أمانة is excluded from the day's sales
             cashAmount = paid,
+            stockDelta = encodeStock(soldMap),
         )
-        val sold = HashMap<String, Int>()
-        s.lines.forEach { l -> sold[l.shelfId] = (sold[l.shelfId] ?: 0) + l.qty }
         val before = s.shelf.map { it.id to it.sold }
         val u = Undo(entry.id, before)
         set {
             it.copy(
                 screen = "home", lines = emptyList(), entries = listOf(entry) + it.entries,
                 viewedDay = it.today,
-                shelf = it.shelf.map { x -> sold[x.id]?.let { q -> x.copy(sold = x.sold + q) } ?: x },
+                shelf = it.shelf.map { x -> soldMap[x.id]?.let { q -> x.copy(sold = x.sold + q) } ?: x },
                 undo = u,
             )
         }

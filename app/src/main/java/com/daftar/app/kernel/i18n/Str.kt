@@ -151,6 +151,10 @@ object Str {
     val packageKind get() = s("Kind", "النوع")
     val nItems get() = s("items", "صنف")
     val repointHint get() = s("Tap a source to correct where each item came from", "اضغطي على مصدر لتصحيح مصدر كل قطعة")
+    val summaryTab get() = s("Summary", "الملخص")
+    val owedToShop get() = s("Owed to the shop", "المستحق للمحل")
+    val profitSoFar get() = s("Profit so far", "الربح حتى الآن")
+    val noPackagesYet get() = s("No packages yet — add a bale to see profit", "لا حزم بعد — أضيفي بالة لعرض الربح")
 
     val profitTab get() = s("Profit", "الأرباح")
     val soldLabel get() = s("Sold", "المُباع")

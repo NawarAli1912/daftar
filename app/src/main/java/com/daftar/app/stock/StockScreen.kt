@@ -83,16 +83,65 @@ fun StockScreen(viewModel: StockViewModel = hiltViewModel()) {
                 .padding(start = 16.dp, top = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FilterChip(section == 0, { section = 0 }, label = { Text(Str.itemsTab) })
-            FilterChip(section == 1, { section = 1 }, label = { Text(Str.packagesTab) })
-            FilterChip(section == 2, { section = 2 }, label = { Text(Str.typesTitle) })
-            FilterChip(section == 3, { section = 3 }, label = { Text(Str.demo) })
+            FilterChip(section == 0, { section = 0 }, label = { Text(Str.summaryTab) })
+            FilterChip(section == 1, { section = 1 }, label = { Text(Str.sources) })
+            FilterChip(section == 2, { section = 2 }, label = { Text(Str.itemsTab) })
+            FilterChip(section == 3, { section = 3 }, label = { Text(Str.typesTitle) })
+            FilterChip(section == 4, { section = 4 }, label = { Text(Str.demo) })
         }
         when (section) {
-            0 -> ItemsSection(viewModel)
+            0 -> SummarySection()
             1 -> PackagesSection(viewModel)
-            2 -> TypesSection(viewModel)
+            2 -> ItemsSection(viewModel)
+            3 -> TypesSection(viewModel)
             else -> DemoSection(viewModel)
+        }
+    }
+}
+
+// ─────────────────────────── الملخص (owner summary) ───────────────────────────
+
+@Composable
+private fun SummarySection(viewModel: SummaryViewModel = hiltViewModel()) {
+    val s by viewModel.summary.collectAsState()
+    if (s.packageCount == 0 && s.outstandingDebt == 0L) {
+        EmptyHint(Str.noPackagesYet)
+        return
+    }
+    LazyColumn(
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+    ) {
+        item {
+            Eyebrow(Str.summaryTab)
+            SectionCard(Modifier.padding(top = 8.dp)) {
+                LedgerRow(
+                    Str.owedToShop,
+                    null,
+                    Str.money(s.outstandingDebt),
+                    if (s.outstandingDebt > 0) DaftarColors.Amber else DaftarColors.TextSecondary,
+                )
+                Hairline(Modifier.padding(horizontal = 16.dp))
+                LedgerRow(
+                    Str.soldLabel,
+                    "${Str.count(s.packageCount)} ${Str.packagesTab}",
+                    Str.money(s.soldValue),
+                )
+                if (s.profitKnown) {
+                    SumLine(
+                        Str.profitSoFar,
+                        (if (s.profitSoFar >= 0) "+" else "−") + Str.money(abs(s.profitSoFar)),
+                        if (s.profitSoFar >= 0) DaftarColors.Green else DaftarColors.Red,
+                    )
+                }
+                if (s.agingCount > 0) {
+                    Text(
+                        "${Str.count(s.agingCount)} · ${Str.agingNudge}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = DaftarColors.Amber,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    )
+                }
+            }
         }
     }
 }

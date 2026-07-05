@@ -285,7 +285,7 @@ private fun LedgerEntryRow(card: DayCard.Ledger) {
     val color = when (card.entry.kind) {
         EntryKind.OPENING_BALANCE.name -> DaftarColors.Amber
         EntryKind.RETURN.name -> DaftarColors.Green
-        else -> DaftarColors.Teal
+        else -> DaftarColors.Green
     }
     LedgerRow(
         title = card.customerName ?: Str.unspecified,
@@ -306,7 +306,7 @@ private fun SaleEntryRow(card: DayCard.Sale, onClick: () -> Unit) {
                 append(" · ${formatTime(card.happenedAt)}")
             },
             amountText = Str.money(card.total),
-            amountColor = DaftarColors.Teal,
+            amountColor = DaftarColors.Green,
             trailingNote = if (card.paidNow in 1 until card.total) {
                 "${Str.paidShort} ${Str.money(card.paidNow)}"
             } else null,

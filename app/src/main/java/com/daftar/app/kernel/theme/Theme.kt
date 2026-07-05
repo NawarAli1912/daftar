@@ -18,19 +18,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.daftar.app.R
 
-// D44: clean light theme — iOS-grouped surfaces, paper-honest for a daftar.
+// Ledger-paper (matches prototype daftar-app-v1, owner 2026-07-05, supersedes D44):
+// warm cream paper, ink text, ink primary actions, oxblood brand + margin rule, green money.
 object DaftarColors {
-    val Surface0 = Color(0xFFF3F2F7) // app background — soft neutral, not stark white
-    val Surface1 = Color(0xFFFFFFFF) // cards
-    val Surface2 = Color(0xFFECEBF1) // subtle fills, selected chips
-    val Hairline = Color(0xFFE4E3EA) // dividers, ledger rules
-    val TextPrimary = Color(0xFF1C1C1E)
-    val TextSecondary = Color(0xFF8A8A8E)
-    val Teal = Color(0xFF10766A) // refined accent, legible on light
-    val OnTeal = Color(0xFFFFFFFF)
-    val Red = Color(0xFFD6453F) // debt
-    val Green = Color(0xFF2E9E5B) // paid / shop-owes
-    val Amber = Color(0xFFB4791F) // old debt
+    val Surface0 = Color(0xFFE9E5DC) // warm paper background
+    val Surface1 = Color(0xFFFBFAF7) // card — off-white paper
+    val Surface2 = Color(0xFFEFE9DE) // subtle fills, selected chips
+    val Hairline = Color(0xFFE0DACE) // ledger rules, dividers
+    val TextPrimary = Color(0xFF211E1A) // ink
+    val TextSecondary = Color(0xFF8C857A) // dim
+    val Teal = Color(0xFF211E1A) // primary action — the prototype's ink buttons/FABs
+    val OnTeal = Color(0xFFF7F4EC) // light ink on the dark action
+    val Oxblood = Color(0xFFB23124) // brand: wordmark, the margin rule, debt
+    val Red = Color(0xFFB23124) // debt / negative
+    val Green = Color(0xFF2F6B3D) // paid / money-in
+    val Amber = Color(0xFF996410) // old debt / aging
 }
 
 val Cairo = FontFamily(Font(R.font.cairo))
@@ -75,9 +77,9 @@ fun DaftarTheme(content: @Composable () -> Unit) {
             colorScheme = LightScheme,
             typography = DaftarTypography,
             shapes = Shapes(
-                small = RoundedCornerShape(14.dp),
-                medium = RoundedCornerShape(20.dp),
-                large = RoundedCornerShape(26.dp),
+                small = RoundedCornerShape(10.dp),
+                medium = RoundedCornerShape(13.dp),
+                large = RoundedCornerShape(16.dp),
             ),
             content = content,
         )

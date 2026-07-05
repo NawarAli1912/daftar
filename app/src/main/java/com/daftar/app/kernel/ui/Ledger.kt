@@ -4,11 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,7 +48,16 @@ fun SectionCard(
         color = DaftarColors.Surface1,
         shape = MaterialTheme.shapes.large,
     ) {
-        Column(content = content)
+        // The ledger-page signature: a thin oxblood margin rule down the start edge.
+        Row(Modifier.height(IntrinsicSize.Min)) {
+            Box(
+                Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(DaftarColors.Oxblood.copy(alpha = 0.55f)),
+            )
+            Column(Modifier.weight(1f), content = content)
+        }
     }
 }
 
@@ -102,7 +114,7 @@ fun LedgerRow(
 
 // The signature: a paper cash-book's double rule above a sum.
 @Composable
-fun SumLine(label: String, amountText: String, amountColor: Color = DaftarColors.Teal) {
+fun SumLine(label: String, amountText: String, amountColor: Color = DaftarColors.Green) {
     Column(Modifier.fillMaxWidth()) {
         Hairline()
         Spacer(Modifier.height(2.dp))

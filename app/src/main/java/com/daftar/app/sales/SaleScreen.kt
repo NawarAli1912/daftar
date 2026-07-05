@@ -179,7 +179,7 @@ fun SaleScreen(
             Text(
                 Str.money(total),
                 style = MaterialTheme.typography.titleMedium,
-                color = DaftarColors.Teal,
+                color = DaftarColors.Green,
             )
         }
         if (selectedCustomerId != null && total - paidNow > 0) {
@@ -327,7 +327,7 @@ private fun BasketLineCard(
                     Text(
                         Str.money(LedgerMath.lineTotal(line.qty, line.agreedUnit)),
                         style = MaterialTheme.typography.titleMedium,
-                        color = DaftarColors.Teal,
+                        color = DaftarColors.Green,
                     )
                 }
             }

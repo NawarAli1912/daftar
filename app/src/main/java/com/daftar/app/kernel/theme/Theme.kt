@@ -37,6 +37,14 @@ object DaftarColors {
 
 val Cairo = FontFamily(Font(R.font.cairo))
 
+// IBM Plex Sans Arabic — the V2 prototype's body face (weights 400/500/600/700).
+val Plex = FontFamily(
+    Font(R.font.ibm_plex_sans_arabic_regular, FontWeight.Normal),
+    Font(R.font.ibm_plex_sans_arabic_medium, FontWeight.Medium),
+    Font(R.font.ibm_plex_sans_arabic_semibold, FontWeight.SemiBold),
+    Font(R.font.ibm_plex_sans_arabic_bold, FontWeight.Bold),
+)
+
 // Amiri serif — the prototype's wordmark/brand face (oxblood دفتر).
 val Amiri = FontFamily(
     Font(R.font.amiri_regular),
@@ -62,17 +70,17 @@ private val LightScheme = lightColorScheme(
     error = DaftarColors.Red,
 )
 
-private fun cairo(size: Int, weight: FontWeight = FontWeight.Normal) =
-    TextStyle(fontFamily = Cairo, fontSize = size.sp, fontWeight = weight)
+private fun plex(size: Int, weight: FontWeight = FontWeight.Normal) =
+    TextStyle(fontFamily = Plex, fontSize = size.sp, fontWeight = weight)
 
 private val DaftarTypography = Typography(
-    headlineSmall = cairo(24, FontWeight.Bold),
-    titleLarge = cairo(20, FontWeight.Bold),
-    titleMedium = cairo(17, FontWeight.SemiBold),
-    bodyLarge = cairo(16),
-    bodyMedium = cairo(14),
-    labelLarge = cairo(15, FontWeight.SemiBold),
-    labelMedium = cairo(13),
+    headlineSmall = plex(24, FontWeight.Bold),
+    titleLarge = plex(20, FontWeight.Bold),
+    titleMedium = plex(17, FontWeight.SemiBold),
+    bodyLarge = plex(16),
+    bodyMedium = plex(14),
+    labelLarge = plex(15, FontWeight.SemiBold),
+    labelMedium = plex(13),
 )
 
 @Composable

@@ -1,0 +1,84 @@
+package com.daftar.app.store
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+// Locks the D51 derivations to the V2 prototype's renderVals() math. The expected
+// numbers here are exactly what the prototype's sample data renders.
+class StoreModelTest {
+
+    private val sources = sampleSources()
+    private val shelf = sampleShelf()
+
+    @Test
+    fun `onHand cnt and inPkg follow the two-tier rules`() {
+        val fustan = shelf.first { it.id == "h1" } // shelved 34, sold 12, counted 50
+        assertEquals(22, fustan.onHand)
+        assertEquals(50, fustan.cnt)
+        assertEquals(16, fustan.inPkg) // 50 counted − 34 shelved
+        val bantalPre = shelf.first { it.id == "h3" } // shelved 22, sold 25, no count
+        assertEquals(-3, bantalPre.onHand) // oversold — kept honest
+        assertEquals(22, bantalPre.cnt) // cnt falls back to shelved
+        assertEquals(0, bantalPre.inPkg)
+    }
+
+    @Test
+    fun `fmt renders western digits with thousands separators`() {
+        assertEquals("10,000", fmt(10_000))
+        assertEquals("205,000", fmt(205_000L))
+        assertEquals("0", fmt(0))
+    }
+
+    @Test
+    fun `revenue is attributed sold times tasira per source`() {
+        val rev = revenueBySource(shelf)
+        assertEquals(120_000L, rev["s_dr"]) // فستان 12 × 10,000
+        assertEquals(255_000L, rev["s_pc"]) // بنطال 28×7,500 + قميص 9×5,000
+        assertEquals(205_000L, rev[PRE_ID]) // 25×5,000 + 3×12,000 + 11×4,000
+        assertEquals(18_000L, rev[MKT_ID]) // حقيبة 2 × 9,000
+    }
+
+    @Test
+    fun `remaining on shelf is counted minus sold, clamped at zero`() {
+        val rem = remainBySource(shelf)
+        assertEquals(38, rem["s_dr"]) // 50 − 12
+        assertEquals(33, rem["s_pc"]) // (40−28) + (30−9)
+        assertEquals(22, rem[PRE_ID]) // (22−25→0) + (6−3) + (30−11)
+        assertEquals(3, rem[MKT_ID]) // 5 − 2
+    }
+
+    @Test
+    fun `bale profit is revenue minus cost in USD times the local rate`() {
+        val dr = sourceViews(sources, shelf).first { it.id == "s_dr" }
+        assertEquals(-480_000L, dr.profit) // 120,000 − 400×1500
+        assertEquals("$400", dr.costFmt)
+        assertEquals("120,000", dr.revFmt)
+        assertEquals("− 480,000", dr.profitFmt)
+        assertEquals(38, dr.remain)
+        assertEquals(16, dr.inPkg)
+        assertTrue(dr.isBale)
+    }
+
+    @Test
+    fun `market profit is revenue minus per-unit buy times shelved`() {
+        val mkt = sourceViews(sources, shelf).first { it.id == MKT_ID }
+        assertEquals(-2_000L, mkt.profit) // 18,000 − 4,000×5
+        assertEquals("20,000", mkt.costFmt)
+    }
+
+    @Test
+    fun `before-the-app source has no cost basis and no profit`() {
+        val pre = sourceViews(sources, shelf).first { it.id == PRE_ID }
+        assertNull(pre.profit)
+        assertEquals("—", pre.costFmt)
+        assertEquals("—", pre.profitFmt)
+    }
+
+    @Test
+    fun `total on-hand and unspecified count match the summary`() {
+        assertEquals(96, shelf.sumOf { maxOf(0, it.onHand) })
+        assertEquals(2, shelf.count { it.unspecified }) // طقم أطفال + تنورة
+    }
+}

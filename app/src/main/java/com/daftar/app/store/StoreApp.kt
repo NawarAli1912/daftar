@@ -70,7 +70,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                     when (st.tab) {
                         "today" -> TodayScreen(st)
                         "cust" -> CustScreen(st, vm)
-                        "appts" -> ApptsScreen()
+                        "appts" -> ApptsScreen(st)
                         "account" -> AccountScreen(st, vm)
                     }
                 }
@@ -235,13 +235,28 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
 
 // ── المواعيد ──
 @Composable
-private fun ApptsScreen() {
+private fun ApptsScreen(st: StoreState) {
+    val ds = debtors(st.customers, st.entries)
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 12.dp)) {
-        Text("🔔 صباح الخير — ٣ زبائن مستحقات اليوم", fontSize = 12.5.sp, color = cPaid)
+        Text(
+            if (ds.isEmpty()) "☀️ صباح الخير — لا ديون مستحقة، كل شيء مسدَّد"
+            else "🔔 صباح الخير — ${ds.size} زبائن عليهن ديون اليوم",
+            fontSize = 12.5.sp, color = cPaid,
+        )
     }
     Spacer(Modifier.height(12.dp))
-    Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
-        APPT_ROWS.forEach { r -> StaticListRow(r.name, r.sub, r.amt, cAmber, amtBold = true) }
+    if (ds.isEmpty()) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(cCard).dashedBorder(cLine, 14.dp).padding(vertical = 28.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("👍", fontSize = 28.sp, modifier = Modifier.padding(bottom = 8.dp))
+            Text("لا ديون مستحقة الآن", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+        }
+    } else {
+        Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
+            ds.forEach { d -> StaticListRow(d.customer.name, d.customer.phone ?: "دين مستحق", fmt(d.balance), cDebt) }
+        }
     }
 }
 

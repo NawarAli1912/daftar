@@ -64,6 +64,23 @@ data class Customer(
 fun customerBalance(c: Customer, entries: List<DayEntry>): Long =
     c.openingDebt + entries.filter { it.customerId == c.id }.sumOf { it.debtDelta }
 
+// Who owes the shop right now, largest first — the المواعيد list and the daily digest.
+data class Debtor(val customer: Customer, val balance: Long)
+
+fun debtors(customers: List<Customer>, entries: List<DayEntry>): List<Debtor> =
+    customers.map { Debtor(it, customerBalance(it, entries)) }
+        .filter { it.balance > 0 }
+        .sortedByDescending { it.balance }
+
+// The daily digest notification copy (title + body), kept pure so it can be tested
+// without the worker/emulator.
+fun digestTitleAndBody(due: List<Debtor>): Pair<String, String> {
+    val total = due.sumOf { it.balance }
+    val title = "${due.size} زبائن عليهن ديون — إجمالي ${fmt(total)}"
+    val body = due.joinToString("، ") { it.customer.name + " (" + fmt(it.balance) + ")" }
+    return title to body
+}
+
 data class SaleLine(
     val shelfId: String,
     val name: String,

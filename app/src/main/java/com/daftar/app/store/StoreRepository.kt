@@ -37,6 +37,10 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
         )
     }
 
+    // For the daily reminder digest (runs off the UI) — who owes, largest first.
+    suspend fun loadDebtors(): List<Debtor> =
+        load()?.let { debtors(it.customers, it.entries) } ?: emptyList()
+
     suspend fun save(s: StoreSnapshot) {
         dao.replaceAll(
             meta = StoreMetaRow(0, s.seeded, s.salesToday, s.cashToday),

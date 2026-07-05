@@ -105,4 +105,20 @@ class StoreModelTest {
         )
         assertEquals(3_000L, customerBalance(c, entries))
     }
+
+    @Test
+    fun `debtors lists only who owes, largest first`() {
+        val ds = debtors(sampleCustomers(), sampleEntries())
+        // فاطمة 35,000 then أم محمد 6,500 (سميرة at 0 is excluded)
+        assertEquals(listOf("فاطمة", "أم محمد"), ds.map { it.customer.name })
+        assertEquals(35_000L, ds.first().balance)
+    }
+
+    @Test
+    fun `digest copy names each debtor with her balance and the total`() {
+        val ds = debtors(sampleCustomers(), sampleEntries())
+        val (title, body) = digestTitleAndBody(ds)
+        assertEquals("2 زبائن عليهن ديون — إجمالي 41,500", title)
+        assertEquals("فاطمة (35,000)، أم محمد (6,500)", body)
+    }
 }

@@ -18,16 +18,14 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.daftar.app.MainActivity
-import com.daftar.app.kernel.db.CustomerDao
-import com.daftar.app.kernel.db.LedgerDao
-import com.daftar.app.kernel.db.ReminderDao
-import com.daftar.app.kernel.i18n.Str
+import com.daftar.app.store.Debtor
+import com.daftar.app.store.StoreRepository
+import com.daftar.app.store.digestTitleAndBody
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import java.time.Duration
-import java.time.LocalDate
 import java.time.ZonedDateTime
 
 // NFR-5 offline reminders (D2): a once-a-day WorkManager digest, not per-reminder exact
@@ -39,25 +37,17 @@ class RemindersWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(context, params) {
 
-    // Reach the Room DAOs without a HiltWorkerFactory — the default WorkManager factory
-    // instantiates this plain worker, and we pull dependencies from the Hilt graph here.
+    // Reach the store repository without a HiltWorkerFactory — the default WorkManager
+    // factory instantiates this plain worker, so we pull dependencies from the Hilt graph.
     @EntryPoint
     @InstallIn(SingletonComponent::class)
-    interface Daos {
-        fun customerDao(): CustomerDao
-        fun ledgerDao(): LedgerDao
-        fun reminderDao(): ReminderDao
+    interface Deps {
+        fun storeRepository(): StoreRepository
     }
 
     override suspend fun doWork(): Result {
-        val daos = EntryPointAccessors.fromApplication(applicationContext, Daos::class.java)
-        val book = ReminderBook.build(
-            customers = daos.customerDao().getAll(),
-            entries = daos.ledgerDao().getAll(),
-            reminders = daos.reminderDao().getAll(),
-            today = LocalDate.now(),
-        )
-        val due = ReminderBook.due(book)
+        val deps = EntryPointAccessors.fromApplication(applicationContext, Deps::class.java)
+        val due = deps.storeRepository().loadDebtors() // customers who owe, largest first
         if (due.isNotEmpty()) postDigest(applicationContext, due)
         return Result.success()
     }
@@ -68,11 +58,13 @@ class RemindersWorker(
         private const val DAILY_WORK = "daily-reminder-digest"
         private const val NOTIFY_HOUR = 9 // ~9am local, when the shop opens
 
+        // Arabic-only app (D8) — hardcode the channel copy; the worker can run before
+        // MainActivity has set the runtime language flag.
         fun ensureChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel = NotificationChannel(
-                    CHANNEL_ID, Str.notifChannelName, NotificationManager.IMPORTANCE_DEFAULT,
-                ).apply { description = Str.notifChannelDesc }
+                    CHANNEL_ID, "المواعيد", NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply { description = "تذكير يومي بالديون المستحقة" }
                 context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
             }
         }
@@ -95,7 +87,7 @@ class RemindersWorker(
             WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<RemindersWorker>().build())
         }
 
-        private fun postDigest(context: Context, due: List<ReminderBook.Entry>) {
+        private fun postDigest(context: Context, due: List<Debtor>) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED
@@ -104,7 +96,7 @@ class RemindersWorker(
             }
 
             ensureChannel(context)
-            val names = due.joinToString(Str.listSeparator) { it.customer.name }
+            val (title, lines) = digestTitleAndBody(due)
             val pending = PendingIntent.getActivity(
                 context, 0,
                 Intent(context, MainActivity::class.java).apply {
@@ -114,9 +106,9 @@ class RemindersWorker(
             )
             val notif = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
-                .setContentTitle(Str.notifTitle)
-                .setContentText(names)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(names))
+                .setContentTitle(title)
+                .setContentText(lines)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(lines))
                 .setContentIntent(pending)
                 .setAutoCancel(true)
                 .build()

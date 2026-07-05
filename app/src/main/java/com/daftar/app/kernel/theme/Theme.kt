@@ -37,6 +37,12 @@ object DaftarColors {
 
 val Cairo = FontFamily(Font(R.font.cairo))
 
+// Amiri serif — the prototype's wordmark/brand face (oxblood دفتر).
+val Amiri = FontFamily(
+    Font(R.font.amiri_regular),
+    Font(R.font.amiri_bold, FontWeight.Bold),
+)
+
 private val LightScheme = lightColorScheme(
     primary = DaftarColors.Teal,
     onPrimary = DaftarColors.OnTeal,

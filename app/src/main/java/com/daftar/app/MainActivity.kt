@@ -37,14 +37,18 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.daftar.app.customers.CustomersScreen
 import com.daftar.app.reminders.RemindersScreen
 import com.daftar.app.kernel.i18n.Str
+import com.daftar.app.kernel.theme.Amiri
 import com.daftar.app.kernel.theme.DaftarColors
 import com.daftar.app.kernel.theme.DaftarTheme
 import com.daftar.app.stock.StockScreen
@@ -103,10 +107,18 @@ private fun MainScaffold() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding() // keep the toggle clear of the status bar / notch
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.End,
+                    .statusBarsPadding() // keep the header clear of the status bar / notch
+                    .padding(start = 16.dp, end = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                Text( // the ledger wordmark — Amiri serif, oxblood (matches the prototype)
+                    "دفتر",
+                    fontFamily = Amiri,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp,
+                    color = DaftarColors.Oxblood,
+                )
                 TextButton(onClick = { Str.arabic = !Str.arabic }) {
                     Text(Str.appToggle, color = DaftarColors.TextSecondary)
                 }

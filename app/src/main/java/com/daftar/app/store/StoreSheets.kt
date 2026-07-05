@@ -50,6 +50,7 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
         "package" -> PackageSheet(st, vm)
         "addsrc" -> AddSourceSheet(st, vm)
     }
+    if (st.custPickerOpen) CustPicker(st, vm)
     if (st.specifyId != null) SpecifySheet(st, vm)
     if (st.undo != null && st.screen == "home") UndoToast(vm)
 }
@@ -140,13 +141,65 @@ private fun CardStepperRow(label: String, value: String, onMinus: () -> Unit, on
 }
 
 @Composable
-private fun CustomerRow() {
+private fun CustomerRow(st: StoreState, vm: StoreViewModel) {
+    val cust = st.saleCustomerId?.let { id -> st.customers.find { it.id == id } }
     Row(
-        Modifier.fillMaxWidth().card(12.dp).padding(horizontal = 13.dp, vertical = 11.dp),
+        Modifier.fillMaxWidth().card(12.dp).tap { vm.openCustPicker() }.padding(horizontal = 13.dp, vertical = 11.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("الزبونة", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim)
-        Text("بدون اسم — نقدي ›", fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = cInk)
+        Text(
+            (cust?.name ?: "بدون اسم — نقدي") + " ›",
+            fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = if (cust != null) cDebt else cInk,
+        )
+    }
+}
+
+@Composable
+private fun CustPicker(st: StoreState, vm: StoreViewModel) {
+    BottomSheet(onDismiss = vm::closeCustPicker) {
+        Text("لِمَن هذه العملية؟", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        // نقدي — no customer
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 8.dp).card(12.dp).tap { vm.pickCustomer(null) }.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("نقدي — بدون اسم", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk)
+            if (st.saleCustomerId == null) Text("✓", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cPaid)
+        }
+        st.customers.forEach { c ->
+            val bal = customerBalance(c, st.entries)
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 8.dp).card(12.dp).tap { vm.pickCustomer(c.id) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(c.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk)
+                Text(
+                    if (bal > 0) "عليها ${fmt(bal)}" else "لا دين",
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (bal > 0) cDebt else cPaid,
+                )
+            }
+        }
+        if (!st.custNewOpen) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cCard).dashedBorder(cLine, 12.dp).tap { vm.toggleCustNew() }.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("+ زبونة جديدة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = cAccent)
+            }
+        } else {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(13.dp)).padding(horizontal = 13.dp, vertical = 12.dp)) {
+                TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth())
+                Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("دين قديم (اختياري)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+                    LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, btnSize = 28.dp, valueMin = 60.dp)
+                }
+                Spacer(Modifier.height(11.dp))
+                PrimaryButton("أضيفي الزبونة ✓", fontSize = 14.sp, radius = 11.dp, vertical = 11.dp) { vm.addCustomer() }
+            }
+        }
     }
 }
 
@@ -186,7 +239,7 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
     Column(Modifier.fillMaxSize().background(cBg)) {
         SheetHeader("دفعة جديدة", onClose = vm::closeSheet)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
-            CustomerRow()
+            CustomerRow(st, vm)
             Spacer(Modifier.height(14.dp))
             Text("كم المبلغ؟", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
             Row(
@@ -228,7 +281,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
     Column(Modifier.fillMaxSize().background(cBg)) {
         SheetHeader("بيع جديد", onClose = vm::closeSheet)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 8.dp)) {
-            CustomerRow()
+            CustomerRow(st, vm)
             Spacer(Modifier.height(13.dp))
             Text("مقترحة من الرف — اضغطي لإضافتها", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 9.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

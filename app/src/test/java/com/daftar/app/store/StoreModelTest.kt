@@ -81,4 +81,28 @@ class StoreModelTest {
         assertEquals(96, shelf.sumOf { maxOf(0, it.onHand) })
         assertEquals(2, shelf.count { it.unspecified }) // طقم أطفال + تنورة
     }
+
+    @Test
+    fun `customer balance is opening debt plus the debt movements on her entries`() {
+        val customers = sampleCustomers()
+        val entries = sampleEntries()
+        val um = customers.first { it.id == "c_um" }   // 0 opening + 6,500 sale remainder
+        val sam = customers.first { it.id == "c_sam" } // 10,000 opening − 10,000 paid
+        val fat = customers.first { it.id == "c_fat" } // 35,000 opening, no entries
+        assertEquals(6_500L, customerBalance(um, entries))
+        assertEquals(0L, customerBalance(sam, entries))
+        assertEquals(35_000L, customerBalance(fat, entries))
+        // total owed to the shop
+        assertEquals(41_500L, customers.sumOf { maxOf(0L, customerBalance(it, entries)) })
+    }
+
+    @Test
+    fun `a payment reduces the balance and a partial sale adds the remainder`() {
+        val c = Customer("c1", "زبونة", null, 0)
+        val entries = listOf(
+            DayEntry("s1", "بيع", "", "10,000", "ink", "c1", debtDelta = 4_000), // paid 6k of 10k
+            DayEntry("p1", "دفعة", "", "+ 1,000", "pos", "c1", debtDelta = -1_000),
+        )
+        assertEquals(3_000L, customerBalance(c, entries))
+    }
 }

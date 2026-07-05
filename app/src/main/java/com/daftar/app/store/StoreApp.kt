@@ -69,7 +69,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                 ) {
                     when (st.tab) {
                         "today" -> TodayScreen(st)
-                        "cust" -> CustScreen()
+                        "cust" -> CustScreen(st, vm)
                         "appts" -> ApptsScreen()
                         "account" -> AccountScreen(st, vm)
                     }
@@ -202,19 +202,35 @@ private fun StatCard(label: String, value: String, valueColor: Color, modifier: 
 
 // ── الزبائن ──
 @Composable
-private fun CustScreen() {
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 11.dp)) {
-        Text("🔍 بحث عن زبونة…", fontSize = 13.sp, color = cDim)
+private fun CustScreen(st: StoreState, vm: StoreViewModel) {
+    val totalOwed = st.customers.sumOf { maxOf(0, customerBalance(it, st.entries)) }
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("إجمالي الديون للمحل", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+        Text(fmt(totalOwed), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cDebt)
     }
     Spacer(Modifier.height(12.dp))
-    Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
-        CUST_ROWS.forEach { r -> StaticListRow(r.name, r.sub, r.amt, if (r.cls == "debt") cDebt else cPaid) }
+    if (st.customers.isEmpty()) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(cCard).dashedBorder(cLine, 14.dp).padding(vertical = 28.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("👤", fontSize = 28.sp, modifier = Modifier.padding(bottom = 8.dp))
+            Text("لا زبائن بعد — أضيفي أول زبونة", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+        }
+    } else {
+        Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
+            st.customers.forEach { c ->
+                val bal = customerBalance(c, st.entries)
+                val amt = if (bal > 0) fmt(bal) else if (bal == 0L) "لا شيء" else "لها ${fmt(-bal)}"
+                StaticListRow(c.name, c.phone ?: "زبونة", amt, if (bal > 0) cDebt else cPaid)
+            }
+        }
     }
-    Text(
-        "الزبائن والمواعيد كما في v1 — لم يتغيّرا في هذا التحديث",
-        fontSize = 11.5.sp, color = cDim, textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-    )
+    Spacer(Modifier.height(12.dp))
+    OutlineButton("+ زبونة جديدة", fontSize = 14.sp, radius = 13.dp, vertical = 13.dp, filledCard = true) { vm.openAddCustomer() }
 }
 
 // ── المواعيد ──

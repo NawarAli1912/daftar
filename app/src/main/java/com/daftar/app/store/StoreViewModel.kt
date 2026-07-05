@@ -30,12 +30,20 @@ data class StoreState(
     val sources: List<Source> = initialSources(),
     val shelf: List<Shelf> = emptyList(),
     val entries: List<DayEntry> = emptyList(),
+    val customers: List<Customer> = emptyList(),
     val salesToday: Long = 0,
     val cashToday: Long = 0,
     // sale
     val lines: List<SaleLine> = emptyList(),
     val pay: String = "full",           // full | partial | trial
+    val saleCustomerId: String? = null, // who this sale/payment is for (null = نقدي)
     val undo: Undo? = null,
+    // customer picker + inline add
+    val custPickerOpen: Boolean = false,
+    val custNewOpen: Boolean = false,
+    val custNewName: String = "",
+    val custNewPhone: String = "",
+    val custNewDebt: Long = 0,
     val addNewOpen: Boolean = false,
     val newName: String = "",
     val newPrice: Long = 5_000,
@@ -73,11 +81,12 @@ class StoreViewModel @Inject constructor(
                     it.copy(
                         seeded = snap.seeded, salesToday = snap.salesToday, cashToday = snap.cashToday,
                         sources = snap.sources, shelf = snap.shelf, entries = snap.entries,
+                        customers = snap.customers,
                     )
                 }
             }
             state.map {
-                StoreSnapshot(it.seeded, it.salesToday, it.cashToday, it.sources, it.shelf, it.entries)
+                StoreSnapshot(it.seeded, it.salesToday, it.cashToday, it.sources, it.shelf, it.entries, it.customers)
             }.distinctUntilChanged().drop(1).collect { repo.save(it) }
         }
     }
@@ -117,8 +126,8 @@ class StoreViewModel @Inject constructor(
     fun loadSample() = set {
         it.copy(
             seeded = true, sources = sampleSources(), shelf = sampleShelf(),
-            entries = sampleEntries(), salesToday = 68_500, cashToday = 54_000,
-            tab = "today", screen = "home",
+            entries = sampleEntries(), customers = sampleCustomers(),
+            salesToday = 68_500, cashToday = 54_000, tab = "today", screen = "home",
         )
     }
     fun resetApp() = set {
@@ -207,8 +216,23 @@ class StoreViewModel @Inject constructor(
         )
     }
 
+    // ── customers ──
+    fun openCustPicker() = set { it.copy(custPickerOpen = true, custNewOpen = false) }
+    fun openAddCustomer() = set { it.copy(custPickerOpen = true, custNewOpen = true, custNewName = "", custNewPhone = "", custNewDebt = 0) }
+    fun closeCustPicker() = set { it.copy(custPickerOpen = false, custNewOpen = false) }
+    fun pickCustomer(id: String?) = set { it.copy(saleCustomerId = id, custPickerOpen = false, custNewOpen = false) }
+    fun toggleCustNew() = set { it.copy(custNewOpen = !it.custNewOpen, custNewName = "", custNewPhone = "", custNewDebt = 0) }
+    fun setCustNewName(v: String) = set { it.copy(custNewName = v) }
+    fun setCustNewPhone(v: String) = set { it.copy(custNewPhone = v) }
+    fun custNewDebtStep(d: Int) = set { it.copy(custNewDebt = maxOf(0, it.custNewDebt + d * 500)) }
+    fun addCustomer() = set {
+        val nm = it.custNewName.trim().ifEmpty { "زبونة" }
+        val c = Customer("c" + System.currentTimeMillis(), nm, it.custNewPhone.trim().ifEmpty { null }, it.custNewDebt)
+        it.copy(customers = it.customers + c, saleCustomerId = c.id, custPickerOpen = false, custNewOpen = false)
+    }
+
     // ── payment (D37) ──
-    fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTypeId = null) }
+    fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = null) }
     fun payAmountStep(d: Int) = set { it.copy(payAmount = maxOf(0, it.payAmount + d * 500)) }
     fun payPickType(id: String) = set {
         val it0 = it
@@ -223,11 +247,14 @@ class StoreViewModel @Inject constructor(
         val amt = s.payAmount
         val tid = s.payTypeId
         val item = tid?.let { id -> s.shelf.find { it.id == id } }
+        val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
         val entry = DayEntry(
             id = "e" + System.currentTimeMillis(),
-            t = "دفعة" + (item?.let { " — " + it.name } ?: "") + " — نقدي",
+            t = "دفعة" + (item?.let { " — " + it.name } ?: "") + " — " + (cust?.name ?: "نقدي"),
             d = "الآن" + (item?.let { " · نوع: " + it.name + " · يُسند لمصدره" } ?: " · على الرصيد"),
             amt = "+ " + fmt(amt), cls = "pos",
+            customerId = s.saleCustomerId,
+            debtDelta = -amt, // a payment reduces the customer's debt
         )
         val before = if (tid != null) listOf(tid to (s.shelf.find { it.id == tid }?.sold ?: 0)) else emptyList()
         set {
@@ -242,7 +269,7 @@ class StoreViewModel @Inject constructor(
 
     // ── sale ──
     fun openChooser() = set { it.copy(screen = "chooser") }
-    fun openSale() = set { it.copy(screen = "sale", lines = emptyList(), pay = "full", addNewOpen = false) }
+    fun openSale() = set { it.copy(screen = "sale", lines = emptyList(), pay = "full", addNewOpen = false, saleCustomerId = null) }
     fun closeSheet() = set { it.copy(screen = "home", addNewOpen = false) }
     fun addLine(id: String) = set {
         val item = it.shelf.find { x -> x.id == id } ?: return@set it
@@ -276,9 +303,12 @@ class StoreViewModel @Inject constructor(
             else -> Math.round(total / 2.0)
         }
         val names = s.lines.joinToString(" + ") { it.name }
+        val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
+        val prefix = if (isTrial) "أمانة" else "بيع"
+        val who = cust?.name ?: "نقدي"
         val entry = DayEntry(
             id = "e" + System.currentTimeMillis(),
-            t = (if (isTrial) "أمانة" else "بيع") + " نقدي" + (if (names.isNotEmpty()) " — $names" else ""),
+            t = (if (cust != null) "$prefix — $who" else "$prefix نقدي") + (if (names.isNotEmpty()) " — $names" else ""),
             d = "الآن · " + when {
                 s.pay == "full" -> "مدفوع كامل"
                 isTrial -> "أمانة"
@@ -286,6 +316,8 @@ class StoreViewModel @Inject constructor(
             },
             amt = if (isTrial) "أمانة" else fmt(total),
             cls = if (isTrial) "amber" else "ink",
+            customerId = s.saleCustomerId,
+            debtDelta = total - paid, // the remainder becomes debt on that customer
         )
         val sold = HashMap<String, Int>()
         s.lines.forEach { l -> sold[l.shelfId] = (sold[l.shelfId] ?: 0) + l.qty }

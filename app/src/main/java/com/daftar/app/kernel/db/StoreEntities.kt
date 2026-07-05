@@ -36,6 +36,16 @@ data class EntryRow(
     val amt: String,
     val cls: String,
     val customerId: String?,
+    val debtDelta: Long,
+    val seq: Int,
+)
+
+@Entity(tableName = "store_customers")
+data class CustomerRow(
+    @PrimaryKey val id: String,
+    val name: String,
+    val phone: String?,
+    val openingDebt: Long,
     val seq: Int,
 )
 

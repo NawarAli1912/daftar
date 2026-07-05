@@ -1,5 +1,6 @@
 package com.daftar.app.store
 
+import com.daftar.app.kernel.db.CustomerRow
 import com.daftar.app.kernel.db.EntryRow
 import com.daftar.app.kernel.db.ShelfRow
 import com.daftar.app.kernel.db.SourceRow
@@ -16,6 +17,7 @@ data class StoreSnapshot(
     val sources: List<Source>,
     val shelf: List<Shelf>,
     val entries: List<DayEntry>,
+    val customers: List<Customer>,
 )
 
 class StoreRepository @Inject constructor(private val dao: StoreDao) {
@@ -30,7 +32,8 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
             shelf = dao.shelf().map {
                 Shelf(it.id, it.name, it.tasira, it.shelved, it.sold, it.counted, it.sourceId, it.buy)
             },
-            entries = dao.entries().map { DayEntry(it.id, it.t, it.d, it.amt, it.cls) },
+            entries = dao.entries().map { DayEntry(it.id, it.t, it.d, it.amt, it.cls, it.customerId, it.debtDelta) },
+            customers = dao.customers().map { Customer(it.id, it.name, it.phone, it.openingDebt) },
         )
     }
 
@@ -41,7 +44,8 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
             shelf = s.shelf.mapIndexed { i, x ->
                 ShelfRow(x.id, x.name, x.tasira, x.shelved, x.sold, x.counted, x.sourceId, x.buy, i)
             },
-            entries = s.entries.mapIndexed { i, x -> EntryRow(x.id, x.t, x.d, x.amt, x.cls, null, i) },
+            entries = s.entries.mapIndexed { i, x -> EntryRow(x.id, x.t, x.d, x.amt, x.cls, x.customerId, x.debtDelta, i) },
+            customers = s.customers.mapIndexed { i, x -> CustomerRow(x.id, x.name, x.phone, x.openingDebt, i) },
         )
     }
 }

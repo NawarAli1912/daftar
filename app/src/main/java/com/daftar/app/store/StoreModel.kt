@@ -41,13 +41,28 @@ data class Shelf(
 }
 
 // A day-book row (already rendered — title/subtitle/amount as the prototype builds them).
+// customerId + debtDelta carry the ledger truth under the display strings: debtDelta is
+// how much this entry moved that customer's balance (+ = new debt, − = payment).
 data class DayEntry(
     val id: String,
     val t: String,
     val d: String,
     val amt: String,
     val cls: String, // "ink" | "pos" | "amber"
+    val customerId: String? = null,
+    val debtDelta: Long = 0,
 )
+
+// A named debtor. Balance = openingDebt + Σ(debtDelta of her entries). Positive = she owes.
+data class Customer(
+    val id: String,
+    val name: String,
+    val phone: String? = null,
+    val openingDebt: Long = 0,
+)
+
+fun customerBalance(c: Customer, entries: List<DayEntry>): Long =
+    c.openingDebt + entries.filter { it.customerId == c.id }.sumOf { it.debtDelta }
 
 data class SaleLine(
     val shelfId: String,
@@ -121,10 +136,18 @@ fun sampleShelf() = listOf(
     Shelf("h9", "حقيبة", 9_000, 5, 2, sourceId = MKT_ID, buy = 4_000),
 )
 
+// Sample debtors — balances match the prototype's static rows once the sample
+// entries below apply: أم محمد 6,500 (0 + 6,500 debt), سميرة 0 (10,000 − 10,000 paid), فاطمة 35,000.
+fun sampleCustomers() = listOf(
+    Customer("c_um", "أم محمد", null, 0),
+    Customer("c_sam", "سميرة", null, 10_000),
+    Customer("c_fat", "فاطمة", null, 35_000),
+)
+
 fun sampleEntries() = listOf(
-    DayEntry("e1", "بيع — أم محمد — فستان + بنطال", "11:40 · دفعت 10,000 والباقي دين", "16,500", "ink"),
-    DayEntry("e2", "دفعة — سميرة", "11:15 · عن دين قديم", "+ 10,000", "pos"),
-    DayEntry("e3", "بيع نقدي — قميص", "9:50", "4,000 ✓", "pos"),
+    DayEntry("e1", "بيع — أم محمد — فستان + بنطال", "11:40 · دفعت 10,000 والباقي دين", "16,500", "ink", "c_um", 6_500),
+    DayEntry("e2", "دفعة — سميرة", "11:15 · عن دين قديم", "+ 10,000", "pos", "c_sam", -10_000),
+    DayEntry("e3", "بيع نقدي — قميص", "9:50", "4,000 ✓", "pos", null, 0),
 )
 
 // ── derived (mirrors renderVals) ──

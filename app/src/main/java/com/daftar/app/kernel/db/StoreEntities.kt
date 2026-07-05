@@ -41,6 +41,7 @@ data class EntryRow(
     val saleAmount: Long,
     val cashAmount: Long,
     val stockDelta: String,
+    val trialAmount: Long,
     val seq: Int,
 )
 

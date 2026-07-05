@@ -58,6 +58,9 @@ data class DayEntry(
     // How this entry changed each shelf item's `sold` count ("id:delta,id:delta"),
     // so voiding it can put the stock back. Sales add sold (+), returns subtract (−).
     val stockDelta: String = "",
+    // أمانة (on-trust) value: goods lent to try, not a firm sale or hard debt — tracked
+    // here separately so it can be followed up, returned (void), or later sold.
+    val trialAmount: Long = 0,
 )
 
 fun encodeStock(delta: Map<String, Int>): String =
@@ -99,6 +102,10 @@ data class Customer(
 fun customerBalance(c: Customer, entries: List<DayEntry>): Long =
     c.openingDebt + entries.filter { it.customerId == c.id }.sumOf { it.debtDelta }
 
+// أمانة still out with her (goods on trust, not yet firm debt).
+fun customerTrial(c: Customer, entries: List<DayEntry>): Long =
+    entries.filter { it.customerId == c.id }.sumOf { it.trialAmount }
+
 // Who owes the shop right now, largest first — the المواعيد list and the daily digest.
 data class Debtor(val customer: Customer, val balance: Long)
 
@@ -106,6 +113,14 @@ fun debtors(customers: List<Customer>, entries: List<DayEntry>): List<Debtor> =
     customers.map { Debtor(it, customerBalance(it, entries)) }
         .filter { it.balance > 0 }
         .sortedByDescending { it.balance }
+
+// Everyone worth chasing in المواعيد: owes money and/or has أمانة out. Largest first.
+data class FollowUp(val customer: Customer, val debt: Long, val trial: Long)
+
+fun followUps(customers: List<Customer>, entries: List<DayEntry>): List<FollowUp> =
+    customers.map { FollowUp(it, customerBalance(it, entries), customerTrial(it, entries)) }
+        .filter { it.debt > 0 || it.trial > 0 }
+        .sortedByDescending { it.debt + it.trial }
 
 // The daily digest notification copy (title + body), kept pure so it can be tested
 // without the worker/emulator.

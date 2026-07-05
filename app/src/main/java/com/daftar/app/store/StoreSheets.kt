@@ -289,6 +289,7 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
 private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
     val c = st.customers.find { it.id == st.detailCustomerId } ?: return
     val bal = customerBalance(c, st.entries)
+    val trial = customerTrial(c, st.entries)
     val history = st.entries.filter { it.customerId == c.id }
     BottomSheet(onDismiss = vm::closeCustomer) {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -298,6 +299,7 @@ private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
                 fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (bal > 0) cDebt else cPaid,
             )
         }
+        if (trial > 0) Text("أمانة معها (قد تُعاد): ${fmt(trial)}", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
         c.phone?.let { Text("☎ $it", fontSize = 12.sp, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)) }
         Spacer(Modifier.height(8.dp))
         if (history.isEmpty()) {

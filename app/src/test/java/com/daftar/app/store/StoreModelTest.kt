@@ -166,6 +166,33 @@ class StoreModelTest {
     }
 
     @Test
+    fun `amana is tracked as trial, not as hard debt`() {
+        val c = Customer("c1", "خالدة", null, 0)
+        val entries = listOf(
+            DayEntry("t1", "أمانة — خالدة", "", "أمانة 12,000", "amber", "c1", debtDelta = 0, trialAmount = 12_000),
+        )
+        assertEquals(0L, customerBalance(c, entries))      // not owed money yet
+        assertEquals(12_000L, customerTrial(c, entries))   // but tracked as out-on-trust
+    }
+
+    @Test
+    fun `follow-ups include debtors and amana-holders`() {
+        val cs = listOf(
+            Customer("d", "مدينة", null, 5_000),                 // owes only
+            Customer("t", "أمانة-فقط", null, 0),                  // trial only
+            Customer("b", "كلاهما", null, 3_000),                 // both
+            Customer("z", "صفر", null, 0),                        // neither → excluded
+        )
+        val entries = listOf(
+            DayEntry("a", "أمانة", "", "", "amber", "t", trialAmount = 8_000),
+            DayEntry("a2", "أمانة", "", "", "amber", "b", trialAmount = 1_000),
+        )
+        val fs = followUps(cs, entries)
+        assertEquals(listOf("أمانة-فقط", "مدينة", "كلاهما"), fs.map { it.customer.name }) // by debt+trial desc
+        assertTrue(fs.none { it.customer.name == "صفر" })
+    }
+
+    @Test
     fun `day labels read today, yesterday, then a dated weekday`() {
         val today = java.time.LocalDate.of(2026, 7, 5).toEpochDay() // a Sunday
         assertEquals("اليوم", dayLabel(today, today))

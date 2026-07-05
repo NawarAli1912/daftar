@@ -404,13 +404,15 @@ class StoreViewModel @Inject constructor(
             t = (if (cust != null) "$prefix — $who" else "$prefix نقدي") + (if (names.isNotEmpty()) " — $names" else ""),
             d = "الآن · " + when {
                 s.pay == "full" -> "مدفوع كامل"
-                isTrial -> "أمانة"
+                isTrial -> "أمانة — قد تُعاد"
                 else -> "دفعت " + fmt(paid) + " والباقي دين"
             },
-            amt = if (isTrial) "أمانة" else fmt(total),
+            amt = if (isTrial) "أمانة " + fmt(total) else fmt(total),
             cls = if (isTrial) "amber" else "ink",
             customerId = s.saleCustomerId,
-            debtDelta = total - paid, // the remainder becomes debt on that customer
+            // أمانة is not a firm sale/debt yet — it's tracked as trial, not debt.
+            debtDelta = if (isTrial) 0 else total - paid,
+            trialAmount = if (isTrial) total else 0,
             day = today(),
             saleAmount = if (isTrial) 0 else total, // أمانة is excluded from the day's sales
             cashAmount = paid,

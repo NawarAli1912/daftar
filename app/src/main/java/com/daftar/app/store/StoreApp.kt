@@ -267,26 +267,34 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
 // ── المواعيد ──
 @Composable
 private fun ApptsScreen(st: StoreState, vm: StoreViewModel) {
-    val ds = debtors(st.customers, st.entries)
+    val fs = followUps(st.customers, st.entries)
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 12.dp)) {
         Text(
-            if (ds.isEmpty()) "☀️ صباح الخير — لا ديون مستحقة، كل شيء مسدَّد"
-            else "🔔 صباح الخير — ${ds.size} زبائن عليهن ديون اليوم",
+            if (fs.isEmpty()) "☀️ صباح الخير — لا متابعات اليوم، كل شيء مسدَّد"
+            else "🔔 صباح الخير — ${fs.size} زبائن للمتابعة اليوم",
             fontSize = 12.5.sp, color = cPaid,
         )
     }
     Spacer(Modifier.height(12.dp))
-    if (ds.isEmpty()) {
+    if (fs.isEmpty()) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(cCard).dashedBorder(cLine, 14.dp).padding(vertical = 28.dp, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("👍", fontSize = 28.sp, modifier = Modifier.padding(bottom = 8.dp))
-            Text("لا ديون مستحقة الآن", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+            Text("لا متابعات مستحقة الآن", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
         }
     } else {
         Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
-            ds.forEach { d -> StaticListRow(d.customer.name, d.customer.phone ?: "دين مستحق", fmt(d.balance), cDebt) { vm.openCustomer(d.customer.id) } }
+            fs.forEach { f ->
+                val sub = when {
+                    f.debt > 0 && f.trial > 0 -> "دين + أمانة ${fmt(f.trial)}"
+                    f.debt > 0 -> "دين مستحق"
+                    else -> "أمانة — قد تُعاد"
+                }
+                val amt = if (f.debt > 0) fmt(f.debt) else fmt(f.trial)
+                StaticListRow(f.customer.name, sub, amt, if (f.debt > 0) cDebt else cAmber) { vm.openCustomer(f.customer.id) }
+            }
         }
     }
 }

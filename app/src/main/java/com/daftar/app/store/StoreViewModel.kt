@@ -34,6 +34,7 @@ data class StoreState(
     val customers: List<Customer> = emptyList(),
     val today: Long = 0,      // epoch-day, refreshed each launch/foreground
     val viewedDay: Long = 0,  // which day the اليوم page is showing (default = today)
+    val usdRate: Long = 1500, // editable USD→local rate used for bale cost/profit
     // sale
     val lines: List<SaleLine> = emptyList(),
     val pay: String = "full",           // full | partial | trial
@@ -88,13 +89,13 @@ class StoreViewModel @Inject constructor(
             repo.load()?.let { snap ->
                 _state.update {
                     it.copy(
-                        seeded = snap.seeded, sources = snap.sources, shelf = snap.shelf,
+                        seeded = snap.seeded, usdRate = snap.usdRate, sources = snap.sources, shelf = snap.shelf,
                         entries = snap.entries, customers = snap.customers,
                     )
                 }
             }
             state.map {
-                StoreSnapshot(it.seeded, it.sources, it.shelf, it.entries, it.customers)
+                StoreSnapshot(it.seeded, it.usdRate, it.sources, it.shelf, it.entries, it.customers)
             }.distinctUntilChanged().drop(1).collect { repo.save(it) }
         }
     }
@@ -147,19 +148,22 @@ class StoreViewModel @Inject constructor(
     }
 
     // ── backup: export/restore the whole ledger as JSON (the persist collector saves imports) ──
-    fun exportJson(): String = s.let { snapshotToJson(StoreSnapshot(it.seeded, it.sources, it.shelf, it.entries, it.customers)) }
+    fun exportJson(): String = s.let { snapshotToJson(StoreSnapshot(it.seeded, it.usdRate, it.sources, it.shelf, it.entries, it.customers)) }
     fun importJson(json: String): Boolean = try {
         val snap = snapshotFromJson(json)
         set {
             it.copy(
-                seeded = true, sources = snap.sources, shelf = snap.shelf, entries = snap.entries,
-                customers = snap.customers, screen = "home", tab = "today", viewedDay = it.today,
+                seeded = true, usdRate = snap.usdRate, sources = snap.sources, shelf = snap.shelf,
+                entries = snap.entries, customers = snap.customers, screen = "home", tab = "today", viewedDay = it.today,
             )
         }
         true
     } catch (e: Exception) {
         false
     }
+
+    // The editable "today's rate" — one number that recomputes all bale profit.
+    fun setUsdRate(v: Long) = set { it.copy(usdRate = maxOf(0, v)) }
 
     // ── nav ──
     fun setTab(tab: String) = set { it.copy(tab = tab, screen = "home") }

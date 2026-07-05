@@ -397,9 +397,37 @@ private fun ShelfRow(r: Shelf, vm: StoreViewModel) {
 
 @Composable
 private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
-    Text("من أين أتت البضاعة وكم كلّفت — لتري أي مصدر ربح.", fontSize = 12.sp, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 12.dp))
-    sourceViews(st.sources, st.shelf).forEach { sv -> SourceCard(sv, vm) }
+    Text("من أين أتت البضاعة وكم كلّفت — لتري أي مصدر ربح.", fontSize = 12.sp, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 10.dp))
+    UsdRateRow(st.usdRate, vm)
+    Spacer(Modifier.height(12.dp))
+    sourceViews(st.sources, st.shelf, st.usdRate).forEach { sv -> SourceCard(sv, vm) }
     OutlineButton("+ مصدر جديد", fontSize = 14.sp, radius = 13.dp, vertical = 13.dp, filledCard = true) { vm.openAddSource() }
+}
+
+// The editable "today's rate" for turning a bale's USD cost into local money.
+@Composable
+private fun UsdRateRow(rate: Long, vm: StoreViewModel) {
+    Row(
+        Modifier.fillMaxWidth().card(12.dp).padding(horizontal = 13.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column {
+            Text("سعر صرف الدولار اليوم", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cInk)
+            Text("لحساب تكلفة البالات", fontSize = 10.5.sp, color = cDim)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("$1 =", fontSize = 12.sp, color = cDim)
+            androidx.compose.foundation.text.BasicTextField(
+                value = if (rate == 0L) "" else rate.toString(),
+                onValueChange = { s -> vm.setUsdRate(s.filter { it.isDigit() }.take(9).toLongOrNull() ?: 0L) },
+                modifier = Modifier.widthIn(min = 62.dp).clip(RoundedCornerShape(8.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center),
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk),
+            )
+        }
+    }
 }
 
 @Composable

@@ -51,7 +51,7 @@ class StoreModelTest {
 
     @Test
     fun `bale profit is revenue minus cost in USD times the local rate`() {
-        val dr = sourceViews(sources, shelf).first { it.id == "s_dr" }
+        val dr = sourceViews(sources, shelf, 1500).first { it.id == "s_dr" }
         assertEquals(-480_000L, dr.profit) // 120,000 − 400×1500
         assertEquals("$400", dr.costFmt)
         assertEquals("120,000", dr.revFmt)
@@ -62,15 +62,24 @@ class StoreModelTest {
     }
 
     @Test
+    fun `bale profit follows the editable rate`() {
+        // at a realistic higher rate the same bale reads very differently
+        val at1500 = sourceViews(sources, shelf, 1500).first { it.id == "s_dr" }
+        val at100 = sourceViews(sources, shelf, 100).first { it.id == "s_dr" }
+        assertEquals(-480_000L, at1500.profit) // 120,000 − 400×1500
+        assertEquals(80_000L, at100.profit)    // 120,000 − 400×100 → profitable
+    }
+
+    @Test
     fun `market profit is revenue minus per-unit buy times shelved`() {
-        val mkt = sourceViews(sources, shelf).first { it.id == MKT_ID }
+        val mkt = sourceViews(sources, shelf, 1500).first { it.id == MKT_ID }
         assertEquals(-2_000L, mkt.profit) // 18,000 − 4,000×5
         assertEquals("20,000", mkt.costFmt)
     }
 
     @Test
     fun `before-the-app source has no cost basis and no profit`() {
-        val pre = sourceViews(sources, shelf).first { it.id == PRE_ID }
+        val pre = sourceViews(sources, shelf, 1500).first { it.id == PRE_ID }
         assertNull(pre.profit)
         assertEquals("—", pre.costFmt)
         assertEquals("—", pre.profitFmt)

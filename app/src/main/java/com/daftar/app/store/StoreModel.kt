@@ -235,7 +235,7 @@ fun remainBySource(shelf: List<Shelf>): Map<String, Int> {
     return m
 }
 
-fun sourceViews(sources: List<Source>, shelf: List<Shelf>): List<SourceView> {
+fun sourceViews(sources: List<Source>, shelf: List<Shelf>, usdRate: Long): List<SourceView> {
     val rev = revenueBySource(shelf)
     val rem = remainBySource(shelf)
     return sources.map { s ->
@@ -244,7 +244,7 @@ fun sourceViews(sources: List<Source>, shelf: List<Shelf>): List<SourceView> {
             shelf.filter { it.sourceId == s.id && it.buy != null }
                 .sumOf { (it.buy ?: 0L) * it.shelved } else null
         val costLocal: Long? = when (s.kind) {
-            Kind.BALE -> (s.cost ?: 0L) * USD_RATE
+            Kind.BALE -> (s.cost ?: 0L) * usdRate
             Kind.MARKET -> mkt
             Kind.PRE_APP -> null
         }

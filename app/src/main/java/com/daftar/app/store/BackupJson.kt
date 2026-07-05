@@ -9,6 +9,7 @@ import org.json.JSONObject
 fun snapshotToJson(s: StoreSnapshot): String {
     val root = JSONObject()
     root.put("version", 1)
+    root.put("usdRate", s.usdRate)
     root.put("sources", JSONArray().apply {
         s.sources.forEach {
             put(JSONObject().put("id", it.id).put("kind", it.kind.name).put("label", it.label).put("cost", it.cost ?: JSONObject.NULL))
@@ -52,6 +53,7 @@ fun snapshotFromJson(json: String): StoreSnapshot {
     fun <T> JSONArray.map(f: (JSONObject) -> T): List<T> = (0 until length()).map { f(getJSONObject(it)) }
     return StoreSnapshot(
         seeded = true,
+        usdRate = if (root.has("usdRate")) root.getLong("usdRate") else 1500,
         sources = root.getJSONArray("sources").map {
             Source(it.getString("id"), Kind.valueOf(it.getString("kind")), it.getString("label"), it.optLongN("cost"))
         },

@@ -58,4 +58,5 @@ data class CustomerRow(
 data class StoreMetaRow(
     @PrimaryKey val id: Int = 0,
     val seeded: Boolean,
+    val usdRate: Long = 1500,
 )

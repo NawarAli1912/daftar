@@ -451,19 +451,52 @@ private fun SourceStat(label: String, value: String, color: Color, bold: Boolean
 private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
     val unspec = st.shelf.count { it.unspecified }
     val totalOnHand = st.shelf.sumOf { maxOf(0, it.onHand) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val importer = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            val json = runCatching { ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+            val ok = json != null && vm.importJson(json)
+            android.widget.Toast.makeText(ctx, if (ok) "تمت الاستعادة" else "تعذّرت قراءة النسخة", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     Column(Modifier.fillMaxWidth().card().padding(15.dp)) {
         Text("إجمالي المحل", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(bottom = 12.dp))
         SummaryRow("أصناف على الرف", "$totalOnHand قطعة", cInk, cInk, line = true)
         SummaryRow("مصادر مسجّلة", "${st.sources.size}", cInk, cInk, line = true)
         SummaryRow("تحتاج تحديد مصدر", "$unspec", cDebt, cDebt, line = false)
     }
-    Spacer(Modifier.height(12.dp))
+    // backup — so the ledger is never lost
+    SectionLabel("النسخة الاحتياطية")
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.weight(1f)) { PrimaryButton("⤓ حفظ نسخة", fontSize = 13.5.sp, radius = 12.dp, vertical = 13.dp) { shareBackup(ctx, vm.exportJson()) } }
+        Box(Modifier.weight(1f)) { OutlineButton("⤒ استعادة", fontSize = 13.5.sp, radius = 12.dp, vertical = 13.dp, filledCard = true) { importer.launch(arrayOf("application/json", "text/*", "*/*")) } }
+    }
+    Spacer(Modifier.height(14.dp))
     Box(Modifier.fillMaxWidth().card(12.dp).tap { vm.loadSample() }.padding(13.dp), contentAlignment = Alignment.Center) {
         Text("بيانات تجريبية ⟲", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = cInk)
     }
     Box(Modifier.fillMaxWidth().padding(top = 14.dp).tap { vm.resetApp() }, contentAlignment = Alignment.Center) {
         Text("مسح الكل — إظهار البداية", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cDebt)
     }
+}
+
+// Write the JSON backup to cacheDir and hand it to the Android share sheet.
+private fun shareBackup(ctx: android.content.Context, json: String) {
+    val dir = java.io.File(ctx.cacheDir, "backups").apply { mkdirs() }
+    val file = java.io.File(dir, "daftar-backup.json")
+    file.writeText(json)
+    val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".fileprovider", file)
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "application/json"
+        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        putExtra(android.content.Intent.EXTRA_SUBJECT, "نسخة احتياطية — دفتر")
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    ctx.startActivity(android.content.Intent.createChooser(send, "حفظ نسخة احتياطية").apply {
+        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    })
 }
 
 @Composable

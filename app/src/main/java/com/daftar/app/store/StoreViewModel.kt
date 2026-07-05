@@ -146,6 +146,21 @@ class StoreViewModel @Inject constructor(
         StoreState(sources = listOf(Source(PRE_ID, Kind.PRE_APP, "قبل التطبيق", null)), today = d, viewedDay = d)
     }
 
+    // ── backup: export/restore the whole ledger as JSON (the persist collector saves imports) ──
+    fun exportJson(): String = s.let { snapshotToJson(StoreSnapshot(it.seeded, it.sources, it.shelf, it.entries, it.customers)) }
+    fun importJson(json: String): Boolean = try {
+        val snap = snapshotFromJson(json)
+        set {
+            it.copy(
+                seeded = true, sources = snap.sources, shelf = snap.shelf, entries = snap.entries,
+                customers = snap.customers, screen = "home", tab = "today", viewedDay = it.today,
+            )
+        }
+        true
+    } catch (e: Exception) {
+        false
+    }
+
     // ── nav ──
     fun setTab(tab: String) = set { it.copy(tab = tab, screen = "home") }
     // Page the day book back/forward; never past today.

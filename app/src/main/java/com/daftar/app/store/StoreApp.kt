@@ -68,7 +68,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                         .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp),
                 ) {
                     when (st.tab) {
-                        "today" -> TodayScreen(st)
+                        "today" -> TodayScreen(st, vm)
                         "cust" -> CustScreen(st, vm)
                         "appts" -> ApptsScreen(st)
                         "account" -> AccountScreen(st, vm)
@@ -92,7 +92,7 @@ private fun AppBar(st: StoreState) {
     val title = when (st.tab) {
         "today" -> "دفتر اليوم"; "cust" -> "الزبائن"; "appts" -> "المواعيد"; else -> "الحساب"
     }
-    val aside = if (st.tab == "today") "الجمعة 4/7" else ""
+    val aside = if (st.tab == "today") dayLabel(st.viewedDay, st.today) else ""
     Column(Modifier.fillMaxWidth().background(cBg).statusBarsPadding()) {
         Row(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp),
@@ -140,20 +140,35 @@ private fun TabItem(glyph: String, label: String, active: Boolean, modifier: Mod
 
 // ── اليوم ──
 @Composable
-private fun TodayScreen(st: StoreState) {
+private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
+    val isToday = st.viewedDay == st.today
+    val dayEntries = entriesForDay(st.entries, st.viewedDay)
+    val salesLabel = if (isToday) "مبيعات اليوم" else "المبيعات"
+    val cashLabel = if (isToday) "قبضنا اليوم" else "المقبوضات"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        StatCard("مبيعات اليوم", fmt(st.salesToday), cInk, Modifier.weight(1f))
-        StatCard("قبضنا اليوم", fmt(st.cashToday), cPaid, Modifier.weight(1f))
+        StatCard(salesLabel, fmt(salesForDay(st.entries, st.viewedDay)), cInk, Modifier.weight(1f))
+        StatCard(cashLabel, fmt(cashForDay(st.entries, st.viewedDay)), cPaid, Modifier.weight(1f))
     }
-    SectionLabel("صفحة اليوم — الأحدث أولاً")
-    if (st.entries.isEmpty()) {
+    // day navigation: ‹ older · date · newer › (never past today)
+    Row(
+        Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DayNavArrow("‹", enabled = true) { vm.dayStep(-1) }
+        Text(dayLabel(st.viewedDay, st.today), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cInk)
+        DayNavArrow("›", enabled = !isToday) { vm.dayStep(1) }
+    }
+    if (dayEntries.isEmpty()) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(cCard)
                 .dashedBorder(cLine, 14.dp).padding(vertical = 32.dp, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("📃", fontSize = 30.sp, modifier = Modifier.padding(bottom = 8.dp))
-            Text("لا قيود بعد — ابدئي بأول عملية بيع", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+            Text(
+                if (isToday) "لا قيود بعد — ابدئي بأول عملية بيع" else "لا حركات في هذا اليوم",
+                fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cDim,
+            )
         }
     } else {
         Box(
@@ -168,9 +183,21 @@ private fun TodayScreen(st: StoreState) {
             }.padding(horizontal = 14.dp),
         ) {
             Column {
-                st.entries.forEach { e -> EntryRow(e); }
+                dayEntries.forEach { e -> EntryRow(e) }
             }
         }
+    }
+}
+
+@Composable
+private fun DayNavArrow(sym: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(32.dp).clip(RoundedCornerShape(9.dp))
+            .background(cCard).border(1.dp, cLine, RoundedCornerShape(9.dp))
+            .then(if (enabled) Modifier.tap(onClick) else Modifier),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(sym, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (enabled) cAccent else cLine)
     }
 }
 

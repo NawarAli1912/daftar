@@ -85,7 +85,7 @@ class StoreModelTest {
     @Test
     fun `customer balance is opening debt plus the debt movements on her entries`() {
         val customers = sampleCustomers()
-        val entries = sampleEntries()
+        val entries = sampleEntries(0)
         val um = customers.first { it.id == "c_um" }   // 0 opening + 6,500 sale remainder
         val sam = customers.first { it.id == "c_sam" } // 10,000 opening − 10,000 paid
         val fat = customers.first { it.id == "c_fat" } // 35,000 opening, no entries
@@ -108,7 +108,7 @@ class StoreModelTest {
 
     @Test
     fun `debtors lists only who owes, largest first`() {
-        val ds = debtors(sampleCustomers(), sampleEntries())
+        val ds = debtors(sampleCustomers(), sampleEntries(0))
         // فاطمة 35,000 then أم محمد 6,500 (سميرة at 0 is excluded)
         assertEquals(listOf("فاطمة", "أم محمد"), ds.map { it.customer.name })
         assertEquals(35_000L, ds.first().balance)
@@ -116,9 +116,33 @@ class StoreModelTest {
 
     @Test
     fun `digest copy names each debtor with her balance and the total`() {
-        val ds = debtors(sampleCustomers(), sampleEntries())
+        val ds = debtors(sampleCustomers(), sampleEntries(0))
         val (title, body) = digestTitleAndBody(ds)
         assertEquals("2 زبائن عليهن ديون — إجمالي 41,500", title)
         assertEquals("فاطمة (35,000)، أم محمد (6,500)", body)
+    }
+
+    @Test
+    fun `the day book scopes entries and totals to the viewed day`() {
+        val today = 20_100L
+        val entries = listOf(
+            DayEntry("a", "بيع", "", "10,000", "ink", day = today, saleAmount = 10_000, cashAmount = 10_000),
+            DayEntry("b", "دفعة", "", "+ 5,000", "pos", day = today, saleAmount = 0, cashAmount = 5_000),
+            DayEntry("c", "بيع أمس", "", "8,000", "ink", day = today - 1, saleAmount = 8_000, cashAmount = 8_000),
+        )
+        assertEquals(2, entriesForDay(entries, today).size)
+        assertEquals(1, entriesForDay(entries, today - 1).size)
+        assertEquals(10_000L, salesForDay(entries, today))     // payment adds nothing to sales
+        assertEquals(15_000L, cashForDay(entries, today))      // 10,000 + 5,000
+        assertEquals(8_000L, salesForDay(entries, today - 1))
+        assertEquals(0L, salesForDay(entries, today - 5))      // empty day
+    }
+
+    @Test
+    fun `day labels read today, yesterday, then a dated weekday`() {
+        val today = java.time.LocalDate.of(2026, 7, 5).toEpochDay() // a Sunday
+        assertEquals("اليوم", dayLabel(today, today))
+        assertEquals("أمس", dayLabel(today - 1, today))
+        assertEquals("الجمعة 3/7", dayLabel(today - 2, today)) // Fri 3 July
     }
 }

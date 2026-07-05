@@ -43,6 +43,7 @@ data class Shelf(
 // A day-book row (already rendered — title/subtitle/amount as the prototype builds them).
 // customerId + debtDelta carry the ledger truth under the display strings: debtDelta is
 // how much this entry moved that customer's balance (+ = new debt, − = payment).
+// day = the epoch-day it was recorded on; saleAmount/cashAmount feed the day's totals.
 data class DayEntry(
     val id: String,
     val t: String,
@@ -51,7 +52,30 @@ data class DayEntry(
     val cls: String, // "ink" | "pos" | "amber"
     val customerId: String? = null,
     val debtDelta: Long = 0,
+    val day: Long = 0,
+    val saleAmount: Long = 0,
+    val cashAmount: Long = 0,
 )
+
+fun entriesForDay(entries: List<DayEntry>, day: Long): List<DayEntry> =
+    entries.filter { it.day == day }
+
+fun salesForDay(entries: List<DayEntry>, day: Long): Long =
+    entries.filter { it.day == day }.sumOf { it.saleAmount }
+
+fun cashForDay(entries: List<DayEntry>, day: Long): Long =
+    entries.filter { it.day == day }.sumOf { it.cashAmount }
+
+// Arabic label for a day, relative to today.
+fun dayLabel(day: Long, today: Long): String = when (day) {
+    today -> "اليوم"
+    today - 1 -> "أمس"
+    else -> {
+        val d = java.time.LocalDate.ofEpochDay(day)
+        val names = arrayOf("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد")
+        "${names[d.dayOfWeek.value - 1]} ${d.dayOfMonth}/${d.monthValue}"
+    }
+}
 
 // A named debtor. Balance = openingDebt + Σ(debtDelta of her entries). Positive = she owes.
 data class Customer(
@@ -161,10 +185,10 @@ fun sampleCustomers() = listOf(
     Customer("c_fat", "فاطمة", null, 35_000),
 )
 
-fun sampleEntries() = listOf(
-    DayEntry("e1", "بيع — أم محمد — فستان + بنطال", "11:40 · دفعت 10,000 والباقي دين", "16,500", "ink", "c_um", 6_500),
-    DayEntry("e2", "دفعة — سميرة", "11:15 · عن دين قديم", "+ 10,000", "pos", "c_sam", -10_000),
-    DayEntry("e3", "بيع نقدي — قميص", "9:50", "4,000 ✓", "pos", null, 0),
+fun sampleEntries(today: Long) = listOf(
+    DayEntry("e1", "بيع — أم محمد — فستان + بنطال", "11:40 · دفعت 10,000 والباقي دين", "16,500", "ink", "c_um", 6_500, today, saleAmount = 16_500, cashAmount = 10_000),
+    DayEntry("e2", "دفعة — سميرة", "11:15 · عن دين قديم", "+ 10,000", "pos", "c_sam", -10_000, today, saleAmount = 0, cashAmount = 10_000),
+    DayEntry("e3", "بيع نقدي — قميص", "9:50", "4,000 ✓", "pos", null, 0, today, saleAmount = 4_000, cashAmount = 4_000),
 )
 
 // ── derived (mirrors renderVals) ──

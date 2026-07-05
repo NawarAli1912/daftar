@@ -37,6 +37,9 @@ data class EntryRow(
     val cls: String,
     val customerId: String?,
     val debtDelta: Long,
+    val day: Long,
+    val saleAmount: Long,
+    val cashAmount: Long,
     val seq: Int,
 )
 
@@ -49,11 +52,9 @@ data class CustomerRow(
     val seq: Int,
 )
 
-// Single-row app meta: onboarding + the day's running totals.
+// Single-row app meta. Day totals are derived from the entries now, not stored.
 @Entity(tableName = "store_meta")
 data class StoreMetaRow(
     @PrimaryKey val id: Int = 0,
     val seeded: Boolean,
-    val salesToday: Long,
-    val cashToday: Long,
 )

@@ -15,8 +15,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// Undo payload — snapshot of each shelf item's `sold` before the entry, so ↺ تراجع restores it.
-data class Undo(val id: String, val dS: Long, val dC: Long, val before: List<Pair<String, Int>>)
+// Undo payload — the entry id plus each shelf item's `sold` before it, so ↺ تراجع
+// removes the entry (its totals derive from it) and restores the shelf.
+data class Undo(val id: String, val before: List<Pair<String, Int>>)
 
 // The whole app state, mirroring the prototype Component.state 1:1.
 data class StoreState(
@@ -31,8 +32,8 @@ data class StoreState(
     val shelf: List<Shelf> = emptyList(),
     val entries: List<DayEntry> = emptyList(),
     val customers: List<Customer> = emptyList(),
-    val salesToday: Long = 0,
-    val cashToday: Long = 0,
+    val today: Long = 0,      // epoch-day, refreshed each launch/foreground
+    val viewedDay: Long = 0,  // which day the اليوم page is showing (default = today)
     // sale
     val lines: List<SaleLine> = emptyList(),
     val pay: String = "full",           // full | partial | trial
@@ -73,23 +74,26 @@ class StoreViewModel @Inject constructor(
     private fun set(f: (StoreState) -> StoreState) = _state.update(f)
 
     init {
-        // Load the persisted ledger, then keep the DB in step with the persistable
-        // slice of state (transient sheet/stepper changes don't touch disk).
+        // Start on the real current day, then load the persisted ledger and keep the DB in
+        // step with the persistable slice (transient sheet/stepper changes don't touch disk).
+        val now = today()
+        _state.update { it.copy(today = now, viewedDay = now) }
         viewModelScope.launch {
             repo.load()?.let { snap ->
                 _state.update {
                     it.copy(
-                        seeded = snap.seeded, salesToday = snap.salesToday, cashToday = snap.cashToday,
-                        sources = snap.sources, shelf = snap.shelf, entries = snap.entries,
-                        customers = snap.customers,
+                        seeded = snap.seeded, sources = snap.sources, shelf = snap.shelf,
+                        entries = snap.entries, customers = snap.customers,
                     )
                 }
             }
             state.map {
-                StoreSnapshot(it.seeded, it.salesToday, it.cashToday, it.sources, it.shelf, it.entries, it.customers)
+                StoreSnapshot(it.seeded, it.sources, it.shelf, it.entries, it.customers)
             }.distinctUntilChanged().drop(1).collect { repo.save(it) }
         }
     }
+
+    private fun today(): Long = java.time.LocalDate.now().toEpochDay()
 
     private fun srcLabel(id: String?): String =
         s.sources.find { it.id == id }?.label ?: "غير محدد"
@@ -124,18 +128,22 @@ class StoreViewModel @Inject constructor(
         )
     }
     fun loadSample() = set {
+        val d = today()
         it.copy(
             seeded = true, sources = sampleSources(), shelf = sampleShelf(),
-            entries = sampleEntries(), customers = sampleCustomers(),
-            salesToday = 68_500, cashToday = 54_000, tab = "today", screen = "home",
+            entries = sampleEntries(d), customers = sampleCustomers(),
+            today = d, viewedDay = d, tab = "today", screen = "home",
         )
     }
     fun resetApp() = set {
-        StoreState(sources = listOf(Source(PRE_ID, Kind.PRE_APP, "قبل التطبيق", null)))
+        val d = today()
+        StoreState(sources = listOf(Source(PRE_ID, Kind.PRE_APP, "قبل التطبيق", null)), today = d, viewedDay = d)
     }
 
     // ── nav ──
     fun setTab(tab: String) = set { it.copy(tab = tab, screen = "home") }
+    // Page the day book back/forward; never past today.
+    fun dayStep(d: Int) = set { it.copy(viewedDay = minOf(it.today, it.viewedDay + d)) }
     fun setSeg(seg: String) = set { it.copy(accountSeg = seg) }
     fun setFilter(f: String) = set { it.copy(shelfFilter = f) }
 
@@ -255,16 +263,18 @@ class StoreViewModel @Inject constructor(
             amt = "+ " + fmt(amt), cls = "pos",
             customerId = s.saleCustomerId,
             debtDelta = -amt, // a payment reduces the customer's debt
+            day = today(), saleAmount = 0, cashAmount = amt,
         )
         val before = if (tid != null) listOf(tid to (s.shelf.find { it.id == tid }?.sold ?: 0)) else emptyList()
+        val u = Undo(entry.id, before)
         set {
             it.copy(
-                screen = "home", entries = listOf(entry) + it.entries, cashToday = it.cashToday + amt,
+                screen = "home", entries = listOf(entry) + it.entries, viewedDay = it.today,
                 shelf = if (tid != null) it.shelf.map { x -> if (x.id == tid) x.copy(sold = x.sold + 1) else x } else it.shelf,
-                undo = Undo(entry.id, 0, amt, before),
+                undo = u,
             )
         }
-        armUndo(Undo(entry.id, 0, amt, before))
+        armUndo(u)
     }
 
     // ── sale ──
@@ -318,17 +328,20 @@ class StoreViewModel @Inject constructor(
             cls = if (isTrial) "amber" else "ink",
             customerId = s.saleCustomerId,
             debtDelta = total - paid, // the remainder becomes debt on that customer
+            day = today(),
+            saleAmount = if (isTrial) 0 else total, // أمانة is excluded from the day's sales
+            cashAmount = paid,
         )
         val sold = HashMap<String, Int>()
         s.lines.forEach { l -> sold[l.shelfId] = (sold[l.shelfId] ?: 0) + l.qty }
         val before = s.shelf.map { it.id to it.sold }
-        val u = Undo(entry.id, if (isTrial) 0 else total, paid, before)
+        val u = Undo(entry.id, before)
         set {
             it.copy(
                 screen = "home", lines = emptyList(), entries = listOf(entry) + it.entries,
+                viewedDay = it.today,
                 shelf = it.shelf.map { x -> sold[x.id]?.let { q -> x.copy(sold = x.sold + q) } ?: x },
-                salesToday = it.salesToday + (if (isTrial) 0 else total),
-                cashToday = it.cashToday + paid, undo = u,
+                undo = u,
             )
         }
         armUndo(u)
@@ -337,7 +350,6 @@ class StoreViewModel @Inject constructor(
         val u = it.undo ?: return@set it
         it.copy(
             entries = it.entries.filterNot { e -> e.id == u.id },
-            salesToday = it.salesToday - u.dS, cashToday = it.cashToday - u.dC,
             shelf = it.shelf.map { x -> u.before.find { b -> b.first == x.id }?.let { b -> x.copy(sold = b.second) } ?: x },
             undo = null,
         )

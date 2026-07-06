@@ -18,8 +18,8 @@ android {
         applicationId = "com.daftar.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.0.0-rc5"
+        versionCode = 9
+        versionName = "1.0.0-rc6"
     }
 
     buildFeatures {

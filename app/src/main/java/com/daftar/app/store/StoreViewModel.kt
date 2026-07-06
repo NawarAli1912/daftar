@@ -426,6 +426,7 @@ class StoreViewModel @Inject constructor(
             saleAmount = if (isTrial) 0 else total, // أمانة is excluded from the day's sales
             cashAmount = paid,
             stockDelta = encodeStock(soldMap),
+            lines = encodeLines(s.lines),
         )
         val before = s.shelf.map { it.id to it.sold }
         val u = Undo(entry.id, before)

@@ -228,6 +228,21 @@ class StoreModelTest {
     }
 
     @Test
+    fun `sale lines round-trip so the detail can show and attribute each item`() {
+        val lines = listOf(
+            SaleLine("h1", "فستان", tasira = 10_000, price = 9_000, qty = 2),
+            SaleLine("h4", "قميص", tasira = 5_000, price = 5_000, qty = 1),
+        )
+        val encoded = encodeLines(lines)
+        assertEquals("h1|فستان|9000|2;h4|قميص|5000|1", encoded)
+        val decoded = decodeLines(encoded)
+        assertEquals(2, decoded.size)
+        assertEquals(SoldLine("h1", "فستان", 9_000, 2), decoded[0])
+        assertEquals("قميص", decoded[1].name)
+        assertEquals(emptyList<SoldLine>(), decodeLines(""))
+    }
+
+    @Test
     fun `day labels read today, yesterday, then a dated weekday`() {
         val today = java.time.LocalDate.of(2026, 7, 5).toEpochDay() // a Sunday
         assertEquals("اليوم", dayLabel(today, today))

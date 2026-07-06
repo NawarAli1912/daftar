@@ -61,7 +61,21 @@ data class DayEntry(
     // أمانة (on-trust) value: goods lent to try, not a firm sale or hard debt — tracked
     // here separately so it can be followed up, returned (void), or later sold.
     val trialAmount: Long = 0,
+    // The sold lines ("shelfId|name|price|qty;…"), so the sale detail can show each item
+    // and let it be attributed to its source.
+    val lines: String = "",
 )
+
+data class SoldLine(val shelfId: String, val name: String, val price: Long, val qty: Int)
+
+fun encodeLines(lines: List<SaleLine>): String =
+    lines.joinToString(";") { "${it.shelfId}|${it.name}|${it.price}|${it.qty}" }
+
+fun decodeLines(s: String): List<SoldLine> =
+    if (s.isBlank()) emptyList() else s.split(";").mapNotNull {
+        val p = it.split("|")
+        if (p.size == 4) SoldLine(p[0], p[1], p[2].toLongOrNull() ?: 0, p[3].toIntOrNull() ?: 0) else null
+    }
 
 fun encodeStock(delta: Map<String, Int>): String =
     delta.entries.filter { it.value != 0 }.joinToString(",") { "${it.key}:${it.value}" }
@@ -248,9 +262,9 @@ fun sampleCustomers() = listOf(
 )
 
 fun sampleEntries(today: Long) = listOf(
-    DayEntry("e1", "بيع — أم محمد — فستان + بنطال", "11:40 · دفعت 10,000 والباقي دين", "16,500", "ink", "c_um", 6_500, today, saleAmount = 16_500, cashAmount = 10_000),
+    DayEntry("e1", "بيع — أم محمد — فستان + بنطال", "11:40 · دفعت 10,000 والباقي دين", "16,500", "ink", "c_um", 6_500, today, saleAmount = 16_500, cashAmount = 10_000, lines = "h1|فستان|10000|1;h2|بنطال|6500|1"),
     DayEntry("e2", "دفعة — سميرة", "11:15 · عن دين قديم", "+ 10,000", "pos", "c_sam", -10_000, today, saleAmount = 0, cashAmount = 10_000),
-    DayEntry("e3", "بيع نقدي — قميص", "9:50", "4,000 ✓", "pos", null, 0, today, saleAmount = 4_000, cashAmount = 4_000),
+    DayEntry("e3", "بيع نقدي — قميص", "9:50", "4,000 ✓", "pos", null, 0, today, saleAmount = 4_000, cashAmount = 4_000, lines = "h4|قميص|4000|1"),
 )
 
 // ── derived (mirrors renderVals) ──

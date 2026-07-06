@@ -52,9 +52,9 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
         "addsrc" -> AddSourceSheet(st, vm)
     }
     if (st.custPickerOpen) CustPicker(st, vm)
-    if (st.specifyId != null) SpecifySheet(st, vm)
     if (st.detailEntryId != null) EntryDetailSheet(st, vm)
     if (st.detailCustomerId != null) CustomerDetailSheet(st, vm)
+    if (st.specifyId != null) SpecifySheet(st, vm) // layers on top of the sale detail
     if (st.undo != null && st.screen == "home") UndoToast(vm)
 }
 
@@ -282,7 +282,41 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
             }
             Text(e.d, fontSize = 12.sp, color = cDim, modifier = Modifier.padding(top = 4.dp))
         }
-        Spacer(Modifier.height(12.dp))
+
+        // the sold items, each with a source chip to attribute where it came from
+        val soldLines = decodeLines(e.lines)
+        if (soldLines.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Text("الأصناف المُباعة — اضغطي المصدر لتحديد من أين أتت", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp))
+            Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
+                soldLines.forEach { l ->
+                    val item = st.shelf.find { it.id == l.shelfId }
+                    val unspec = item == null || item.unspecified
+                    val srcLabel = if (item != null && !item.unspecified) vm.sourceLabelFor(item.sourceId) else "غير محدد"
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 12.dp).drawBottomLine(),
+                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f, fill = false)) {
+                            Text(l.name, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = cInk)
+                            Text("${fmt(l.price)} · ×${l.qty}", fontSize = 11.5.sp, color = cDim)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Row(
+                            Modifier.clip(RoundedCornerShape(9.dp)).background(cBg).border(1.dp, if (unspec) cUnspecBorder else cLine, RoundedCornerShape(9.dp))
+                                .then(if (item != null) Modifier.tap { vm.openSpecify(l.shelfId) } else Modifier)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            if (unspec) Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(cDebt))
+                            Text(if (item != null) "$srcLabel ✎" else srcLabel, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (unspec) cDebt else cDim)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
         Box(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cDebt, RoundedCornerShape(13.dp)).tap { vm.voidEntry(e.id) }.padding(vertical = 14.dp),
             contentAlignment = Alignment.Center,

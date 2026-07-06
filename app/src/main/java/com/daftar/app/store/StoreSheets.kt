@@ -55,7 +55,31 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
     if (st.detailEntryId != null) EntryDetailSheet(st, vm)
     if (st.detailCustomerId != null) CustomerDetailSheet(st, vm)
     if (st.specifyId != null) SpecifySheet(st, vm) // layers on top of the sale detail
+    if (st.confirm != null) ConfirmSheet(st, vm)
     if (st.undo != null && st.screen == "home") UndoToast(vm)
+}
+
+// A confirm-before-you-wipe sheet for the two destructive actions in الملخّص.
+@Composable
+private fun ConfirmSheet(st: StoreState, vm: StoreViewModel) {
+    val sample = st.confirm == "sample"
+    val title = if (sample) "تحميل بيانات تجريبية؟" else "مسح كل شيء؟"
+    val body = if (sample) "سيُستبدَل كل ما سجّلتِه ببيانات للتجربة فقط. لا يمكن التراجع."
+    else "سيُمحى الدفتر والبضاعة والزبائن نهائياً وتعودين للبداية. لا يمكن التراجع."
+    val cta = if (sample) "استبدال بالتجريبية" else "نعم، امسحي الكل"
+    BottomSheet(onDismiss = vm::dismissConfirm) {
+        Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp))
+        Text(body, fontSize = 13.sp, color = cDim, lineHeight = 19.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 16.dp))
+        Box(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cDebt).tap { if (sample) vm.loadSample() else vm.resetApp() }.padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center,
+        ) { Text(cta, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cAink) }
+        Spacer(Modifier.height(9.dp))
+        Box(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(13.dp)).tap { vm.dismissConfirm() }.padding(vertical = 13.dp),
+            contentAlignment = Alignment.Center,
+        ) { Text("تراجع", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cAccent) }
+    }
 }
 
 // ── shared sheet chrome ──
@@ -722,7 +746,7 @@ private fun UndoToast(vm: StoreViewModel) {
                 .clip(RoundedCornerShape(13.dp)).background(cInk).padding(horizontal = 16.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("تم تسجيل البيع — أُنقص من الرف", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cCard)
+            Text("تم التسجيل في الدفتر", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cCard)
             Text("↺ تراجع", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = cUndoAccent, modifier = Modifier.tap { vm.undoSale() })
         }
         }

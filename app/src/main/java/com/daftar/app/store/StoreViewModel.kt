@@ -69,6 +69,12 @@ data class StoreState(
     // entry detail (view / void a past entry) + customer detail
     val detailEntryId: String? = null,
     val detailCustomerId: String? = null,
+    // editing an existing قيد: its id is held while the sheet is open so the save REPLACES it
+    // (reverse the old + add the new) instead of adding a duplicate. Cleared on cancel so
+    // backing out of an edit leaves the original untouched.
+    val editingId: String? = null,
+    // a pending destructive confirmation ("sample" | "reset") — gates the two data-wiping actions
+    val confirm: String? = null,
 )
 
 @HiltViewModel
@@ -140,17 +146,22 @@ class StoreViewModel @Inject constructor(
             tab = if (items.isNotEmpty()) "account" else "today", accountSeg = "shelf",
         )
     }
+    // Both of these wipe the real ledger, so they're gated behind a confirmation (askConfirm).
+    fun askConfirm(kind: String) = set { it.copy(confirm = kind) }
+    fun dismissConfirm() = set { it.copy(confirm = null) }
     fun loadSample() = set {
         val d = today()
         it.copy(
             seeded = true, sources = sampleSources(), shelf = sampleShelf(),
             entries = sampleEntries(d), customers = sampleCustomers(),
-            today = d, viewedDay = d, tab = "today", screen = "home",
+            today = d, viewedDay = d, tab = "today", screen = "home", confirm = null,
         )
     }
     fun resetApp() = set {
         val d = today()
-        StoreState(sources = listOf(Source(PRE_ID, Kind.PRE_APP, "قبل التطبيق", null)), today = d, viewedDay = d)
+        // initialSources() keeps both defaults (قبل التطبيق + شراء من السوق) so market items
+        // stay attributable after a reset.
+        StoreState(sources = initialSources(), today = d, viewedDay = d)
     }
 
     // ── backup: export/restore the whole ledger as JSON (the persist collector saves imports) ──
@@ -172,7 +183,7 @@ class StoreViewModel @Inject constructor(
     fun setUsdRate(v: Long) = set { it.copy(usdRate = maxOf(0, v)) }
 
     // ── nav ──
-    fun setTab(tab: String) = set { it.copy(tab = tab, screen = "home") }
+    fun setTab(tab: String) = set { it.copy(tab = tab, screen = "home", editingId = null) }
     // Page the day book back/forward; never past today.
     fun dayStep(d: Int) = set { it.copy(viewedDay = minOf(it.today, it.viewedDay + d)) }
     fun setSeg(seg: String) = set { it.copy(accountSeg = seg) }
@@ -271,7 +282,7 @@ class StoreViewModel @Inject constructor(
     }
 
     // ── payment (D37) ──
-    fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = null) }
+    fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = null, editingId = null) }
     fun payAmountStep(d: Int) = set { it.copy(payAmount = maxOf(0, it.payAmount + d * 500)) }
     fun payPickType(id: String) = set {
         val it0 = it
@@ -284,6 +295,7 @@ class StoreViewModel @Inject constructor(
     }
     fun savePay() {
         val amt = s.payAmount
+        if (amt <= 0) return // a payment of nothing isn't a قيد
         val tid = s.payTypeId
         val item = tid?.let { id -> s.shelf.find { it.id == id } }
         val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
@@ -297,20 +309,22 @@ class StoreViewModel @Inject constructor(
             day = today(), saleAmount = 0, cashAmount = amt,
             stockDelta = if (tid != null) encodeStock(mapOf(tid to 1)) else "",
         )
+        val editingId = s.editingId
         val before = if (tid != null) listOf(tid to (s.shelf.find { it.id == tid }?.sold ?: 0)) else emptyList()
-        val u = Undo(entry.id, before)
+        val u = if (editingId == null) Undo(entry.id, before) else null
         set {
-            it.copy(
-                screen = "home", entries = listOf(entry) + it.entries, viewedDay = it.today,
-                shelf = if (tid != null) it.shelf.map { x -> if (x.id == tid) x.copy(sold = x.sold + 1) else x } else it.shelf,
-                undo = u,
+            val r = if (editingId != null) reversed(it, editingId) else it
+            r.copy(
+                screen = "home", entries = listOf(entry) + r.entries, viewedDay = it.today,
+                shelf = if (tid != null) r.shelf.map { x -> if (x.id == tid) x.copy(sold = x.sold + 1) else x } else r.shelf,
+                undo = u, editingId = null,
             )
         }
-        armUndo(u)
+        if (u != null) armUndo(u)
     }
 
     // ── returns (إرجاع) — value credited back to the customer's balance ──
-    fun openReturn() = set { it.copy(screen = "return", returnAmount = 5_000, returnItemId = null, saleCustomerId = null) }
+    fun openReturn() = set { it.copy(screen = "return", returnAmount = 5_000, returnItemId = null, saleCustomerId = null, editingId = null) }
     fun returnAmountStep(d: Int) = set { it.copy(returnAmount = maxOf(0, it.returnAmount + d * 500)) }
     fun returnPickItem(id: String) = set {
         val item = it.shelf.find { x -> x.id == id }
@@ -319,6 +333,7 @@ class StoreViewModel @Inject constructor(
     }
     fun saveReturn() {
         val amt = s.returnAmount
+        if (amt <= 0) return // nothing to credit back
         val iid = s.returnItemId
         val item = iid?.let { id -> s.shelf.find { it.id == id } }
         val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
@@ -332,39 +347,42 @@ class StoreViewModel @Inject constructor(
             day = today(), saleAmount = 0, cashAmount = 0,
             stockDelta = if (iid != null) encodeStock(mapOf(iid to -1)) else "", // item back on the shelf
         )
+        val editingId = s.editingId
         val before = if (iid != null) listOf(iid to (s.shelf.find { it.id == iid }?.sold ?: 0)) else emptyList()
-        val u = Undo(entry.id, before)
+        val u = if (editingId == null) Undo(entry.id, before) else null
         set {
-            it.copy(
-                screen = "home", entries = listOf(entry) + it.entries, viewedDay = it.today,
-                shelf = if (iid != null) it.shelf.map { x -> if (x.id == iid) x.copy(sold = maxOf(0, x.sold - 1)) else x } else it.shelf,
-                undo = u,
+            val r = if (editingId != null) reversed(it, editingId) else it
+            r.copy(
+                screen = "home", entries = listOf(entry) + r.entries, viewedDay = it.today,
+                shelf = if (iid != null) r.shelf.map { x -> if (x.id == iid) x.copy(sold = maxOf(0, x.sold - 1)) else x } else r.shelf,
+                undo = u, editingId = null,
             )
         }
-        armUndo(u)
+        if (u != null) armUndo(u)
     }
 
     // ── entry detail: view a past entry and void it (reverses debt, totals, stock) ──
     fun openEntry(id: String) = set { it.copy(detailEntryId = id) }
     fun closeEntry() = set { it.copy(detailEntryId = null) }
-    fun voidEntry(id: String) = set {
-        val e = it.entries.find { x -> x.id == id } ?: return@set it
+    // Remove an entry and put back the shelf stock it had moved. Shared by void and by
+    // edit-replace (a save that's editing an old قيد reverses it first, then adds the new one).
+    private fun reversed(state: StoreState, id: String): StoreState {
+        val e = state.entries.find { it.id == id } ?: return state
         val deltas = decodeStock(e.stockDelta)
-        it.copy(
-            entries = it.entries.filterNot { x -> x.id == id },
-            shelf = it.shelf.map { x -> deltas.find { d -> d.first == x.id }?.let { d -> x.copy(sold = maxOf(0, x.sold - d.second)) } ?: x },
-            detailEntryId = null, undo = null,
+        return state.copy(
+            entries = state.entries.filterNot { it.id == id },
+            shelf = state.shelf.map { x -> deltas.find { d -> d.first == x.id }?.let { d -> x.copy(sold = maxOf(0, x.sold - d.second)) } ?: x },
         )
     }
+    fun voidEntry(id: String) = set { reversed(it, id).copy(detailEntryId = null, undo = null) }
 
-    // Edit an old قيد: reverse it (like void), then reopen the matching sheet pre-filled so the
-    // owner can fix anything — add a customer, change the amount, the items, the pay type.
+    // Edit an old قيد: reopen the matching sheet pre-filled and mark it for replacement. The
+    // original is left in place — the save reverses it then adds the corrected one — so backing
+    // out of the edit (✕ / back / تبويب آخر) leaves the entry exactly as it was (no data loss).
     fun editEntry(id: String) = set {
         val e = it.entries.find { x -> x.id == id } ?: return@set it
         val deltas = decodeStock(e.stockDelta)
-        val shelfBack = it.shelf.map { x -> deltas.find { d -> d.first == x.id }?.let { d -> x.copy(sold = maxOf(0, x.sold - d.second)) } ?: x }
-        val entriesBack = it.entries.filterNot { x -> x.id == id }
-        val base = it.copy(entries = entriesBack, shelf = shelfBack, detailEntryId = null, undo = null, addNewOpen = false)
+        val base = it.copy(editingId = id, detailEntryId = null, undo = null, addNewOpen = false)
         when {
             e.lines.isNotEmpty() -> base.copy(
                 screen = "sale", saleCustomerId = e.customerId,
@@ -382,7 +400,7 @@ class StoreViewModel @Inject constructor(
                 screen = "return", returnAmount = -e.debtDelta,
                 returnItemId = deltas.firstOrNull()?.first, saleCustomerId = e.customerId,
             )
-            else -> base // e.g. a trial-conversion: nothing to reopen, just reverse it
+            else -> it // nothing editable to reopen — leave the entry untouched
         }
     }
 
@@ -416,9 +434,9 @@ class StoreViewModel @Inject constructor(
 
     // ── sale ──
     fun openChooser() = set { it.copy(screen = "chooser") }
-    fun openSale() = set { it.copy(screen = "sale", lines = emptyList(), pay = "full", partialPaid = 0, addNewOpen = false, saleCustomerId = null) }
+    fun openSale() = set { it.copy(screen = "sale", lines = emptyList(), pay = "full", partialPaid = 0, addNewOpen = false, saleCustomerId = null, editingId = null) }
     fun partialStep(d: Int) = set { it.copy(partialPaid = maxOf(0, it.partialPaid + d * 500)) }
-    fun closeSheet() = set { it.copy(screen = "home", addNewOpen = false) }
+    fun closeSheet() = set { it.copy(screen = "home", addNewOpen = false, editingId = null) }
     fun addLine(id: String) = set {
         val item = it.shelf.find { x -> x.id == id } ?: return@set it
         it.copy(lines = it.lines + SaleLine(id, item.name, item.tasira, item.tasira, 1))
@@ -481,17 +499,19 @@ class StoreViewModel @Inject constructor(
             stockDelta = encodeStock(soldMap),
             lines = encodeLines(s.lines),
         )
-        val before = s.shelf.map { it.id to it.sold }
-        val u = Undo(entry.id, before)
+        val editingId = s.editingId
+        // A fresh sale gets an undo toast; an edit-replace commits directly (re-void to change again).
+        val u = if (editingId == null) Undo(entry.id, s.shelf.map { it.id to it.sold }) else null
         set {
-            it.copy(
-                screen = "home", lines = emptyList(), entries = listOf(entry) + it.entries,
+            val r = if (editingId != null) reversed(it, editingId) else it
+            r.copy(
+                screen = "home", lines = emptyList(), entries = listOf(entry) + r.entries,
                 viewedDay = it.today,
-                shelf = it.shelf.map { x -> soldMap[x.id]?.let { q -> x.copy(sold = x.sold + q) } ?: x },
-                undo = u,
+                shelf = r.shelf.map { x -> soldMap[x.id]?.let { q -> x.copy(sold = x.sold + q) } ?: x },
+                undo = u, editingId = null,
             )
         }
-        armUndo(u)
+        if (u != null) armUndo(u)
     }
     fun undoSale() = set {
         val u = it.undo ?: return@set it

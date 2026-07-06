@@ -11,3 +11,7 @@ local.properties
 # macos
 .DS_Store
 build.nosync/
+
+# claude code local tooling + kotlin build cache (machine-specific)
+.claude/
+.kotlin/

@@ -55,9 +55,10 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     val st by vm.state.collectAsState()
     // Back closes an open sheet/overlay first, then falls back to اليوم; only اليوم exits.
     val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
-        st.detailEntryId != null || st.detailCustomerId != null
+        st.detailEntryId != null || st.detailCustomerId != null || st.confirm != null
     androidx.activity.compose.BackHandler(enabled = overlayOpen || st.tab != "today") {
         when {
+            st.confirm != null -> vm.dismissConfirm()
             st.custPickerOpen -> vm.closeCustPicker()
             st.detailEntryId != null -> vm.closeEntry()
             st.detailCustomerId != null -> vm.closeCustomer()
@@ -571,10 +572,10 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
         Box(Modifier.weight(1f)) { OutlineButton("⤒ استعادة", fontSize = 13.5.sp, radius = 12.dp, vertical = 13.dp, filledCard = true) { importer.launch(arrayOf("application/json", "text/*", "*/*")) } }
     }
     Spacer(Modifier.height(14.dp))
-    Box(Modifier.fillMaxWidth().card(12.dp).tap { vm.loadSample() }.padding(13.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxWidth().card(12.dp).tap { vm.askConfirm("sample") }.padding(13.dp), contentAlignment = Alignment.Center) {
         Text("بيانات تجريبية ⟲", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = cInk)
     }
-    Box(Modifier.fillMaxWidth().padding(top = 14.dp).tap { vm.resetApp() }, contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxWidth().padding(top = 14.dp).tap { vm.askConfirm("reset") }, contentAlignment = Alignment.Center) {
         Text("مسح الكل — إظهار البداية", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cDebt)
     }
 }

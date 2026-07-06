@@ -16,9 +16,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
@@ -228,8 +235,23 @@ private fun EntryRow(e: DayEntry, onClick: () -> Unit) {
 private fun StatCard(label: String, value: String, valueColor: Color, modifier: Modifier) {
     Column(modifier.card().padding(horizontal = 13.dp, vertical = 12.dp)) {
         Text(label, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
-        Text(value, fontSize = 23.sp, fontWeight = FontWeight.Bold, color = valueColor, modifier = Modifier.padding(top = 3.dp))
+        PopText(value, 23.sp, valueColor, Modifier.padding(top = 3.dp))
     }
+}
+
+// A number that springs a little "pop" whenever it changes (satisfying on a new sale).
+@Composable
+private fun PopText(text: String, fontSize: androidx.compose.ui.unit.TextUnit, color: Color, modifier: Modifier = Modifier) {
+    val scale = remember { Animatable(1f) }
+    var first by remember { mutableStateOf(true) }
+    LaunchedEffect(text) {
+        if (first) first = false
+        else { scale.snapTo(1.14f); scale.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 520f)) }
+    }
+    Text(
+        text, fontSize = fontSize, fontWeight = FontWeight.Bold, color = color,
+        modifier = modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0.5f) },
+    )
 }
 
 // ── الزبائن ──
@@ -352,11 +374,13 @@ private fun AccountScreen(st: StoreState, vm: StoreViewModel) {
 
 @Composable
 private fun SegBtn(label: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val bg by animateColorAsState(if (active) cAccent else cCard, spring(stiffness = 700f), label = "segbg")
+    val fg by animateColorAsState(if (active) cAink else cDim, spring(stiffness = 700f), label = "segfg")
     Box(
-        modifier.clip(RoundedCornerShape(9.dp)).background(if (active) cAccent else cCard).tap(onClick).padding(vertical = 8.dp),
+        modifier.clip(RoundedCornerShape(9.dp)).background(bg).tap(onClick).padding(vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (active) cAink else cDim)
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = fg)
     }
 }
 

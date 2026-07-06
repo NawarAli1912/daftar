@@ -1,9 +1,16 @@
 package com.daftar.app.store
 
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -51,10 +58,18 @@ internal val cGreenBorder = Color(0xFFCFE0D3)
 internal val cScrim = Color(0x57140F0D)       // rgba(20,17,13,.34)
 internal val cUndoAccent = Color(0xFFF4C84A)
 
-// A tap target with no ripple/overlay — matches the prototype's plain cursor:pointer feel.
+// A tap target with a satisfying, iOS-style press: the element springs down to 0.96 while
+// held and settles back with a gentle bounce on release. No ripple.
 internal fun Modifier.tap(onClick: () -> Unit): Modifier = this.composed {
     val src = remember { MutableInteractionSource() }
-    clickable(interactionSource = src, indication = null, onClick = onClick)
+    val pressed by src.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 650f),
+        label = "press",
+    )
+    graphicsLayer { scaleX = scale; scaleY = scale }
+        .clickable(interactionSource = src, indication = null, onClick = onClick)
 }
 
 // Rounded ± stepper button.
@@ -100,17 +115,16 @@ internal fun Modifier.dashedBorder(color: Color, radius: Dp, width: Dp = 1.dp): 
         )
     }
 
-// ── entrance motion (mirrors the prototype's dvUp/dvFade/dvCard/dvUndo keyframes) ──
+// ── entrance motion — springs, for an Apple-like settle (replaces the prototype's linear eases) ──
 // A 0→1 progress that runs once on first composition; re-runs if `key` changes.
+internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 0.82f, stiffness = 320f)
+internal val BounceSpring: AnimationSpec<Float> = spring(dampingRatio = 0.6f, stiffness = 340f)
+
 @Composable
-internal fun appearProgress(durationMs: Int, key: Any? = Unit): Float {
+internal fun appearProgress(key: Any? = Unit, spec: AnimationSpec<Float> = SheetSpring): Float {
     var shown by remember(key) { mutableStateOf(false) }
-    androidx.compose.runtime.LaunchedEffect(key) { shown = true }
-    val p by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (shown) 1f else 0f,
-        animationSpec = androidx.compose.animation.core.tween(durationMs, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-        label = "appear",
-    )
+    LaunchedEffect(key) { shown = true }
+    val p by animateFloatAsState(targetValue = if (shown) 1f else 0f, animationSpec = spec, label = "appear")
     return p
 }
 
@@ -126,8 +140,8 @@ internal fun Modifier.riseFade(p: Float, riseDp: Dp = 10.dp, fromScale: Float = 
 
 @Composable
 internal fun Scrim(onClick: () -> Unit) {
-    val p = appearProgress(160) // dvFade
-    Box(Modifier.fillMaxSize().graphicsLayer { alpha = p }.background(cScrim).tap(onClick))
+    val p = appearProgress(spec = tween(200)) // plain fade for the dimming
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = p }.background(cScrim).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick))
 }
 
 internal val sp11 = 11.sp

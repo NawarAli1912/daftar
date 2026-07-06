@@ -78,7 +78,12 @@ class StoreViewModel @Inject constructor(
     val state: StateFlow<StoreState> = _state.asStateFlow()
 
     private val s get() = _state.value
-    private fun set(f: (StoreState) -> StoreState) = _state.update(f)
+    // Every state change re-normalizes due dates (idempotent + cheap) so a new debt gets a
+    // due date and a paid-off customer loses hers, no matter which handler ran.
+    private fun set(f: (StoreState) -> StoreState) = _state.update { s0 ->
+        val s1 = f(s0)
+        s1.copy(customers = normalizeDues(s1.customers, s1.entries, s1.today))
+    }
 
     init {
         // Start on the real current day, then load the persisted ledger and keep the DB in
@@ -90,7 +95,7 @@ class StoreViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         seeded = snap.seeded, usdRate = snap.usdRate, sources = snap.sources, shelf = snap.shelf,
-                        entries = snap.entries, customers = snap.customers,
+                        entries = snap.entries, customers = normalizeDues(snap.customers, snap.entries, it.today),
                     )
                 }
             }
@@ -356,6 +361,10 @@ class StoreViewModel @Inject constructor(
     fun closeCustomer() = set { it.copy(detailCustomerId = null) }
     fun payThisCustomer(id: String) = set {
         it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = id, detailCustomerId = null)
+    }
+    // FR-3.2: one tap pushes her reminder out (from today); the digest reschedules naturally.
+    fun snooze(id: String, days: Int) = set {
+        it.copy(customers = it.customers.map { c -> if (c.id == id) c.copy(dueEpochDay = it.today + days) else c })
     }
 
     // ── sale ──

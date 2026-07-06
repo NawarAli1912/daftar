@@ -92,12 +92,42 @@ fun dayLabel(day: Long, today: Long): String = when (day) {
 }
 
 // A named debtor. Balance = openingDebt + Σ(debtDelta of her entries). Positive = she owes.
+// dueEpochDay = when to chase her (FR-1.6: defaults to the 1st of next month; snooze shifts it;
+// cleared once she's paid off).
 data class Customer(
     val id: String,
     val name: String,
     val phone: String? = null,
     val openingDebt: Long = 0,
+    val dueEpochDay: Long? = null,
 )
+
+// FR-1.6: a new debt is due on the 1st of next month by default.
+fun firstOfNextMonth(today: Long): Long =
+    java.time.LocalDate.ofEpochDay(today).plusMonths(1).withDayOfMonth(1).toEpochDay()
+
+// The Arabic urgency label for المواعيد.
+fun dueStatus(due: Long?, today: Long): String = when {
+    due == null -> "بلا موعد"
+    due < today -> "متأخّرة ${today - due} يوم"
+    due == today -> "مستحقة اليوم"
+    due == today + 1 -> "غداً"
+    else -> "بعد ${due - today} يوم"
+}
+
+// Keep each customer's due date consistent: set it when she first owes, clear it once paid off.
+// A snoozed (explicitly set) date is left alone while she still owes.
+fun normalizeDues(customers: List<Customer>, entries: List<DayEntry>, today: Long): List<Customer> {
+    if (today == 0L) return customers
+    return customers.map { c ->
+        val bal = customerBalance(c, entries)
+        when {
+            bal > 0 && c.dueEpochDay == null -> c.copy(dueEpochDay = firstOfNextMonth(today))
+            bal <= 0 && c.dueEpochDay != null -> c.copy(dueEpochDay = null)
+            else -> c
+        }
+    }
+}
 
 fun customerBalance(c: Customer, entries: List<DayEntry>): Long =
     c.openingDebt + entries.filter { it.customerId == c.id }.sumOf { it.debtDelta }
@@ -114,13 +144,19 @@ fun debtors(customers: List<Customer>, entries: List<DayEntry>): List<Debtor> =
         .filter { it.balance > 0 }
         .sortedByDescending { it.balance }
 
-// Everyone worth chasing in المواعيد: owes money and/or has أمانة out. Largest first.
+// The digest chases only debts that are actually due (or overdue) today — a snoozed
+// (future) due date drops out until it comes around (FR-3.2 reschedule).
+fun dueDebtors(customers: List<Customer>, entries: List<DayEntry>, today: Long): List<Debtor> =
+    debtors(customers, entries).filter { d -> d.customer.dueEpochDay?.let { it <= today } ?: true }
+
+// Everyone worth chasing in المواعيد: owes money and/or has أمانة out. Most urgent first
+// (earliest due date), then by amount.
 data class FollowUp(val customer: Customer, val debt: Long, val trial: Long)
 
 fun followUps(customers: List<Customer>, entries: List<DayEntry>): List<FollowUp> =
     customers.map { FollowUp(it, customerBalance(it, entries), customerTrial(it, entries)) }
         .filter { it.debt > 0 || it.trial > 0 }
-        .sortedByDescending { it.debt + it.trial }
+        .sortedWith(compareBy({ it.customer.dueEpochDay ?: Long.MAX_VALUE }, { -(it.debt + it.trial) }))
 
 // The daily digest notification copy (title + body), kept pure so it can be tested
 // without the worker/emulator.

@@ -144,6 +144,15 @@ private fun CardStepperRow(label: String, value: String, onMinus: () -> Unit, on
 }
 
 @Composable
+private fun SnoozeChip(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.clip(RoundedCornerShape(9.dp)).background(cCard).border(1.dp, cLine, RoundedCornerShape(9.dp)).tap(onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Text(label, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = cAccent)
+    }
+}
+
+@Composable
 private fun CustomerRow(st: StoreState, vm: StoreViewModel) {
     val cust = st.saleCustomerId?.let { id -> st.customers.find { it.id == id } }
     Row(
@@ -300,8 +309,19 @@ private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
             )
         }
         if (trial > 0) Text("أمانة معها (قد تُعاد): ${fmt(trial)}", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
-        c.phone?.let { Text("☎ $it", fontSize = 12.sp, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)) }
-        Spacer(Modifier.height(8.dp))
+        c.phone?.let { Text("☎ $it", fontSize = 12.sp, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)) }
+        // reminder: due date + one-tap snooze (FR-3.2), only while she owes
+        if (bal > 0) {
+            val overdue = c.dueEpochDay != null && c.dueEpochDay < st.today
+            Text("التذكير: ${dueStatus(c.dueEpochDay, st.today)}", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = if (overdue) cDebt else cInk, modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 6.dp))
+            Text("ذكّريني بعد:", fontSize = 11.sp, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                SnoozeChip("أسبوع") { vm.snooze(c.id, 7) }
+                SnoozeChip("أسبوعان") { vm.snooze(c.id, 14) }
+                SnoozeChip("شهر") { vm.snooze(c.id, 30) }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
         if (history.isEmpty()) {
             Text("لا حركات مسجّلة بعد", fontSize = 13.sp, color = cDim, modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp))
         } else {

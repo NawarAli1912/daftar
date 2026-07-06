@@ -33,13 +33,13 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
             entries = dao.entries().map {
                 DayEntry(it.id, it.t, it.d, it.amt, it.cls, it.customerId, it.debtDelta, it.day, it.saleAmount, it.cashAmount, it.stockDelta, it.trialAmount)
             },
-            customers = dao.customers().map { Customer(it.id, it.name, it.phone, it.openingDebt) },
+            customers = dao.customers().map { Customer(it.id, it.name, it.phone, it.openingDebt, it.dueEpochDay) },
         )
     }
 
-    // For the daily reminder digest (runs off the UI) — who owes, largest first.
-    suspend fun loadDebtors(): List<Debtor> =
-        load()?.let { debtors(it.customers, it.entries) } ?: emptyList()
+    // For the daily reminder digest (runs off the UI) — who owes and is due/overdue today.
+    suspend fun loadDueDebtors(today: Long): List<Debtor> =
+        load()?.let { dueDebtors(it.customers, it.entries, today) } ?: emptyList()
 
     suspend fun save(s: StoreSnapshot) {
         dao.replaceAll(
@@ -51,7 +51,7 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
             entries = s.entries.mapIndexed { i, x ->
                 EntryRow(x.id, x.t, x.d, x.amt, x.cls, x.customerId, x.debtDelta, x.day, x.saleAmount, x.cashAmount, x.stockDelta, x.trialAmount, i)
             },
-            customers = s.customers.mapIndexed { i, x -> CustomerRow(x.id, x.name, x.phone, x.openingDebt, i) },
+            customers = s.customers.mapIndexed { i, x -> CustomerRow(x.id, x.name, x.phone, x.openingDebt, x.dueEpochDay, i) },
         )
     }
 }

@@ -287,9 +287,10 @@ private fun ApptsScreen(st: StoreState, vm: StoreViewModel) {
     } else {
         Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
             fs.forEach { f ->
+                val due = if (f.debt > 0) dueStatus(f.customer.dueEpochDay, st.today) else ""
                 val sub = when {
-                    f.debt > 0 && f.trial > 0 -> "دين + أمانة ${fmt(f.trial)}"
-                    f.debt > 0 -> "دين مستحق"
+                    f.debt > 0 && f.trial > 0 -> "$due · أمانة ${fmt(f.trial)}"
+                    f.debt > 0 -> due
                     else -> "أمانة — قد تُعاد"
                 }
                 val amt = if (f.debt > 0) fmt(f.debt) else fmt(f.trial)

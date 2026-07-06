@@ -19,7 +19,7 @@ import androidx.room.RoomDatabase
         StoreMetaRow::class,
         CustomerRow::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class DaftarDatabase : RoomDatabase() {

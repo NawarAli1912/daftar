@@ -47,7 +47,8 @@ class RemindersWorker(
 
     override suspend fun doWork(): Result {
         val deps = EntryPointAccessors.fromApplication(applicationContext, Deps::class.java)
-        val due = deps.storeRepository().loadDebtors() // customers who owe, largest first
+        val today = java.time.LocalDate.now().toEpochDay()
+        val due = deps.storeRepository().loadDueDebtors(today) // owe AND due/overdue today
         if (due.isNotEmpty()) postDigest(applicationContext, due)
         return Result.success()
     }

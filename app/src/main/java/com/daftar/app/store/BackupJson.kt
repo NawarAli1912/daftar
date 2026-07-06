@@ -28,7 +28,7 @@ fun snapshotToJson(s: StoreSnapshot): String {
     })
     root.put("customers", JSONArray().apply {
         s.customers.forEach {
-            put(JSONObject().put("id", it.id).put("name", it.name).put("phone", it.phone ?: JSONObject.NULL).put("openingDebt", it.openingDebt))
+            put(JSONObject().put("id", it.id).put("name", it.name).put("phone", it.phone ?: JSONObject.NULL).put("openingDebt", it.openingDebt).put("dueEpochDay", it.dueEpochDay ?: JSONObject.NULL))
         }
     })
     root.put("entries", JSONArray().apply {
@@ -64,7 +64,7 @@ fun snapshotFromJson(json: String): StoreSnapshot {
             )
         },
         customers = root.getJSONArray("customers").map {
-            Customer(it.getString("id"), it.getString("name"), it.optStr("phone"), it.getLong("openingDebt"))
+            Customer(it.getString("id"), it.getString("name"), it.optStr("phone"), it.getLong("openingDebt"), it.optLongN("dueEpochDay"))
         },
         entries = root.getJSONArray("entries").map {
             DayEntry(

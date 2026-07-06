@@ -51,6 +51,7 @@ data class CustomerRow(
     val name: String,
     val phone: String?,
     val openingDebt: Long,
+    val dueEpochDay: Long?,
     val seq: Int,
 )
 

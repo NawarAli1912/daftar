@@ -193,6 +193,41 @@ class StoreModelTest {
     }
 
     @Test
+    fun `a new debt defaults due to the 1st of next month and clears when paid off`() {
+        val today = java.time.LocalDate.of(2026, 7, 6).toEpochDay()
+        val firstAug = java.time.LocalDate.of(2026, 8, 1).toEpochDay()
+        assertEquals(firstAug, firstOfNextMonth(today))
+        // owes → gets a due date
+        val owing = normalizeDues(listOf(Customer("c", "زبونة", null, 5_000)), emptyList(), today)
+        assertEquals(firstAug, owing.first().dueEpochDay)
+        // paid off → due date cleared
+        val paid = normalizeDues(listOf(Customer("c", "زبونة", null, 0, dueEpochDay = firstAug)), emptyList(), today)
+        assertNull(paid.first().dueEpochDay)
+    }
+
+    @Test
+    fun `due status reads overdue, due-today, tomorrow, then in-N-days`() {
+        val t = 20_000L
+        assertEquals("متأخّرة 3 يوم", dueStatus(t - 3, t))
+        assertEquals("مستحقة اليوم", dueStatus(t, t))
+        assertEquals("غداً", dueStatus(t + 1, t))
+        assertEquals("بعد 10 يوم", dueStatus(t + 10, t))
+    }
+
+    @Test
+    fun `the digest chases only debts due or overdue today, so a snooze drops out`() {
+        val t = 20_000L
+        val cs = listOf(
+            Customer("a", "متأخرة", null, 5_000, dueEpochDay = t - 2), // overdue → included
+            Customer("b", "اليوم", null, 3_000, dueEpochDay = t),      // due today → included
+            Customer("c", "مؤجّلة", null, 4_000, dueEpochDay = t + 7), // snoozed → excluded
+        )
+        val due = dueDebtors(cs, emptyList(), t)
+        assertEquals(listOf("متأخرة", "اليوم"), due.map { it.customer.name }) // debtors: largest balance first
+        assertTrue(due.none { it.customer.name == "مؤجّلة" })
+    }
+
+    @Test
     fun `day labels read today, yesterday, then a dated weekday`() {
         val today = java.time.LocalDate.of(2026, 7, 5).toEpochDay() // a Sunday
         assertEquals("اليوم", dayLabel(today, today))

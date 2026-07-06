@@ -38,6 +38,7 @@ data class StoreState(
     // sale
     val lines: List<SaleLine> = emptyList(),
     val pay: String = "full",           // full | partial | trial
+    val partialPaid: Long = 0,          // how much she paid now when pay == partial
     val saleCustomerId: String? = null, // who this sale/payment is for (null = نقدي)
     val undo: Undo? = null,
     // customer picker + inline add
@@ -356,6 +357,35 @@ class StoreViewModel @Inject constructor(
         )
     }
 
+    // Edit an old قيد: reverse it (like void), then reopen the matching sheet pre-filled so the
+    // owner can fix anything — add a customer, change the amount, the items, the pay type.
+    fun editEntry(id: String) = set {
+        val e = it.entries.find { x -> x.id == id } ?: return@set it
+        val deltas = decodeStock(e.stockDelta)
+        val shelfBack = it.shelf.map { x -> deltas.find { d -> d.first == x.id }?.let { d -> x.copy(sold = maxOf(0, x.sold - d.second)) } ?: x }
+        val entriesBack = it.entries.filterNot { x -> x.id == id }
+        val base = it.copy(entries = entriesBack, shelf = shelfBack, detailEntryId = null, undo = null, addNewOpen = false)
+        when {
+            e.lines.isNotEmpty() -> base.copy(
+                screen = "sale", saleCustomerId = e.customerId,
+                lines = decodeLines(e.lines).map { l ->
+                    SaleLine(l.shelfId, l.name, it.shelf.find { s -> s.id == l.shelfId }?.tasira ?: l.price, l.price, l.qty)
+                },
+                pay = if (e.trialAmount > 0) "trial" else if (e.debtDelta > 0) "partial" else "full",
+                partialPaid = e.cashAmount,
+            )
+            e.t.startsWith("دفعة") -> base.copy(
+                screen = "pay", payAmount = e.cashAmount,
+                payTypeId = deltas.firstOrNull()?.first, saleCustomerId = e.customerId,
+            )
+            e.t.startsWith("إرجاع") -> base.copy(
+                screen = "return", returnAmount = -e.debtDelta,
+                returnItemId = deltas.firstOrNull()?.first, saleCustomerId = e.customerId,
+            )
+            else -> base // e.g. a trial-conversion: nothing to reopen, just reverse it
+        }
+    }
+
     // ── customer detail: her balance + history + record a payment for her ──
     fun openCustomer(id: String) = set { it.copy(detailCustomerId = id) }
     fun closeCustomer() = set { it.copy(detailCustomerId = null) }
@@ -386,7 +416,8 @@ class StoreViewModel @Inject constructor(
 
     // ── sale ──
     fun openChooser() = set { it.copy(screen = "chooser") }
-    fun openSale() = set { it.copy(screen = "sale", lines = emptyList(), pay = "full", addNewOpen = false, saleCustomerId = null) }
+    fun openSale() = set { it.copy(screen = "sale", lines = emptyList(), pay = "full", partialPaid = 0, addNewOpen = false, saleCustomerId = null) }
+    fun partialStep(d: Int) = set { it.copy(partialPaid = maxOf(0, it.partialPaid + d * 500)) }
     fun closeSheet() = set { it.copy(screen = "home", addNewOpen = false) }
     fun addLine(id: String) = set {
         val item = it.shelf.find { x -> x.id == id } ?: return@set it
@@ -398,7 +429,11 @@ class StoreViewModel @Inject constructor(
     fun qtyStep(i: Int, d: Int) = set {
         it.copy(lines = it.lines.mapIndexed { j, l -> if (j == i) l.copy(qty = maxOf(1, l.qty + d)) else l })
     }
-    fun setPay(mode: String) = set { it.copy(pay = mode) }
+    fun setPay(mode: String) = set {
+        val total = it.lines.sumOf { l -> l.price * l.qty }
+        // seed a sensible starting amount (half) the first time she picks جزءاً
+        it.copy(pay = mode, partialPaid = if (mode == "partial" && it.partialPaid == 0L) total / 2 else it.partialPaid)
+    }
     fun toggleAddNew() = set { it.copy(addNewOpen = !it.addNewOpen, newName = "", newPrice = 5_000) }
     fun setNewName(v: String) = set { it.copy(newName = v) }
     fun newPriceStep(d: Int) = set { it.copy(newPrice = maxOf(0, it.newPrice + d * 500)) }
@@ -412,12 +447,13 @@ class StoreViewModel @Inject constructor(
         )
     }
     fun saveSale() {
+        if (s.lines.isEmpty()) return // tighten: a sale needs at least one item
         val total = total()
         val isTrial = s.pay == "trial"
         val paid = when {
             s.pay == "full" -> total
             isTrial -> 0
-            else -> Math.round(total / 2.0)
+            else -> minOf(s.partialPaid, total) // exactly what she paid (never more than the total)
         }
         val names = s.lines.joinToString(" + ") { it.name }
         val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }

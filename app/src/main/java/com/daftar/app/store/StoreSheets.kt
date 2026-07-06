@@ -319,13 +319,18 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
         }
 
         Spacer(Modifier.height(14.dp))
+        val editable = soldLines.isNotEmpty() || e.t.startsWith("دفعة") || e.t.startsWith("إرجاع")
+        if (editable) {
+            PrimaryButton("تعديل القيد ✎", fontSize = 15.sp, radius = 13.dp, vertical = 14.dp) { vm.editEntry(e.id) }
+            Spacer(Modifier.height(9.dp))
+        }
         Box(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cDebt, RoundedCornerShape(13.dp)).tap { vm.voidEntry(e.id) }.padding(vertical = 14.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text("إلغاء هذا القيد ↺", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cDebt)
         }
-        Text("يُعيد المبلغ والدين والبضاعة كما كانت.", fontSize = 11.5.sp, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        Text("«تعديل» يفتح القيد لتصحيحه، و«إلغاء» يُعيد المبلغ والدين والبضاعة كما كانت.", fontSize = 11.5.sp, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
     }
 }
 
@@ -502,6 +507,18 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
                 PayModeBtn("دفعت الكل", st.pay == "full", Modifier.weight(1f)) { vm.setPay("full") }
                 PayModeBtn("دفعت جزءاً", st.pay == "partial", Modifier.weight(1f)) { vm.setPay("partial") }
                 PayModeBtn("أمانة", st.pay == "trial", Modifier.weight(1f)) { vm.setPay("trial") }
+            }
+            if (st.pay == "partial") {
+                val total = st.lines.sumOf { it.price * it.qty }
+                val paid = minOf(st.partialPaid, total)
+                Spacer(Modifier.height(10.dp))
+                Column(Modifier.fillMaxWidth().card(13.dp).padding(horizontal = 13.dp, vertical = 12.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("كم دفعت الآن؟", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+                        LabeledStepper("", fmt(st.partialPaid), { vm.partialStep(-1) }, { vm.partialStep(1) }, valueMin = 70.dp)
+                    }
+                    Text("الباقي ديناً: ${fmt(total - paid)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cDebt, modifier = Modifier.padding(top = 8.dp))
+                }
             }
             Spacer(Modifier.height(8.dp))
         }

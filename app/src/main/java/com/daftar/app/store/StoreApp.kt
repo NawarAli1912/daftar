@@ -56,7 +56,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     // Back closes an open sheet/overlay first, then falls back to اليوم; only اليوم exits.
     val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
         st.detailEntryId != null || st.detailCustomerId != null
-    androidx.activity.compose.BackHandler(enabled = st.seeded && (overlayOpen || st.tab != "today")) {
+    androidx.activity.compose.BackHandler(enabled = overlayOpen || st.tab != "today") {
         when {
             st.custPickerOpen -> vm.closeCustPicker()
             st.detailEntryId != null -> vm.closeEntry()
@@ -94,7 +94,6 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                 TabBar(st, vm)
             }
             StoreSheets(st, vm)
-            if (!st.seeded) Onboarding(st, vm)
         }
     }
 }
@@ -150,11 +149,30 @@ private fun TabItem(glyph: String, label: String, active: Boolean, modifier: Mod
     }
 }
 
+// A dismissible usage tip (replaces the old first-run demo splash).
+@Composable
+private fun TipBanner() {
+    var shown by remember { mutableStateOf(true) }
+    if (!shown) return
+    val tip = USAGE_TIPS[(st_todayEpochDay() % USAGE_TIPS.size).toInt()]
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(12.dp)).padding(start = 13.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("💡 $tip", fontSize = 12.sp, color = cPaid, lineHeight = 17.sp, modifier = Modifier.weight(1f).padding(end = 8.dp))
+        Text("✕", fontSize = 15.sp, color = cDim, modifier = Modifier.tap { shown = false })
+    }
+    Spacer(Modifier.height(12.dp))
+}
+
+private fun st_todayEpochDay(): Long = java.time.LocalDate.now().toEpochDay()
+
 // ── اليوم ──
 @Composable
 private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
     val isToday = st.viewedDay == st.today
     val dayEntries = entriesForDay(st.entries, st.viewedDay)
+    if (isToday) TipBanner()
     val salesLabel = if (isToday) "مبيعات اليوم" else "المبيعات"
     val cashLabel = if (isToday) "قبضنا اليوم" else "المقبوضات"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

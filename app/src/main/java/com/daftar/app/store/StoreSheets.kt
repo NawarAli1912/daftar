@@ -63,15 +63,16 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
 private fun BottomSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Box(Modifier.fillMaxSize()) {
         Scrim(onDismiss)
-        val p = appearProgress() // spring slide-up
-        Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().riseFade(p, riseDp = 28.dp)
-                .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)).background(cBg)
-                .navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 22.dp),
-        ) {
-            Box(Modifier.align(Alignment.CenterHorizontally).width(38.dp).height(4.dp).clip(RoundedCornerShape(99.dp)).background(cLine))
-            Spacer(Modifier.height(14.dp))
-            content()
+        SlideUp(Modifier.align(Alignment.BottomCenter)) { // real slide up from below
+            Column(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)).background(cBg)
+                    .navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 22.dp),
+            ) {
+                Box(Modifier.align(Alignment.CenterHorizontally).width(38.dp).height(4.dp).clip(RoundedCornerShape(99.dp)).background(cLine))
+                Spacer(Modifier.height(14.dp))
+                content()
+            }
         }
     }
 }
@@ -233,7 +234,7 @@ private fun Chooser(vm: StoreViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 18.dp).background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
         SheetHeader("إرجاع جديد", onClose = vm::closeSheet)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
             CustomerRow(st, vm)
@@ -406,7 +407,7 @@ private fun ChooserOption(icon: String, title: String, sub: String, outlined: Bo
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PaySheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 18.dp).background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
         SheetHeader("دفعة جديدة", onClose = vm::closeSheet)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
             CustomerRow(st, vm)
@@ -448,7 +449,7 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 18.dp).background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
         SheetHeader("بيع جديد", onClose = vm::closeSheet)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 8.dp)) {
             CustomerRow(st, vm)
@@ -569,7 +570,7 @@ private fun SpecifySheet(st: StoreState, vm: StoreViewModel) {
 private fun PackageSheet(st: StoreState, vm: StoreViewModel) {
     val pkgLabel = st.sources.find { it.id == st.pkgId }?.label ?: ""
     val items = st.shelf.filter { it.sourceId == st.pkgId }
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 18.dp).background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
         SheetHeader("📦 $pkgLabel", onClose = vm::closePackage, back = vm::closePackage)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text("عُدّي أصناف البالة وارفعيها على الرف — كلها أو جزءاً. ما يبقى «في البالة» تُنزلينه لاحقاً.", fontSize = 12.sp, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 12.dp))
@@ -626,7 +627,7 @@ private fun PackageItemRow(p: Shelf, vm: StoreViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 18.dp).background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
         SheetHeader("إضافة صنف للرف", onClose = vm::closeAddItem)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
             Text("الصنف", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
@@ -697,16 +698,16 @@ private fun AddSourceSheet(st: StoreState, vm: StoreViewModel) {
 // ── undo toast ──
 @Composable
 private fun UndoToast(vm: StoreViewModel) {
-    val p = appearProgress(spec = BounceSpring) // springy slide-up from below
     Box(Modifier.fillMaxSize().navigationBarsPadding()) {
+        SlideUp(Modifier.align(Alignment.BottomCenter), bouncy = true) {
         Row(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 74.dp)
-                .riseFade(p, riseDp = 64.dp)
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 74.dp)
                 .clip(RoundedCornerShape(13.dp)).background(cInk).padding(horizontal = 16.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("تم تسجيل البيع — أُنقص من الرف", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cCard)
             Text("↺ تراجع", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = cUndoAccent, modifier = Modifier.tap { vm.undoSale() })
+        }
         }
     }
 }

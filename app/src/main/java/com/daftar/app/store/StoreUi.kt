@@ -1,10 +1,15 @@
 package com.daftar.app.store
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -120,6 +125,21 @@ internal fun Modifier.dashedBorder(color: Color, radius: Dp, width: Dp = 1.dp): 
 internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 0.82f, stiffness = 320f)
 internal val BounceSpring: AnimationSpec<Float> = spring(dampingRatio = 0.6f, stiffness = 340f)
 
+// A real slide-up from below (not a fade) — for sheets/panels that present from the bottom.
+@Composable
+internal fun SlideUp(modifier: Modifier = Modifier, bouncy: Boolean = false, content: @Composable () -> Unit) {
+    val state = remember { MutableTransitionState(false).apply { targetState = true } }
+    AnimatedVisibility(
+        visibleState = state,
+        modifier = modifier,
+        enter = slideInVertically(
+            animationSpec = spring(dampingRatio = if (bouncy) 0.7f else 0.86f, stiffness = 300f),
+            initialOffsetY = { it }, // from fully below its own height
+        ) + fadeIn(tween(120)),
+        exit = ExitTransition.None,
+    ) { content() }
+}
+
 @Composable
 internal fun appearProgress(key: Any? = Unit, spec: AnimationSpec<Float> = SheetSpring): Float {
     var shown by remember(key) { mutableStateOf(false) }
@@ -128,10 +148,10 @@ internal fun appearProgress(key: Any? = Unit, spec: AnimationSpec<Float> = Sheet
     return p
 }
 
-// Apply a rise + fade (+ optional scale-from) driven by an appear progress.
-internal fun Modifier.riseFade(p: Float, riseDp: Dp = 10.dp, fromScale: Float = 1f): Modifier =
+// Apply a rise (+ optional fade + scale-from) driven by an appear progress.
+internal fun Modifier.riseFade(p: Float, riseDp: Dp = 10.dp, fromScale: Float = 1f, fade: Boolean = true): Modifier =
     this.graphicsLayer {
-        alpha = p
+        alpha = if (fade) p else 1f
         translationY = (1f - p) * riseDp.toPx()
         val s = fromScale + (1f - fromScale) * p
         scaleX = s

@@ -10,8 +10,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
@@ -96,9 +100,34 @@ internal fun Modifier.dashedBorder(color: Color, radius: Dp, width: Dp = 1.dp): 
         )
     }
 
+// ── entrance motion (mirrors the prototype's dvUp/dvFade/dvCard/dvUndo keyframes) ──
+// A 0→1 progress that runs once on first composition; re-runs if `key` changes.
+@Composable
+internal fun appearProgress(durationMs: Int, key: Any? = Unit): Float {
+    var shown by remember(key) { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(key) { shown = true }
+    val p by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (shown) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(durationMs, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "appear",
+    )
+    return p
+}
+
+// Apply a rise + fade (+ optional scale-from) driven by an appear progress.
+internal fun Modifier.riseFade(p: Float, riseDp: Dp = 10.dp, fromScale: Float = 1f): Modifier =
+    this.graphicsLayer {
+        alpha = p
+        translationY = (1f - p) * riseDp.toPx()
+        val s = fromScale + (1f - fromScale) * p
+        scaleX = s
+        scaleY = s
+    }
+
 @Composable
 internal fun Scrim(onClick: () -> Unit) {
-    Box(Modifier.fillMaxSize().background(cScrim).tap(onClick))
+    val p = appearProgress(160) // dvFade
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = p }.background(cScrim).tap(onClick))
 }
 
 internal val sp11 = 11.sp

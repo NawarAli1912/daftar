@@ -63,8 +63,9 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
 private fun BottomSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Box(Modifier.fillMaxSize()) {
         Scrim(onDismiss)
+        val p = appearProgress(240) // dvUp
         Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().riseFade(p)
                 .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)).background(cBg)
                 .navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 22.dp),
         ) {
@@ -232,7 +233,7 @@ private fun Chooser(vm: StoreViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(240)).background(cBg)) {
         SheetHeader("إرجاع جديد", onClose = vm::closeSheet)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
             CustomerRow(st, vm)
@@ -398,7 +399,7 @@ private fun ChooserOption(icon: String, title: String, sub: String, outlined: Bo
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PaySheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(240)).background(cBg)) {
         SheetHeader("دفعة جديدة", onClose = vm::closeSheet)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
             CustomerRow(st, vm)
@@ -440,7 +441,7 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(240)).background(cBg)) {
         SheetHeader("بيع جديد", onClose = vm::closeSheet)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 8.dp)) {
             CustomerRow(st, vm)
@@ -561,7 +562,7 @@ private fun SpecifySheet(st: StoreState, vm: StoreViewModel) {
 private fun PackageSheet(st: StoreState, vm: StoreViewModel) {
     val pkgLabel = st.sources.find { it.id == st.pkgId }?.label ?: ""
     val items = st.shelf.filter { it.sourceId == st.pkgId }
-    Column(Modifier.fillMaxSize().background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(240)).background(cBg)) {
         SheetHeader("📦 $pkgLabel", onClose = vm::closePackage, back = vm::closePackage)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text("عُدّي أصناف البالة وارفعيها على الرف — كلها أو جزءاً. ما يبقى «في البالة» تُنزلينه لاحقاً.", fontSize = 12.sp, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 12.dp))
@@ -618,7 +619,7 @@ private fun PackageItemRow(p: Shelf, vm: StoreViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().background(cBg)) {
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(240)).background(cBg)) {
         SheetHeader("إضافة صنف للرف", onClose = vm::closeAddItem)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
             Text("الصنف", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
@@ -689,9 +690,11 @@ private fun AddSourceSheet(st: StoreState, vm: StoreViewModel) {
 // ── undo toast ──
 @Composable
 private fun UndoToast(vm: StoreViewModel) {
+    val p = appearProgress(300) // dvUndo — slides up from below
     Box(Modifier.fillMaxSize().navigationBarsPadding()) {
         Row(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 74.dp)
+                .riseFade(p, riseDp = 64.dp)
                 .clip(RoundedCornerShape(13.dp)).background(cInk).padding(horizontal = 16.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -713,7 +716,7 @@ internal fun Onboarding(st: StoreState, vm: StoreViewModel) {
         }
         if (!isSetup) {
             val card = ONB[minOf(st.onb, 2)]
-            Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.weight(1f).fillMaxWidth().riseFade(appearProgress(300, key = st.onb), riseDp = 16.dp, fromScale = 0.98f), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(card.icon, fontSize = 74.sp, modifier = Modifier.padding(bottom = 22.dp))
                 Text(card.eyebrow, fontSize = 13.sp, letterSpacing = 0.5.sp, fontWeight = FontWeight.Bold, color = cDebt, modifier = Modifier.padding(bottom = 8.dp))
                 Text(card.title, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 14.dp))

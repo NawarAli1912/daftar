@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -234,6 +235,7 @@ private fun StatCard(label: String, value: String, valueColor: Color, modifier: 
 // ── الزبائن ──
 @Composable
 private fun CustScreen(st: StoreState, vm: StoreViewModel) {
+    var query by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     val totalOwed = st.customers.sumOf { maxOf(0, customerBalance(it, st.entries)) }
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 12.dp),
@@ -252,11 +254,27 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
             Text("لا زبائن بعد — أضيفي أول زبونة", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
         }
     } else {
-        Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
-            st.customers.forEach { c ->
-                val bal = customerBalance(c, st.entries)
-                val amt = if (bal > 0) fmt(bal) else if (bal == 0L) "لا شيء" else "لها ${fmt(-bal)}"
-                StaticListRow(c.name, c.phone ?: "زبونة", amt, if (bal > 0) cDebt else cPaid) { vm.openCustomer(c.id) }
+        // search box (restored from the prototype) — filters by name or phone
+        androidx.compose.foundation.text.BasicTextField(
+            value = query, onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 12.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = 13.sp, color = cInk),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
+            decorationBox = { inner ->
+                Box { if (query.isEmpty()) Text("🔍 بحث عن زبونة…", fontSize = 13.sp, color = cDim); inner() }
+            },
+        )
+        Spacer(Modifier.height(12.dp))
+        val filtered = st.customers.filter { query.isBlank() || it.name.contains(query.trim(), true) || (it.phone?.contains(query.trim()) == true) }
+        if (filtered.isEmpty()) {
+            Text("لا نتائج للبحث", fontSize = 13.sp, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp))
+        } else {
+            Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
+                filtered.forEach { c ->
+                    val bal = customerBalance(c, st.entries)
+                    val amt = if (bal > 0) fmt(bal) else if (bal == 0L) "لا شيء" else "لها ${fmt(-bal)}"
+                    StaticListRow(c.name, c.phone ?: "زبونة", amt, if (bal > 0) cDebt else cPaid) { vm.openCustomer(c.id) }
+                }
             }
         }
     }

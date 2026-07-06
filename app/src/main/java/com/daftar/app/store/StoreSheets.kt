@@ -343,7 +343,14 @@ private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
                 fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (bal > 0) cDebt else cPaid,
             )
         }
-        if (trial > 0) Text("أمانة معها (قد تُعاد): ${fmt(trial)}", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
+        if (trial > 0) {
+            Text("أمانة معها (قد تُعاد): ${fmt(trial)}", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(cCard).border(1.5.dp, cAmber, RoundedCornerShape(11.dp)).tap { vm.convertTrial(c.id) }.padding(vertical = 11.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("أبقتها — حوّلي الأمانة إلى بيع", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cAmber) }
+            Spacer(Modifier.height(4.dp))
+        }
         c.phone?.let { Text("☎ $it", fontSize = 12.sp, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)) }
         // reminder: due date + one-tap snooze (FR-3.2), only while she owes
         if (bal > 0) {

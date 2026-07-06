@@ -359,6 +359,23 @@ class StoreViewModel @Inject constructor(
     // ── customer detail: her balance + history + record a payment for her ──
     fun openCustomer(id: String) = set { it.copy(detailCustomerId = id) }
     fun closeCustomer() = set { it.copy(detailCustomerId = null) }
+    // She kept the أمانة: turn her outstanding trial into a firm (owed) sale.
+    fun convertTrial(id: String) {
+        val cust = s.customers.find { it.id == id } ?: return
+        val t = customerTrial(cust, s.entries)
+        if (t <= 0) return
+        val entry = DayEntry(
+            id = "e" + System.currentTimeMillis(),
+            t = "تحويل أمانة إلى بيع — " + cust.name,
+            d = "الآن · أصبحت ديناً على الزبونة",
+            amt = fmt(t), cls = "ink",
+            customerId = id,
+            debtDelta = t,       // now owed
+            trialAmount = -t,    // cancels the outstanding trial
+            day = today(), saleAmount = t, cashAmount = 0,
+        )
+        set { it.copy(entries = listOf(entry) + it.entries, viewedDay = it.today) }
+    }
     fun payThisCustomer(id: String) = set {
         it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = id, detailCustomerId = null)
     }

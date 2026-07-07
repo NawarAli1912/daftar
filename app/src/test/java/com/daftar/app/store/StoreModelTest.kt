@@ -249,4 +249,31 @@ class StoreModelTest {
         assertEquals("أمس", dayLabel(today - 1, today))
         assertEquals("الجمعة 3/7", dayLabel(today - 2, today)) // Fri 3 July
     }
+
+    @Test
+    fun `market shops are the market sources except the system row, and their debts sum`() {
+        val srcs = listOf(
+            Source(PRE_ID, Kind.PRE_APP, "قبل التطبيق"),
+            Source(MKT_ID, Kind.MARKET, "شراء من السوق"),
+            Source("s1", Kind.MARKET, "محل أم علي", debt = 15_000),
+            Source("s2", Kind.MARKET, "محل أبو خالد", debt = 5_000),
+            Source("s3", Kind.BALE, "بالة", cost = 400),
+        )
+        assertEquals(listOf("محل أم علي", "محل أبو خالد"), marketShops(srcs).map { it.label })
+        assertEquals(20_000, marketDebtTotal(srcs))
+    }
+
+    @Test
+    fun `a shop's cost derives from its items buy price times shelved`() {
+        val shop = Source("s1", Kind.MARKET, "محل أم علي", debt = 15_000)
+        val items = listOf(
+            Shelf("h1", "بلوزة صوف", tasira = 5_000, shelved = 3, sold = 1, sourceId = "s1", buy = 3_000),
+            Shelf("h2", "حقيبة", tasira = 9_000, shelved = 2, sold = 0, sourceId = "s1", buy = 4_000),
+        )
+        val view = sourceViews(listOf(shop), items, usdRate = 1_500).single()
+        assertEquals(3 * 3_000L + 2 * 4_000L, view.costLocal)
+        assertEquals(1 * 5_000L, view.revenue) // sold × tasira attribution
+        assertEquals(15_000, view.debt)
+        assertEquals(Kind.MARKET, view.kind)
+    }
 }

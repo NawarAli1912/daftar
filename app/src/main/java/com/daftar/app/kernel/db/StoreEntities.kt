@@ -12,6 +12,7 @@ data class SourceRow(
     val kind: String,
     val label: String,
     val costUsd: Long?,
+    val debt: Long = 0, // supplier credit — MARKET shops only
     val seq: Int,
 )
 

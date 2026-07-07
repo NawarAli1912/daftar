@@ -52,6 +52,8 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
         "addsrc" -> AddSourceSheet(st, vm)
     }
     if (st.custPickerOpen) CustPicker(st, vm)
+    if (st.custAddOpen) AddCustomerSheet(st, vm)
+    if (st.editItemId != null) ItemEditSheet(st, vm)
     if (st.detailEntryId != null) EntryDetailSheet(st, vm)
     if (st.detailCustomerId != null) CustomerDetailSheet(st, vm)
     if (st.specifyId != null) SpecifySheet(st, vm) // layers on top of the sale detail
@@ -205,7 +207,8 @@ private fun CustPicker(st: StoreState, vm: StoreViewModel) {
             Text("نقدي — بدون اسم", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk)
             if (st.saleCustomerId == null) Text("✓", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cPaid)
         }
-        st.customers.forEach { c ->
+        // debtors first — a دفعة is almost always one of them paying her tab (v2)
+        st.customers.sortedByDescending { customerBalance(it, st.entries) }.forEach { c ->
             val bal = customerBalance(c, st.entries)
             Row(
                 Modifier.fillMaxWidth().padding(bottom = 8.dp).card(12.dp).tap { vm.pickCustomer(c.id) }.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -238,6 +241,62 @@ private fun CustPicker(st: StoreState, vm: StoreViewModel) {
                 PrimaryButton("أضيفي الزبونة ✓", fontSize = 14.sp, radius = 11.dp, vertical = 11.dp) { vm.addCustomer() }
             }
         }
+    }
+}
+
+// ── add a customer to the directory (الزبائن) — not a sale picker ──
+@Composable
+private fun AddCustomerSheet(st: StoreState, vm: StoreViewModel) {
+    BottomSheet(onDismiss = vm::closeAddCustomer) {
+        Text("زبونة جديدة", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp))
+        Text("تُضاف إلى دفتر الزبائن — سجّلي ديونها ودفعاتها لاحقاً.", fontSize = 12.sp, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp))
+        TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+        Spacer(Modifier.height(9.dp))
+        TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 11.dp).card(12.dp).padding(horizontal = 13.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text("دين قديم (اختياري)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cInk)
+                Text("رصيد سابق من الدفتر الورقي", fontSize = 10.5.sp, color = cDim)
+            }
+            LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 64.dp)
+        }
+        Spacer(Modifier.height(14.dp))
+        PrimaryButton("أضيفي الزبونة ✓", fontSize = 15.sp, radius = 13.dp, vertical = 14.dp) { vm.saveNewCustomer() }
+    }
+}
+
+// ── one-sheet item editing (v2): tap an item, control everything incl. its source ──
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
+    BottomSheet(onDismiss = vm::closeEditItem) {
+        Text("تعديل الصنف", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        TextInput(st.eiName, vm::setEiName, "اسم الصنف", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+        Spacer(Modifier.height(9.dp))
+        CardStepperRow("التسعيرة", fmt(st.eiTasira), { vm.eiTasiraStep(-1) }, { vm.eiTasiraStep(1) })
+        Spacer(Modifier.height(8.dp))
+        CardStepperRow("على الرف الآن", "${st.eiOnHand}", { vm.eiOnHandStep(-1) }, { vm.eiOnHandStep(1) })
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("سعر الشراء للقطعة", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cAmber)
+            LabeledStepper("", fmt(st.eiBuy), { vm.eiBuyStep(-1) }, { vm.eiBuyStep(1) }, borderColor = cAmberBorder, btnColor = cAmber)
+        }
+        Text("من أين أتى؟ — وجّهيه لمحله أو بالته الصحيحة", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SourcePickChip("غير محدد", st.eiSource == null, true) { vm.eiPickSource(null) }
+            st.sources.forEach { srcOpt ->
+                val label = if (srcOpt.kind == Kind.MARKET && srcOpt.id != MKT_ID) "🏪 ${srcOpt.label}" else srcOpt.label
+                SourcePickChip(label, st.eiSource == srcOpt.id, false) { vm.eiPickSource(srcOpt.id) }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        PrimaryButton("حفظ التعديل ✓", fontSize = 15.sp, radius = 13.dp, vertical = 14.dp) { vm.saveEditItem() }
     }
 }
 
@@ -366,20 +425,71 @@ private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
     val trial = customerTrial(c, st.entries)
     val history = st.entries.filter { it.customerId == c.id }
     BottomSheet(onDismiss = vm::closeCustomer) {
+        if (st.custEditId == c.id) {
+            // v2: every record editable forever — name, phone, and the opening دين قديم.
+            Text("تعديل ${c.name}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+            TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+            Spacer(Modifier.height(9.dp))
+            TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+            Row(
+                Modifier.fillMaxWidth().padding(top = 11.dp).card(12.dp).padding(horizontal = 13.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text("دين قديم", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cInk)
+                    Text("تعديله يعدّل رصيدها مباشرةً", fontSize = 10.5.sp, color = cDim)
+                }
+                LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 64.dp)
+            }
+            Spacer(Modifier.height(14.dp))
+            PrimaryButton("حفظ التعديل ✓", fontSize = 15.sp, radius = 13.dp, vertical = 14.dp) { vm.saveEditCustomer() }
+            Spacer(Modifier.height(9.dp))
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(13.dp)).tap { vm.cancelEditCustomer() }.padding(vertical = 13.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("تراجع", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cAccent) }
+            return@BottomSheet
+        }
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(c.name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = cInk)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(c.name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = cInk)
+                Box(Modifier.clip(RoundedCornerShape(8.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(8.dp)).tap { vm.startEditCustomer(c.id) }.padding(horizontal = 9.dp, vertical = 3.dp)) {
+                    Text("✎ تعديل", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = cAccent)
+                }
+            }
             Text(
                 if (bal > 0) "عليها ${fmt(bal)}" else if (bal == 0L) "لا دين" else "لها ${fmt(-bal)}",
                 fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (bal > 0) cDebt else cPaid,
             )
         }
-        if (trial > 0) {
+        // أمانة معها — each trial قيد resolves on its own (v2): kept → sale, or back to the shelf.
+        val trialEntries = history.filter { it.trialAmount > 0 }
+        if (trialEntries.isNotEmpty()) {
             Text("أمانة معها (قد تُعاد): ${fmt(trial)}", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
-            Box(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(cCard).border(1.5.dp, cAmber, RoundedCornerShape(11.dp)).tap { vm.convertTrial(c.id) }.padding(vertical = 11.dp),
-                contentAlignment = Alignment.Center,
-            ) { Text("أبقتها — حوّلي الأمانة إلى بيع", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cAmber) }
-            Spacer(Modifier.height(4.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(cCard).border(1.dp, cAmber, RoundedCornerShape(11.dp)).padding(horizontal = 13.dp, vertical = 4.dp)) {
+                trialEntries.forEach { e ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                decodeLines(e.lines).joinToString(" + ") { "${it.name} ×${it.qty}" }.ifEmpty { "أمانة" },
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Text(fmt(e.trialAmount), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cAmber)
+                        }
+                        Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Box(
+                                Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).background(cCard).border(1.dp, cAmber, RoundedCornerShape(9.dp)).tap { vm.convertTrialEntry(e.id) }.padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) { Text("أبقتها — بيع", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cAmber) }
+                            Box(
+                                Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).background(cCard).border(1.dp, cLine, RoundedCornerShape(9.dp)).tap { vm.voidEntry(e.id) }.padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) { Text("أعادتها — للرف", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cAccent) }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
         }
         c.phone?.let { Text("☎ $it", fontSize = 12.sp, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)) }
         // reminder: due date + one-tap snooze (FR-3.2), only while she owes
@@ -677,15 +787,18 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
             CardStepperRow("التسعيرة", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) })
             Spacer(Modifier.height(8.dp))
             CardStepperRow("العدد على الرف", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) })
-            Text("من أين؟", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+            Text("من أين؟ («غير محدد» الافتراضي — تحلّينه لاحقاً)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SourcePickChip("غير محدد", st.aiSource == "none", true) { vm.aiPickSource("none") }
                 st.sources.forEach { srcOpt ->
                     val sel = st.aiSource == srcOpt.id
-                    SourcePickChip(srcOpt.label, sel, false) { vm.aiPickSource(srcOpt.id) }
+                    val label = if (srcOpt.kind == Kind.MARKET && srcOpt.id != MKT_ID) "🏪 ${srcOpt.label}" else srcOpt.label
+                    SourcePickChip(label, sel, false) { vm.aiPickSource(srcOpt.id) }
                 }
-                SourcePickChip("غير محدد", st.aiSource == "none", true) { vm.aiPickSource("none") }
             }
-            if (st.aiSource == MKT_ID) {
+            // her special price at the shop — also recordable on غير محدد, for when she remembers later
+            val aiKind = st.sources.find { it.id == st.aiSource }?.kind
+            if (aiKind == Kind.MARKET || st.aiSource == "none") {
                 Spacer(Modifier.height(11.dp))
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 10.dp),
@@ -717,7 +830,7 @@ private fun SourcePickChip(label: String, selected: Boolean, unspec: Boolean, on
 @Composable
 private fun AddSourceSheet(st: StoreState, vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeAddSource) {
-        Text("مصدر جديد — نوعه؟", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        Text("بالة جديدة", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 14.dp)) {
             val sel = st.addSrcKind == Kind.BALE
             Box(Modifier.clip(RoundedCornerShape(11.dp)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(11.dp)).tap { vm.pickKind(Kind.BALE) }.padding(horizontal = 14.dp, vertical = 10.dp)) {

@@ -55,10 +55,13 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     val st by vm.state.collectAsState()
     // Back closes an open sheet/overlay first, then falls back to اليوم; only اليوم exits.
     val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
-        st.detailEntryId != null || st.detailCustomerId != null || st.confirm != null
+        st.custAddOpen || st.detailEntryId != null || st.detailCustomerId != null ||
+        st.confirm != null || st.editItemId != null
     androidx.activity.compose.BackHandler(enabled = overlayOpen || st.tab != "today") {
         when {
             st.confirm != null -> vm.dismissConfirm()
+            st.editItemId != null -> vm.closeEditItem()
+            st.custAddOpen -> vm.closeAddCustomer()
             st.custPickerOpen -> vm.closeCustPicker()
             st.detailEntryId != null -> vm.closeEntry()
             st.detailCustomerId != null -> vm.closeCustomer()
@@ -83,7 +86,6 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                     when (st.tab) {
                         "today" -> TodayScreen(st, vm)
                         "cust" -> CustScreen(st, vm)
-                        "appts" -> ApptsScreen(st, vm)
                         "account" -> AccountScreen(st, vm)
                     }
                 }
@@ -102,7 +104,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
 @Composable
 private fun AppBar(st: StoreState) {
     val title = when (st.tab) {
-        "today" -> "دفتر اليوم"; "cust" -> "الزبائن"; "appts" -> "المواعيد"; else -> "الحساب"
+        "today" -> "دفتر اليوم"; "cust" -> "الزبائن"; else -> "الحساب"
     }
     val aside = if (st.tab == "today") dayLabel(st.viewedDay, st.today) else ""
     Column(Modifier.fillMaxWidth().background(cBg).statusBarsPadding()) {
@@ -124,10 +126,11 @@ private fun TabBar(st: StoreState, vm: StoreViewModel) {
     val unspec = st.shelf.count { it.unspecified }
     Column(Modifier.fillMaxWidth().background(cCard)) {
         HorizontalDivider(color = cLine, thickness = 1.dp)
+        // المواعيد is not a tab (v2 decision 10): reminders live inside each customer's
+        // card, and الزبائن sorts most-urgent-first. The daily notification digest remains.
         Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 6.dp)) {
             TabItem("▤", "اليوم", st.tab == "today", Modifier.weight(1f)) { vm.setTab("today") }
             TabItem("☰", "الزبائن", st.tab == "cust", Modifier.weight(1f)) { vm.setTab("cust") }
-            TabItem("◔", "المواعيد", st.tab == "appts", Modifier.weight(1f)) { vm.setTab("appts") }
             TabItem("▦", "الحساب", st.tab == "account", Modifier.weight(1f), dot = unspec > 0) { vm.setTab("account") }
         }
     }
@@ -273,11 +276,20 @@ private fun PopText(text: String, fontSize: androidx.compose.ui.unit.TextUnit, c
     )
 }
 
-// ── الزبائن ──
+// ── الزبائن — the hub (v2 decision 10): urgency banner + most-urgent-first + reminders inside ──
 @Composable
 private fun CustScreen(st: StoreState, vm: StoreViewModel) {
     var query by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     val totalOwed = st.customers.sumOf { maxOf(0, customerBalance(it, st.entries)) }
+    val dueCount = st.customers.count { c ->
+        customerBalance(c, st.entries) > 0 && (c.dueEpochDay ?: Long.MAX_VALUE) <= st.today
+    }
+    if (dueCount > 0) {
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 10.dp)) {
+            Text("🔔 $dueCount زبائن ديونهن مستحقة — الأعجل أولاً", fontSize = 12.5.sp, color = cPaid)
+        }
+        Spacer(Modifier.height(12.dp))
+    }
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
@@ -306,57 +318,35 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
             },
         )
         Spacer(Modifier.height(12.dp))
-        val filtered = st.customers.filter { query.isBlank() || it.name.contains(query.trim(), true) || (it.phone?.contains(query.trim()) == true) }
+        // most-urgent-first: chase-worthy (debt or أمانة) by due date then amount, then the rest
+        val sorted = st.customers.sortedWith(
+            compareBy(
+                { customerBalance(it, st.entries) <= 0 && customerTrial(it, st.entries) <= 0 },
+                { it.dueEpochDay ?: Long.MAX_VALUE },
+                { -(customerBalance(it, st.entries) + customerTrial(it, st.entries)) },
+            ),
+        )
+        val filtered = sorted.filter { query.isBlank() || it.name.contains(query.trim(), true) || (it.phone?.contains(query.trim()) == true) }
         if (filtered.isEmpty()) {
             Text("لا نتائج للبحث", fontSize = 13.sp, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp))
         } else {
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
                 filtered.forEach { c ->
                     val bal = customerBalance(c, st.entries)
+                    val trial = customerTrial(c, st.entries)
                     val amt = if (bal > 0) fmt(bal) else if (bal == 0L) "لا شيء" else "لها ${fmt(-bal)}"
-                    StaticListRow(c.name, c.phone ?: "زبونة", amt, if (bal > 0) cDebt else cPaid) { vm.openCustomer(c.id) }
+                    val sub = when {
+                        bal > 0 -> "التسديد: " + dueStatus(c.dueEpochDay, st.today) + (if (trial > 0) " · أمانة ${fmt(trial)}" else "")
+                        trial > 0 -> "أمانة ${fmt(trial)} — قد تُعاد"
+                        else -> c.phone ?: "زبونة"
+                    }
+                    StaticListRow(c.name, sub, amt, if (bal > 0) cDebt else cPaid) { vm.openCustomer(c.id) }
                 }
             }
         }
     }
     Spacer(Modifier.height(12.dp))
     OutlineButton("+ زبونة جديدة", fontSize = 14.sp, radius = 13.dp, vertical = 13.dp, filledCard = true) { vm.openAddCustomer() }
-}
-
-// ── المواعيد ──
-@Composable
-private fun ApptsScreen(st: StoreState, vm: StoreViewModel) {
-    val fs = followUps(st.customers, st.entries)
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 12.dp)) {
-        Text(
-            if (fs.isEmpty()) "☀️ صباح الخير — لا متابعات اليوم، كل شيء مسدَّد"
-            else "🔔 صباح الخير — ${fs.size} زبائن للمتابعة اليوم",
-            fontSize = 12.5.sp, color = cPaid,
-        )
-    }
-    Spacer(Modifier.height(12.dp))
-    if (fs.isEmpty()) {
-        Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(cCard).dashedBorder(cLine, 14.dp).padding(vertical = 28.dp, horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("👍", fontSize = 28.sp, modifier = Modifier.padding(bottom = 8.dp))
-            Text("لا متابعات مستحقة الآن", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
-        }
-    } else {
-        Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
-            fs.forEach { f ->
-                val due = if (f.debt > 0) dueStatus(f.customer.dueEpochDay, st.today) else ""
-                val sub = when {
-                    f.debt > 0 && f.trial > 0 -> "$due · أمانة ${fmt(f.trial)}"
-                    f.debt > 0 -> due
-                    else -> "أمانة — قد تُعاد"
-                }
-                val amt = if (f.debt > 0) fmt(f.debt) else fmt(f.trial)
-                StaticListRow(f.customer.name, sub, amt, if (f.debt > 0) cDebt else cAmber) { vm.openCustomer(f.customer.id) }
-            }
-        }
-    }
 }
 
 @Composable
@@ -421,36 +411,32 @@ private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
     }
 }
 
+// v2: a clean tappable row — everything (name, tasira, count, buy, source) edits in ONE sheet.
 @Composable
 private fun ShelfRow(r: Shelf, vm: StoreViewModel) {
     val oh = r.onHand
     val onHandColor = if (oh < 0) cDebt else if (oh == 0) cDim else cInk
-    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp).drawBottomLine()) {
+    Column(Modifier.fillMaxWidth().tap { vm.openEditItem(r.id) }.padding(vertical = 12.dp).drawBottomLine()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(r.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.weight(1f, fill = false))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("التسعيرة", fontSize = 10.5.sp, color = cDim)
-                StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.tasiraStep(r.id, -1) }
-                Text(fmt(r.tasira), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
-                StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.tasiraStep(r.id, 1) }
-            }
+            Text("${r.name} ✎", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.weight(1f, fill = false))
+            Text(fmt(r.tasira), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = cInk)
         }
-        Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("على الرف", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
-                StepBtn("−", 24.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.onhandStep(r.id, -1) }
-                Text("$oh", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = onHandColor, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 26.dp))
-                StepBtn("+", 24.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.onhandStep(r.id, 1) }
-            }
-            val provBorder = if (r.unspecified) cUnspecBorder else cLine
-            val provColor = if (r.unspecified) cDebt else cDim
-            Row(
-                Modifier.clip(RoundedCornerShape(9.dp)).background(cBg).border(1.dp, provBorder, RoundedCornerShape(9.dp)).tap { vm.openSpecify(r.id) }.padding(horizontal = 10.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
+        Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                buildString {
+                    append("على الرف ")
+                    append(oh)
+                    if (r.buy != null) append(" · شراء ${fmt(r.buy)}")
+                },
+                fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = onHandColor,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (r.unspecified) Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(cDebt))
-                val label = if (r.unspecified) "غير محدد" else (vm.sourceLabelFor(r.sourceId))
-                Text("$label ✎", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = provColor)
+                Text(
+                    if (r.unspecified) "غير محدد" else vm.sourceLabelFor(r.sourceId),
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    color = if (r.unspecified) cDebt else cDim,
+                )
             }
         }
         if (oh < 0) {
@@ -465,13 +451,128 @@ private fun ShelfRow(r: Shelf, vm: StoreViewModel) {
     }
 }
 
+// v2 decision 11: قبل التطبيق is a fixed bucket; شراء من السوق is ONE card whose children
+// are the shops (name ✎, her debt to them, their purchases); bales are the only
+// stand-alone creatable source.
 @Composable
 private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
     Text("من أين أتت البضاعة وكم كلّفت — لتري أي مصدر ربح.", fontSize = 12.sp, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 10.dp))
     UsdRateRow(st.usdRate, vm)
     Spacer(Modifier.height(12.dp))
-    sourceViews(st.sources, st.shelf, st.usdRate).forEach { sv -> SourceCard(sv, vm) }
-    OutlineButton("+ مصدر جديد", fontSize = 14.sp, radius = 13.dp, vertical = 13.dp, filledCard = true) { vm.openAddSource() }
+
+    val views = sourceViews(st.sources, st.shelf, st.usdRate)
+    val pre = views.find { it.id == PRE_ID }
+
+    // قبل التطبيق — everything from before the app whose source nobody remembers
+    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).card().padding(horizontal = 15.dp, vertical = 13.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("قبل التطبيق", fontSize = 15.5.sp, fontWeight = FontWeight.Bold, color = cInk)
+            Box(Modifier.clip(RoundedCornerShape(6.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(6.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
+                Text("بضاعة قديمة", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = cDim)
+            }
+        }
+        Text(
+            "كل ما كان قبل التطبيق ولا نستطيع تذكّر مصدره — بلا كلفة، والربح «—» بصدق. على الرف: ${pre?.remain ?: 0} قطعة",
+            fontSize = 11.5.sp, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+
+    MarketCard(st, vm, views)
+
+    views.filter { it.isBale }.forEach { sv -> SourceCard(sv, vm) }
+    OutlineButton("+ بالة جديدة", fontSize = 14.sp, radius = 13.dp, vertical = 13.dp, filledCard = true) { vm.openAddSource() }
+}
+
+// شراء من السوق — the one card: combined economics + the shops living inside it.
+@Composable
+private fun MarketCard(st: StoreState, vm: StoreViewModel, views: List<SourceView>) {
+    val marketViews = views.filter { it.kind == Kind.MARKET }
+    val shopViews = marketViews.filter { it.id != MKT_ID }
+    val cost = marketViews.sumOf { it.costLocal ?: 0 }
+    val revenue = marketViews.sumOf { it.revenue }
+    val profit = revenue - cost
+    val owed = marketViews.sumOf { it.debt }
+
+    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).card().padding(horizontal = 15.dp, vertical = 13.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("شراء من السوق", fontSize = 15.5.sp, fontWeight = FontWeight.Bold, color = cInk)
+            if (owed > 0) Text("عليكِ للمحلات ${fmt(owed)}", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = cDebt)
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 11.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            SourceStat("التكلفة", fmt(cost), cInk)
+            SourceStat("الإيراد المنسوب", fmt(revenue), cInk)
+            SourceStat("الربح تقريباً", (if (profit >= 0) "+ " else "− ") + fmt(kotlin.math.abs(profit)), if (profit >= 0) cPaid else cDebt, bold = true)
+        }
+
+        shopViews.forEach { shop -> ShopRow(st, vm, shop) }
+
+        if (st.shopAddOpen) {
+            Column(Modifier.fillMaxWidth().padding(top = 11.dp).drawTopLine().padding(top = 11.dp)) {
+                androidx.compose.foundation.text.BasicTextField(
+                    value = st.shopName, onValueChange = vm::setShopName,
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 11.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = 14.sp, color = cInk),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
+                    decorationBox = { inner -> Box { if (st.shopName.isEmpty()) Text("اسم المحل — مثال: محل أم علي", fontSize = 14.sp, color = cDim); inner() } },
+                )
+                Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("دين أول (إن أخذتِ بالدَّين)", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shopDebtStep(-1) }
+                        Text(fmt(st.shopDebt), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
+                        StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shopDebtStep(1) }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                PrimaryButton("أضيفي المحل ✓", fontSize = 13.5.sp, radius = 11.dp, vertical = 10.dp) { vm.addShop() }
+            }
+        } else {
+            Box(Modifier.fillMaxWidth().padding(top = 11.dp).clip(RoundedCornerShape(10.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(10.dp)).tap { vm.toggleShopAdd() }.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
+                Text("+ محل جديد", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = cAccent)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShopRow(st: StoreState, vm: StoreViewModel, shop: SourceView) {
+    val purchases = st.shelf.filter { it.sourceId == shop.id }
+    Column(Modifier.fillMaxWidth().padding(top = 11.dp).drawTopLine().padding(top = 11.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            if (st.shopRenameId == shop.id) {
+                androidx.compose.foundation.text.BasicTextField(
+                    value = st.shopName, onValueChange = vm::setShopName,
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = 14.sp, color = cInk),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
+                )
+                Text("حفظ", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(start = 8.dp).tap { vm.saveRenameShop() })
+            } else {
+                Text("🏪 ${shop.label} ✎", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.tap { vm.startRenameShop(shop.id) })
+                Text("كلفة بضاعته: ${fmt(shop.costLocal ?: 0)}", fontSize = 11.sp, color = cDim)
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (shop.debt > 0) "دينه علينا" else "لا دين له",
+                fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                color = if (shop.debt > 0) cDebt else cPaid,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                StepBtn("−", 24.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.shopOwedStep(shop.id, -1) }
+                Text(fmt(shop.debt), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (shop.debt > 0) cDebt else cDim, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
+                StepBtn("+", 24.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.shopOwedStep(shop.id, 1) }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (purchases.isEmpty()) "لا مشتريات بعد"
+                else purchases.joinToString(" · ") { "${it.name} ×${it.shelved}" + (it.buy?.let { b -> " @${fmt(b)}" } ?: "") },
+                fontSize = 11.sp, color = cDim, modifier = Modifier.weight(1f, fill = false),
+            )
+            Text("+ صنف", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(start = 8.dp).tap { vm.openAddItemFor(shop.id) })
+        }
+    }
 }
 
 // The editable "today's rate" for turning a bale's USD cost into local money.

@@ -12,7 +12,7 @@ fun snapshotToJson(s: StoreSnapshot): String {
     root.put("usdRate", s.usdRate)
     root.put("sources", JSONArray().apply {
         s.sources.forEach {
-            put(JSONObject().put("id", it.id).put("kind", it.kind.name).put("label", it.label).put("cost", it.cost ?: JSONObject.NULL))
+            put(JSONObject().put("id", it.id).put("kind", it.kind.name).put("label", it.label).put("cost", it.cost ?: JSONObject.NULL).put("debt", it.debt))
         }
     })
     root.put("shelf", JSONArray().apply {
@@ -55,7 +55,7 @@ fun snapshotFromJson(json: String): StoreSnapshot {
         seeded = true,
         usdRate = if (root.has("usdRate")) root.getLong("usdRate") else 1500,
         sources = root.getJSONArray("sources").map {
-            Source(it.getString("id"), Kind.valueOf(it.getString("kind")), it.getString("label"), it.optLongN("cost"))
+            Source(it.getString("id"), Kind.valueOf(it.getString("kind")), it.getString("label"), it.optLongN("cost"), if (it.has("debt")) it.getLong("debt") else 0L)
         },
         shelf = root.getJSONArray("shelf").map {
             Shelf(

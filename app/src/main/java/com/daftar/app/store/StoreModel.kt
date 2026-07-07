@@ -22,7 +22,17 @@ data class Source(
     val kind: Kind,
     val label: String,
     val cost: Long? = null, // USD — BALE only; PRE_APP/MARKET carry none
+    // MARKET shops only (v2 decision 11): what SHE owes this shop — they sell her on
+    // credit; one editable number she adjusts when she pays or takes more.
+    val debt: Long = 0,
 )
+
+// محلات السوق: the shops living inside the one شراء من السوق card (never the system row).
+fun marketShops(sources: List<Source>): List<Source> =
+    sources.filter { it.kind == Kind.MARKET && it.id != MKT_ID }
+
+fun marketDebtTotal(sources: List<Source>): Long =
+    sources.filter { it.kind == Kind.MARKET }.sumOf { it.debt }
 
 data class Shelf(
     val id: String,
@@ -289,6 +299,11 @@ data class SourceView(
     val revFmt: String,
     val profitFmt: String,
     val profit: Long?, // null ⇒ no cost basis (قبل التطبيق)
+    // raw values so the one شراء من السوق card can combine its shops (v2 decision 11)
+    val kind: Kind,
+    val costLocal: Long?,
+    val revenue: Long,
+    val debt: Long,
 )
 
 fun revenueBySource(shelf: List<Shelf>): Map<String, Long> {
@@ -340,6 +355,10 @@ fun sourceViews(sources: List<Source>, shelf: List<Shelf>, usdRate: Long): List<
             profitFmt = if (profit == null) "—"
             else (if (profit >= 0) "+ " else "− ") + fmt(kotlin.math.abs(profit)),
             profit = profit,
+            kind = s.kind,
+            costLocal = costLocal,
+            revenue = r,
+            debt = s.debt,
         )
     }
 }

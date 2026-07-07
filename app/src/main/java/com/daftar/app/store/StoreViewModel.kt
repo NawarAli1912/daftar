@@ -44,6 +44,22 @@ data class StoreState(
     // customer picker + inline add
     val custPickerOpen: Boolean = false,
     val custNewOpen: Boolean = false,
+    // standalone "add a customer" sheet (from the الزبائن directory, not a sale picker)
+    val custAddOpen: Boolean = false,
+    // editing an existing customer (v2: every record editable forever) — reuses custNew* fields
+    val custEditId: String? = null,
+    // محلات السوق management inside the one شراء من السوق card
+    val shopAddOpen: Boolean = false,
+    val shopRenameId: String? = null,
+    val shopName: String = "",
+    val shopDebt: Long = 0,
+    // one-sheet item editing (v2: tap an item, control everything incl. its source)
+    val editItemId: String? = null,
+    val eiName: String = "",
+    val eiTasira: Long = 0,
+    val eiOnHand: Int = 0,
+    val eiBuy: Long = 0,
+    val eiSource: String? = null,
     val custNewName: String = "",
     val custNewPhone: String = "",
     val custNewDebt: Long = 0,
@@ -224,8 +240,13 @@ class StoreViewModel @Inject constructor(
     }
 
     // ── add item to shelf ──
+    // v2: new items default to غير محدد — she resolves the source later if she remembers.
     fun openAddItem() = set {
-        it.copy(screen = "additem", aiName = "", aiTasira = 5_000, aiCount = 1, aiSource = PRE_ID, aiBuy = 3_000)
+        it.copy(screen = "additem", aiName = "", aiTasira = 5_000, aiCount = 1, aiSource = "none", aiBuy = 3_000)
+    }
+    // A shop's "+ صنف": the item arrives pre-attributed to that محل.
+    fun openAddItemFor(sourceId: String) = set {
+        it.copy(screen = "additem", aiName = "", aiTasira = 5_000, aiCount = 1, aiSource = sourceId, aiBuy = 3_000)
     }
     fun closeAddItem() = set { it.copy(screen = "home") }
     fun setAiName(v: String) = set { it.copy(aiName = v) }
@@ -268,7 +289,14 @@ class StoreViewModel @Inject constructor(
 
     // ── customers ──
     fun openCustPicker() = set { it.copy(custPickerOpen = true, custNewOpen = false) }
-    fun openAddCustomer() = set { it.copy(custPickerOpen = true, custNewOpen = true, custNewName = "", custNewPhone = "", custNewDebt = 0) }
+    // From the الزبائن directory: a dedicated create-customer sheet (NOT the sale-time picker).
+    fun openAddCustomer() = set { it.copy(custAddOpen = true, custNewName = "", custNewPhone = "", custNewDebt = 0) }
+    fun closeAddCustomer() = set { it.copy(custAddOpen = false) }
+    fun saveNewCustomer() = set {
+        val nm = it.custNewName.trim().ifEmpty { "زبونة" }
+        val c = Customer("c" + System.currentTimeMillis(), nm, it.custNewPhone.trim().ifEmpty { null }, it.custNewDebt)
+        it.copy(customers = it.customers + c, custAddOpen = false)
+    }
     fun closeCustPicker() = set { it.copy(custPickerOpen = false, custNewOpen = false) }
     fun pickCustomer(id: String?) = set { it.copy(saleCustomerId = id, custPickerOpen = false, custNewOpen = false) }
     fun toggleCustNew() = set { it.copy(custNewOpen = !it.custNewOpen, custNewName = "", custNewPhone = "", custNewDebt = 0) }
@@ -279,6 +307,79 @@ class StoreViewModel @Inject constructor(
         val nm = it.custNewName.trim().ifEmpty { "زبونة" }
         val c = Customer("c" + System.currentTimeMillis(), nm, it.custNewPhone.trim().ifEmpty { null }, it.custNewDebt)
         it.copy(customers = it.customers + c, saleCustomerId = c.id, custPickerOpen = false, custNewOpen = false)
+    }
+
+    // ── edit a customer (v2: every record editable forever; opening-debt edits re-normalize dues) ──
+    fun startEditCustomer(id: String) = set { s ->
+        val c = s.customers.find { it.id == id } ?: return@set s
+        s.copy(custEditId = id, custNewName = c.name, custNewPhone = c.phone ?: "", custNewDebt = c.openingDebt)
+    }
+    fun cancelEditCustomer() = set { it.copy(custEditId = null) }
+    fun saveEditCustomer() = set { s ->
+        val id = s.custEditId ?: return@set s
+        s.copy(
+            customers = s.customers.map { c ->
+                if (c.id == id) c.copy(
+                    name = s.custNewName.trim().ifEmpty { c.name },
+                    phone = s.custNewPhone.trim().ifEmpty { null },
+                    openingDebt = s.custNewDebt,
+                ) else c
+            },
+            custEditId = null,
+        )
+    }
+
+    // ── محلات السوق: shops inside the one شراء من السوق card (v2 decision 11) ──
+    fun toggleShopAdd() = set { it.copy(shopAddOpen = !it.shopAddOpen, shopName = "", shopDebt = 0) }
+    fun setShopName(v: String) = set { it.copy(shopName = v) }
+    fun shopDebtStep(d: Int) = set { it.copy(shopDebt = maxOf(0, it.shopDebt + d * 500)) }
+    fun addShop() = set {
+        val nm = it.shopName.trim().ifEmpty { "محل" }
+        it.copy(
+            sources = it.sources + Source("s" + System.currentTimeMillis(), Kind.MARKET, nm, null, it.shopDebt),
+            shopAddOpen = false, shopName = "",
+        )
+    }
+    fun startRenameShop(id: String) = set { s ->
+        s.copy(shopRenameId = id, shopName = s.sources.find { it.id == id }?.label ?: "")
+    }
+    fun saveRenameShop() = set { s ->
+        s.copy(
+            sources = s.sources.map { if (it.id == s.shopRenameId) it.copy(label = s.shopName.trim().ifEmpty { it.label }) else it },
+            shopRenameId = null, shopName = "",
+        )
+    }
+    // She paid the shop / took more on credit — one number, hers to adjust.
+    fun shopOwedStep(id: String, d: Int) = set { s ->
+        s.copy(sources = s.sources.map { if (it.id == id) it.copy(debt = maxOf(0, it.debt + d * 500)) else it })
+    }
+
+    // ── one-sheet item editing: tap an item, control everything incl. re-pointing its source ──
+    fun openEditItem(id: String) = set { s ->
+        val x = s.shelf.find { it.id == id } ?: return@set s
+        s.copy(editItemId = id, eiName = x.name, eiTasira = x.tasira, eiOnHand = x.onHand, eiBuy = x.buy ?: 0, eiSource = x.sourceId)
+    }
+    fun closeEditItem() = set { it.copy(editItemId = null) }
+    fun setEiName(v: String) = set { it.copy(eiName = v) }
+    fun eiTasiraStep(d: Int) = set { it.copy(eiTasira = maxOf(0, it.eiTasira + d * 500)) }
+    fun eiOnHandStep(d: Int) = set { it.copy(eiOnHand = maxOf(0, it.eiOnHand + d)) }
+    fun eiBuyStep(d: Int) = set { it.copy(eiBuy = maxOf(0, it.eiBuy + d * 500)) }
+    fun eiPickSource(sid: String?) = set { it.copy(eiSource = sid) }
+    fun saveEditItem() = set { s ->
+        val id = s.editItemId ?: return@set s
+        s.copy(
+            shelf = s.shelf.map { x ->
+                if (x.id == id) x.copy(
+                    name = s.eiName.trim().ifEmpty { x.name },
+                    tasira = s.eiTasira,
+                    // she edits what she SEES on the shelf; the stored count shifts by the same amount
+                    shelved = maxOf(0, x.shelved + (s.eiOnHand - x.onHand)),
+                    buy = if (s.eiBuy > 0) s.eiBuy else null,
+                    sourceId = s.eiSource,
+                ) else x
+            },
+            editItemId = null,
+        )
     }
 
     // ── payment (D37) ──
@@ -407,22 +508,25 @@ class StoreViewModel @Inject constructor(
     // ── customer detail: her balance + history + record a payment for her ──
     fun openCustomer(id: String) = set { it.copy(detailCustomerId = id) }
     fun closeCustomer() = set { it.copy(detailCustomerId = null) }
-    // She kept the أمانة: turn her outstanding trial into a firm (owed) sale.
-    fun convertTrial(id: String) {
-        val cust = s.customers.find { it.id == id } ?: return
-        val t = customerTrial(cust, s.entries)
-        if (t <= 0) return
-        val entry = DayEntry(
+    // She kept THIS أمانة (v2: per-trial resolution): the trial قيد becomes a firm sale —
+    // the original is replaced by a conversion entry carrying the same stock effect, so the
+    // goods stay out exactly once and voiding the conversion restores everything.
+    fun convertTrialEntry(id: String) = set { s ->
+        val e = s.entries.find { it.id == id } ?: return@set s
+        if (e.trialAmount <= 0) return@set s
+        val cust = s.customers.find { it.id == e.customerId }
+        val conversion = DayEntry(
             id = "e" + System.currentTimeMillis(),
-            t = "تحويل أمانة إلى بيع — " + cust.name,
+            t = "تحويل أمانة إلى بيع — " + (cust?.name ?: "زبونة"),
             d = "الآن · أصبحت ديناً على الزبونة",
-            amt = fmt(t), cls = "ink",
-            customerId = id,
-            debtDelta = t,       // now owed
-            trialAmount = -t,    // cancels the outstanding trial
-            day = today(), saleAmount = t, cashAmount = 0,
+            amt = fmt(e.trialAmount), cls = "ink",
+            customerId = e.customerId,
+            debtDelta = e.trialAmount, // now owed
+            day = today(), saleAmount = e.trialAmount, cashAmount = 0,
+            stockDelta = e.stockDelta, // goods stay out; a future void restores them
+            lines = e.lines,
         )
-        set { it.copy(entries = listOf(entry) + it.entries, viewedDay = it.today) }
+        s.copy(entries = listOf(conversion) + s.entries.filterNot { it.id == id }, viewedDay = s.today)
     }
     fun payThisCustomer(id: String) = set {
         it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = id, detailCustomerId = null)

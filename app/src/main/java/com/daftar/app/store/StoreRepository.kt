@@ -26,7 +26,7 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
         return StoreSnapshot(
             seeded = meta.seeded,
             usdRate = meta.usdRate,
-            sources = dao.sources().map { Source(it.id, Kind.valueOf(it.kind), it.label, it.costUsd) },
+            sources = dao.sources().map { Source(it.id, Kind.valueOf(it.kind), it.label, it.costUsd, it.debt) },
             shelf = dao.shelf().map {
                 Shelf(it.id, it.name, it.tasira, it.shelved, it.sold, it.counted, it.sourceId, it.buy)
             },
@@ -44,7 +44,7 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
     suspend fun save(s: StoreSnapshot) {
         dao.replaceAll(
             meta = StoreMetaRow(0, s.seeded, s.usdRate),
-            sources = s.sources.mapIndexed { i, x -> SourceRow(x.id, x.kind.name, x.label, x.cost, i) },
+            sources = s.sources.mapIndexed { i, x -> SourceRow(x.id, x.kind.name, x.label, x.cost, x.debt, i) },
             shelf = s.shelf.mapIndexed { i, x ->
                 ShelfRow(x.id, x.name, x.tasira, x.shelved, x.sold, x.counted, x.sourceId, x.buy, i)
             },

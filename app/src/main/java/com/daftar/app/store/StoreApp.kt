@@ -672,6 +672,27 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
         Box(Modifier.weight(1f)) { PrimaryButton("⤓ حفظ نسخة", fontSize = 13.5.sp, radius = 12.dp, vertical = 13.dp) { shareBackup(ctx, vm.exportJson()) } }
         Box(Modifier.weight(1f)) { OutlineButton("⤒ استعادة", fontSize = 13.5.sp, radius = 12.dp, vertical = 13.dp, filledCard = true) { importer.launch(arrayOf("application/json", "text/*", "*/*")) } }
     }
+    // sync bridge (FR-8.3): optional one-way push to the owner-tools API; never blocks the app
+    SectionLabel("المزامنة (اختياري)")
+    var syncUrl by remember { mutableStateOf(com.daftar.app.sync.SyncWorker.syncUrl(ctx)) }
+    Column(Modifier.fillMaxWidth().card(12.dp).padding(13.dp)) {
+        Text("ترسل نسخة الدفتر إلى حاسوب نوّار عند توفر الاتصال — المحل يعمل دونها تماماً.", fontSize = 11.5.sp, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 9.dp))
+        androidx.compose.foundation.text.BasicTextField(
+            value = syncUrl,
+            onValueChange = { syncUrl = it; com.daftar.app.sync.SyncWorker.setSyncUrl(ctx, it) },
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = 12.5.sp, color = cInk),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
+            decorationBox = { inner -> Box { if (syncUrl.isEmpty()) Text("عنوان الخادم — http://…/import", fontSize = 12.5.sp, color = cDim); inner() } },
+        )
+        if (syncUrl.isNotBlank()) {
+            Spacer(Modifier.height(9.dp))
+            OutlineButton("مزامنة الآن ↥", fontSize = 13.sp, radius = 11.dp, vertical = 10.dp) {
+                com.daftar.app.sync.SyncWorker.syncNow(ctx)
+                android.widget.Toast.makeText(ctx, "ستُرسل النسخة عند توفر الاتصال", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     Spacer(Modifier.height(14.dp))
     Box(Modifier.fillMaxWidth().card(12.dp).tap { vm.askConfirm("sample") }.padding(13.dp), contentAlignment = Alignment.Center) {
         Text("بيانات تجريبية ⟲", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = cInk)

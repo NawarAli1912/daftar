@@ -10,5 +10,6 @@ class DaftarApp : Application() {
         super.onCreate()
         RemindersWorker.ensureChannel(this)
         RemindersWorker.scheduleDaily(this) // once-a-day debt digest (NFR-5)
+        com.daftar.app.sync.SyncWorker.schedule(this) // opportunistic backup push (no-op until a URL is set)
     }
 }

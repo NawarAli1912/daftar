@@ -10,6 +10,8 @@
     <application
         android:name=".DaftarApp"
         android:label="دفتر"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Daftar">

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.daftar.app.kernel.db.CustomerDao
 import com.daftar.app.kernel.db.DaftarDatabase
+import com.daftar.app.kernel.db.MIGRATION_14_15
 import com.daftar.app.kernel.db.ItemTypeDao
 import com.daftar.app.kernel.db.LedgerDao
 import com.daftar.app.kernel.db.ReminderDao
@@ -25,7 +26,8 @@ object DataModule {
     @Singleton
     fun database(@ApplicationContext context: Context): DaftarDatabase =
         Room.databaseBuilder(context, DaftarDatabase::class.java, "daftar.db")
-            .fallbackToDestructiveMigration()
+            .addMigrations(MIGRATION_14_15) // preserve her ledger across the rc7→rc8 update
+            .fallbackToDestructiveMigration() // only for older/unknown jumps
             .build()
 
     @Provides

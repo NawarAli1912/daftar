@@ -486,22 +486,64 @@ private fun SegBtn(label: String, active: Boolean, modifier: Modifier, onClick: 
     }
 }
 
+// F7: a scannable البضاعة — items grouped under colored source headers (غير محدد pinned on
+// top with its red dot), a name search box, and richer rows with a sold badge.
 @Composable
 private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
-    val unspec = st.shelf.count { it.unspecified }
+    var query by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     Text("محلّك — ما لديك للبيع. البيع يقترح من هنا فقط.", fontSize = fSmall, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 10.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(bottom = 12.dp)) {
-        FilterChip("الكل", st.shelfFilter == "all") { vm.setFilter("all") }
-        FilterChip("غير محدد ($unspec)", st.shelfFilter == "unspec", dot = true) { vm.setFilter("unspec") }
-    }
-    val rows = if (st.shelfFilter == "unspec") st.shelf.filter { it.unspecified } else st.shelf
-    Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
-        rows.forEach { r -> ShelfRow(r, vm) }
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { PrimaryButton("+ صنف للمحل", fontSize = fBody, radius = rSm, vertical = 11.dp) { vm.openAddItem() } }
-            Box(Modifier.weight(1f)) { OutlineButton("+ بالة", fontSize = fBody, radius = rSm, vertical = 11.dp) { vm.openAddSource() } }
+    androidx.compose.foundation.text.BasicTextField(
+        value = query, onValueChange = { query = it },
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp),
+        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Plex, fontSize = fBody, color = cInk),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
+        decorationBox = { inner -> Box { if (query.isEmpty()) Text("🔍 بحث عن صنف…", fontSize = fBody, color = cDim); inner() } },
+    )
+    Spacer(Modifier.height(12.dp))
+    val q = query.trim()
+    fun match(s: Shelf) = q.isBlank() || s.name.contains(q, true)
+    // غير محدد first (pinned), then each registered source in order — skip empty groups
+    data class Grp(val label: String, val color: Color, val unspec: Boolean, val items: List<Shelf>)
+    val groups = buildList {
+        val un = st.shelf.filter { it.unspecified && match(it) }
+        if (un.isNotEmpty()) add(Grp("غير محدد", cDebt, true, un))
+        st.sources.forEach { src ->
+            val items = st.shelf.filter { it.sourceId == src.id && match(it) }
+            if (items.isNotEmpty()) add(Grp(src.label, sourceColor(src.kind), false, items))
         }
     }
+    if (groups.isEmpty()) {
+        Text(
+            if (q.isBlank()) "لا أصناف بعد — أضيفي أول صنف" else "لا نتائج للبحث",
+            fontSize = fBody, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 22.dp),
+        )
+    } else {
+        groups.forEach { g ->
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 7.dp).clip(RoundedCornerShape(rSm)).background(g.color.copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(g.color))
+                Text(g.label, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (g.unspec) cDebt else cInk, modifier = Modifier.weight(1f, fill = false))
+                Text("${g.items.size} " + if (g.items.size == 1) "صنف" else "أصناف", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
+            }
+            Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
+                g.items.forEach { r -> ShelfRow(r, vm) }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+    }
+    Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.weight(1f)) { PrimaryButton("+ صنف للمحل", fontSize = fBody, radius = rSm, vertical = 11.dp) { vm.openAddItem() } }
+        Box(Modifier.weight(1f)) { OutlineButton("+ بالة", fontSize = fBody, radius = rSm, vertical = 11.dp) { vm.openAddSource() } }
+    }
+}
+
+// F7 source palette — a stable, colorful cue per source kind for the البضاعة group headers.
+private fun sourceColor(kind: Kind): Color = when (kind) {
+    Kind.BALE -> cAccent
+    Kind.MARKET -> cAmber
+    Kind.PRE_APP -> cDim
 }
 
 // v2: a clean tappable row — everything (name, tasira, count, buy, source) edits in ONE sheet.
@@ -523,13 +565,14 @@ private fun ShelfRow(r: Shelf, vm: StoreViewModel) {
                 },
                 fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = onHandColor,
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (r.unspecified) Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(cDebt))
-                Text(
-                    if (r.unspecified) "غير محدد" else vm.sourceLabelFor(r.sourceId),
-                    fontSize = fSmall, fontWeight = FontWeight.Bold,
-                    color = if (r.unspecified) cDebt else cDim,
-                )
+            // F7: a sold badge instead of the source label — the group header already names
+            // the source, so the row's spare space shows how many pieces have moved.
+            if (r.sold > 0) {
+                Box(Modifier.clip(RoundedCornerShape(rXs)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(rXs)).padding(horizontal = 8.dp, vertical = 3.dp)) {
+                    Text("بيع ${r.sold}", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cPaid)
+                }
+            } else {
+                Text("لم يُبَع بعد", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
             }
         }
         if (oh < 0) {

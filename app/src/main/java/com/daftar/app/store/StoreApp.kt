@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -227,7 +228,7 @@ private fun SharedDetailOverlay(
         val av = this
         if (key != null) {
             val maxH = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.86f).dp
-            Box(Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().imePadding().padding(12.dp), contentAlignment = Alignment.Center) {
                 val card = with(scope) {
                     Modifier.sharedBounds(
                         rememberSharedContentState(key),

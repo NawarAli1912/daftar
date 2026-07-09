@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -181,7 +182,7 @@ private fun BottomSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.
             Modifier.fillMaxSize().graphicsLayer { alpha = p.coerceIn(0f, 1f) }.background(cScrim)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
         )
-        BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
+        BoxWithConstraints(Modifier.fillMaxSize().imePadding().padding(12.dp), contentAlignment = Alignment.Center) {
             val maxH = maxHeight * 0.86f
             Column(
                 Modifier.fillMaxWidth().heightIn(max = maxH)
@@ -223,7 +224,7 @@ private fun PopupEditor(
             Modifier.fillMaxSize().graphicsLayer { alpha = p.coerceIn(0f, 1f) }.background(cScrim)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
         )
-        BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
+        BoxWithConstraints(Modifier.fillMaxSize().imePadding().padding(12.dp), contentAlignment = Alignment.Center) {
             val maxH = maxHeight * 0.9f
             Column(
                 Modifier.fillMaxWidth().heightIn(max = maxH)

@@ -278,6 +278,25 @@ class StoreModelTest {
     }
 
     @Test
+    fun `a supplier payment reduces the shop's debt and voiding it restores it`() {
+        val shop = Source("s1", Kind.MARKET, "محل أم علي", debt = 15_000)
+        val pay = DayEntry("e1", "دفعة للمحل — محل أم علي", "الآن", "− 5,000", "neg", day = 1, sourceId = "s1", moneyOut = 5_000)
+        assertEquals(10_000L, shopDebtNow(shop, listOf(pay)))
+        // voiding removes the entry — the debt restores by construction, nothing else to undo
+        assertEquals(15_000L, shopDebtNow(shop, emptyList()))
+        // another shop's payments never touch this one
+        val other = DayEntry("e2", "دفعة للمحل — آخر", "الآن", "− 2,000", "neg", day = 1, sourceId = "s9", moneyOut = 2_000)
+        assertEquals(15_000L, shopDebtNow(shop, listOf(other)))
+    }
+
+    @Test
+    fun `supplier payments are money-out and never count in the day's cash or sales`() {
+        val pay = DayEntry("e1", "دفعة للمحل — محل أم علي", "الآن", "− 5,000", "neg", day = 7, sourceId = "s1", moneyOut = 5_000)
+        assertEquals(0L, cashForDay(listOf(pay), 7))
+        assertEquals(0L, salesForDay(listOf(pay), 7))
+    }
+
+    @Test
     fun `bale cost recovery is revenue as a percent of cost at today's rate`() {
         val dr = sourceViews(sources, shelf, 1500).first { it.id == "s_dr" }
         assertEquals(20, recoveryPct(dr.revenue, dr.costLocal)) // 120,000 of 600,000

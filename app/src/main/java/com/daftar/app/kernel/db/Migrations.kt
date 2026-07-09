@@ -12,3 +12,12 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
         db.execSQL("ALTER TABLE store_sources ADD COLUMN debt INTEGER NOT NULL DEFAULT 0")
     }
 }
+
+// rc9 (v15) → rc10 (v16): store_entries gained D68 supplier payments — the paid shop
+// (sourceId) and the money-out amount. Additive with defaults; her ledger is untouched.
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE store_entries ADD COLUMN sourceId TEXT")
+        db.execSQL("ALTER TABLE store_entries ADD COLUMN moneyOut INTEGER NOT NULL DEFAULT 0")
+    }
+}

@@ -53,6 +53,10 @@ data class StoreState(
     val shopRenameId: String? = null,
     val shopName: String = "",
     val shopDebt: Long = 0,
+    // shop detail sheet (F2) + the «دفعتُ للمحل» inline pay form
+    val shopId: String? = null,
+    val shopPayOpen: Boolean = false,
+    val shopPayAmount: Long = 0,
     // one-sheet item editing (v2: tap an item, control everything incl. its source)
     val editItemId: String? = null,
     val eiName: String = "",
@@ -372,6 +376,30 @@ class StoreViewModel @Inject constructor(
         s.copy(sources = s.sources.map { if (it.id == id) it.copy(debt = maxOf(0, it.debt + d * 500)) else it })
     }
 
+    // ── shop detail (F2) ──
+    fun openShop(id: String) = set { it.copy(shopId = id, shopPayOpen = false, shopPayAmount = 0, shopRenameId = null) }
+    fun closeShop() = set { it.copy(shopId = null, shopPayOpen = false, shopRenameId = null) }
+    fun toggleShopPay() = set { it.copy(shopPayOpen = !it.shopPayOpen, shopPayAmount = 0) }
+    fun shopPayStep(d: Int) = set { s ->
+        val src = s.sources.find { it.id == s.shopId } ?: return@set s
+        val cap = maxOf(0, shopDebtNow(src, s.entries)) // she can't pay more than she owes
+        s.copy(shopPayAmount = (s.shopPayAmount + d * 500).coerceIn(0, cap))
+    }
+    // D68: «دفعتُ للمحل» is a voidable money-out قيد, not a silent edit. cashAmount stays 0
+    // so قبضنا اليوم never counts it; the shop's debt derives down via shopDebtNow.
+    fun saveShopPay() = set { s ->
+        val src = s.sources.find { it.id == s.shopId } ?: return@set s
+        val amt = minOf(s.shopPayAmount, maxOf(0, shopDebtNow(src, s.entries)))
+        if (amt <= 0) return@set s
+        val entry = DayEntry(
+            id = "e" + System.currentTimeMillis(),
+            t = "دفعة للمحل — ${src.label}", d = "الآن · تسديد من دينه علينا",
+            amt = "− " + fmt(amt), cls = "neg",
+            day = today(), sourceId = src.id, moneyOut = amt,
+        )
+        s.copy(entries = listOf(entry) + s.entries, shopPayOpen = false, shopPayAmount = 0)
+    }
+
     // ── one-sheet item editing: tap an item, control everything incl. re-pointing its source ──
     fun openEditItem(id: String) = set { s ->
         val x = s.shelf.find { it.id == id } ?: return@set s
@@ -500,6 +528,7 @@ class StoreViewModel @Inject constructor(
     // out of the edit (✕ / back / تبويب آخر) leaves the entry exactly as it was (no data loss).
     fun editEntry(id: String) = set {
         val e = it.entries.find { x -> x.id == id } ?: return@set it
+        if (e.moneyOut > 0) return@set it // supplier payments are void-and-redo, not editable
         val deltas = decodeStock(e.stockDelta)
         val base = it.copy(editingId = id, detailEntryId = null, undo = null, addNewOpen = false)
         when {

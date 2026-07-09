@@ -52,6 +52,7 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
         "package" -> PackageSheet(st, vm)
         "addsrc" -> AddSourceSheet(st, vm)
     }
+    if (st.shopId != null) ShopSheet(st, vm)
     if (st.custPickerOpen) CustPicker(st, vm)
     if (st.custAddOpen) AddCustomerSheet(st, vm)
     if (st.editItemId != null) ItemEditSheet(st, vm)
@@ -367,7 +368,7 @@ private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
     val e = st.entries.find { it.id == st.detailEntryId } ?: return
-    val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; else -> cInk }
+    val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
     BottomSheet(onDismiss = vm::closeEntry) {
         Text("القيد", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         Column(Modifier.fillMaxWidth().card(rMd).padding(horizontal = 14.dp, vertical = 12.dp)) {
@@ -413,7 +414,8 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
         }
 
         Spacer(Modifier.height(14.dp))
-        val editable = soldLines.isNotEmpty() || e.t.startsWith("دفعة") || e.t.startsWith("إرجاع")
+        // supplier payments (D68) are void-and-redo, not editable — hide تعديل for them
+        val editable = e.moneyOut == 0L && (soldLines.isNotEmpty() || e.t.startsWith("دفعة") || e.t.startsWith("إرجاع"))
         if (editable) {
             PrimaryButton("تعديل القيد ✎", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.editEntry(e.id) }
             Spacer(Modifier.height(9.dp))
@@ -827,6 +829,78 @@ private fun PackageItemRow(p: Shelf, vm: StoreViewModel) {
             Text("رفّ الكل (${p.inPkg}) ←", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.shelveAll(p.id) })
         } else {
             Text("الكل على الرف ✓", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cPaid, modifier = Modifier.padding(top = 7.dp))
+        }
+    }
+}
+
+// ── the shop screen (F2) — rename, stats, items and the shop's debt with «دفعتُ للمحل» ──
+@Composable
+private fun ShopSheet(st: StoreState, vm: StoreViewModel) {
+    val sv = sourceViews(st.sources, st.shelf, st.usdRate).find { it.id == st.shopId } ?: return
+    val items = st.shelf.filter { it.sourceId == st.shopId }
+    val debtNow = maxOf(0, shopDebtNow(st.sources.first { it.id == st.shopId }, st.entries))
+    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
+        SheetHeader("🏪 ${sv.label}", onClose = vm::closeShop, back = vm::closeShop)
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp)) {
+            // rename — same in-place pattern as the bale screen
+            Row(Modifier.fillMaxWidth().padding(bottom = 11.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                if (st.shopRenameId == sv.id) {
+                    TextInput(st.shopName, vm::setShopName, "اسم المحل", modifier = Modifier.weight(1f), bg = cCard)
+                    Text("حفظ", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(start = 10.dp).tap { vm.saveRenameShop() })
+                } else {
+                    Text("${sv.label} ✎", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.tap { vm.startRenameShop(sv.id) })
+                    Text("محل من السوق", fontSize = fCaption, color = cDim)
+                }
+            }
+            // stats
+            Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 13.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    BaleStat("كلفة بضاعته", fmt(sv.costLocal ?: 0), cInk)
+                    BaleStat("الإيراد المنسوب", sv.revFmt, cInk)
+                    BaleStat("الربح تقريباً", sv.profitFmt, if (sv.profit == null) cDim else if (sv.profit >= 0) cPaid else cDebt, bold = true)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            // the shop's debt + the real pay action (D68) — adjust steppers stay for
+            // entering new credit or correcting; paying is a قيد in the day book
+            Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 13.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (debtNow > 0) "دينه علينا" else "لا دين له", fontSize = fBody, fontWeight = FontWeight.Bold, color = if (debtNow > 0) cDebt else cPaid)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cDim, 16.sp) { vm.shopOwedStep(sv.id, -1) }
+                        Text(fmt(debtNow), fontSize = fTitle, fontWeight = FontWeight.ExtraBold, color = if (debtNow > 0) cDebt else cDim, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 64.dp))
+                        StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cDim, 16.sp) { vm.shopOwedStep(sv.id, 1) }
+                    }
+                }
+                if (debtNow > 0) {
+                    Spacer(Modifier.height(11.dp))
+                    if (st.shopPayOpen) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("كم دفعتِ الآن؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
+                            LabeledStepper("", fmt(st.shopPayAmount), { vm.shopPayStep(-1) }, { vm.shopPayStep(1) }, valueMin = 64.dp, valueSize = 17.sp)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        PrimaryButton("سجّلي الدفعة للمحل ✓", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.saveShopPay() }
+                        Text("تُسجَّل قيداً في دفتر اليوم ويمكن إلغاؤها — ولا تُحسب ضمن «قبضنا اليوم».", fontSize = fCaption, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(top = 7.dp))
+                    } else {
+                        OutlineButton("دفعتُ للمحل ↧", fontSize = fBodyL, radius = rSm, vertical = 11.dp, filledCard = false) { vm.toggleShopPay() }
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("مشترياتك منه — اضغطي اسم الصنف لتعديله.", fontSize = fSmall, color = cDim, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 8.dp))
+            Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
+                items.forEach { p ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 12.dp).drawBottomLine().tap { vm.openEditItem(p.id) }, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("${p.name} ✎", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
+                        Text("×${p.shelved}" + (p.buy?.let { b -> " · شراء @${fmt(b)}" } ?: "") + " · تسعيرة ${fmt(p.tasira)}", fontSize = fCaption, color = cDim)
+                    }
+                }
+                if (items.isEmpty()) Text("لا مشتريات بعد", fontSize = fSmall, color = cDim, modifier = Modifier.padding(vertical = 12.dp))
+                Box(Modifier.fillMaxWidth().tap { vm.openAddItemFor(sv.id) }.padding(top = 11.dp, bottom = 7.dp), contentAlignment = Alignment.Center) {
+                    Text("+ صنف من هذا المحل", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAccent)
+                }
+            }
         }
     }
 }

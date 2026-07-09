@@ -74,6 +74,10 @@ data class DayEntry(
     // The sold lines ("shelfId|name|price|qty;…"), so the sale detail can show each item
     // and let it be attributed to its source.
     val lines: String = "",
+    // D68 «دفعتُ للمحل»: money-out to a supplier. sourceId names the shop, moneyOut the
+    // amount. cashAmount stays 0 — money-out never counts in قبضنا اليوم.
+    val sourceId: String? = null,
+    val moneyOut: Long = 0,
 )
 
 data class SoldLine(val shelfId: String, val name: String, val price: Long, val qty: Int)
@@ -330,6 +334,15 @@ fun remainBySource(shelf: List<Shelf>): Map<String, Int> {
     }
     return m
 }
+
+// D68: a shop's current debt is derived — stored (entered) debt minus what supplier-payment
+// entries paid. Voiding a payment removes its entry, so the debt restores by construction
+// (the same never-stored discipline as customer balances).
+fun supplierPaid(entries: List<DayEntry>, sourceId: String): Long =
+    entries.filter { it.sourceId == sourceId }.sumOf { it.moneyOut }
+
+fun shopDebtNow(src: Source, entries: List<DayEntry>): Long =
+    src.debt - supplierPaid(entries, src.id)
 
 fun soldBySource(shelf: List<Shelf>): Map<String, Int> {
     val m = HashMap<String, Int>()

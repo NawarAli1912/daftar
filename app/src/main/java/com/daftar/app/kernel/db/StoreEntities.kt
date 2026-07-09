@@ -44,6 +44,9 @@ data class EntryRow(
     val stockDelta: String,
     val trialAmount: Long,
     val lines: String,
+    // D68 supplier payments (v16): the shop paid and the money-out amount
+    val sourceId: String? = null,
+    val moneyOut: Long = 0,
     val seq: Int,
 )
 

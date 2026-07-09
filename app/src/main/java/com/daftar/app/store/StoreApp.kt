@@ -71,7 +71,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     // Back closes an open sheet/overlay first, then falls back to اليوم; only اليوم exits.
     val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
         st.custAddOpen || st.detailEntryId != null || st.detailCustomerId != null ||
-        st.confirm != null || st.editItemId != null || st.maintOpen
+        st.confirm != null || st.editItemId != null || st.maintOpen || st.shopId != null
     androidx.activity.compose.BackHandler(enabled = overlayOpen || st.tab != "today") {
         when {
             st.confirm != null -> vm.dismissConfirm()
@@ -81,6 +81,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
             st.custPickerOpen -> vm.closeCustPicker()
             st.detailEntryId != null -> vm.closeEntry()
             st.detailCustomerId != null -> vm.closeCustomer()
+            st.shopId != null -> vm.closeShop()
             st.specifyId != null -> vm.closeSpecify()
             st.screen != "home" -> vm.closeSheet()
             else -> vm.setTab("today")
@@ -273,7 +274,7 @@ private fun DayNavArrow(sym: String, enabled: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun EntryRow(e: DayEntry, onClick: () -> Unit) {
-    val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; else -> cInk }
+    val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
     Row(
         Modifier.fillMaxWidth().tap(onClick).padding(vertical = 12.dp).padding(start = 26.dp)
             .drawBottomLine(),
@@ -531,7 +532,8 @@ private fun MarketCard(st: StoreState, vm: StoreViewModel, views: List<SourceVie
     val cost = marketViews.sumOf { it.costLocal ?: 0 }
     val revenue = marketViews.sumOf { it.revenue }
     val profit = revenue - cost
-    val owed = marketViews.sumOf { it.debt }
+    // D68: what's still owed derives down through supplier-payment entries
+    val owed = marketViews.sumOf { it.debt - supplierPaid(st.entries, it.id) }
 
     Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).card().padding(horizontal = 15.dp, vertical = 13.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -576,41 +578,21 @@ private fun MarketCard(st: StoreState, vm: StoreViewModel, views: List<SourceVie
 
 @Composable
 private fun ShopRow(st: StoreState, vm: StoreViewModel, shop: SourceView) {
-    val purchases = st.shelf.filter { it.sourceId == shop.id }
-    Column(Modifier.fillMaxWidth().padding(top = 11.dp).drawTopLine().padding(top = 11.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            if (st.shopRenameId == shop.id) {
-                androidx.compose.foundation.text.BasicTextField(
-                    value = st.shopName, onValueChange = vm::setShopName,
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).padding(horizontal = 10.dp, vertical = 7.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = fBodyL, color = cInk),
-                    cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
-                )
-                Text("حفظ", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(start = 8.dp).tap { vm.saveRenameShop() })
-            } else {
-                Text("🏪 ${shop.label} ✎", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.tap { vm.startRenameShop(shop.id) })
-                Text("كلفة بضاعته: ${fmt(shop.costLocal ?: 0)}", fontSize = fCaption, color = cDim)
-            }
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    // F2: one clean tappable line per محل — all management lives in its detail sheet
+    val itemKinds = st.shelf.count { it.sourceId == shop.id }
+    val debtNow = shop.debt - supplierPaid(st.entries, shop.id)
+    Row(
+        Modifier.fillMaxWidth().padding(top = 11.dp).drawTopLine().padding(top = 11.dp).tap { vm.openShop(shop.id) },
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("🏪 ${shop.label} ←", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(if (itemKinds == 0) "لا مشتريات" else "$itemKinds أصناف", fontSize = fCaption, color = cDim)
             Text(
-                if (shop.debt > 0) "دينه علينا" else "لا دين له",
+                if (debtNow > 0) "دينه علينا ${fmt(debtNow)}" else "لا دين له",
                 fontSize = fCaption, fontWeight = FontWeight.Bold,
-                color = if (shop.debt > 0) cDebt else cPaid,
+                color = if (debtNow > 0) cDebt else cPaid,
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                StepBtn("−", 24.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.shopOwedStep(shop.id, -1) }
-                Text(fmt(shop.debt), fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (shop.debt > 0) cDebt else cDim, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
-                StepBtn("+", 24.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.shopOwedStep(shop.id, 1) }
-            }
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                if (purchases.isEmpty()) "لا مشتريات بعد"
-                else purchases.joinToString(" · ") { "${it.name} ×${it.shelved}" + (it.buy?.let { b -> " @${fmt(b)}" } ?: "") },
-                fontSize = fCaption, color = cDim, modifier = Modifier.weight(1f, fill = false),
-            )
-            Text("+ صنف", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(start = 8.dp).tap { vm.openAddItemFor(shop.id) })
         }
     }
 }

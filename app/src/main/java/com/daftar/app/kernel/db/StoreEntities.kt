@@ -47,6 +47,8 @@ data class EntryRow(
     // D68 supplier payments (v16): the shop paid and the money-out amount
     val sourceId: String? = null,
     val moneyOut: Long = 0,
+    // D71 soft delete (v18): voided but kept, struck-through, counts for nothing
+    val voided: Boolean = false,
     val seq: Int,
 )
 

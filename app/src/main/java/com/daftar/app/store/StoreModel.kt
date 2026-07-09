@@ -78,6 +78,8 @@ data class DayEntry(
     // amount. cashAmount stays 0 — money-out never counts in قبضنا اليوم.
     val sourceId: String? = null,
     val moneyOut: Long = 0,
+    // D71 soft delete: a voided قيد stays visible (struck-through) but counts for nothing.
+    val voided: Boolean = false,
 )
 
 data class SoldLine(val shelfId: String, val name: String, val price: Long, val qty: Int)
@@ -102,11 +104,14 @@ fun decodeStock(s: String): List<Pair<String, Int>> =
 fun entriesForDay(entries: List<DayEntry>, day: Long): List<DayEntry> =
     entries.filter { it.day == day }
 
+// D71 soft delete: a voided قيد stays in the book (struck-through) but counts for nothing.
+// Every money/debt derivation skips voided rows; a sale's stock effect is separately reversed
+// when it's voided, so البضاعة stays correct too.
 fun salesForDay(entries: List<DayEntry>, day: Long): Long =
-    entries.filter { it.day == day }.sumOf { it.saleAmount }
+    entries.filter { it.day == day && !it.voided }.sumOf { it.saleAmount }
 
 fun cashForDay(entries: List<DayEntry>, day: Long): Long =
-    entries.filter { it.day == day }.sumOf { it.cashAmount }
+    entries.filter { it.day == day && !it.voided }.sumOf { it.cashAmount }
 
 // Arabic label for a day, relative to today.
 fun dayLabel(day: Long, today: Long): String = when (day) {
@@ -164,7 +169,7 @@ fun normalizeDues(customers: List<Customer>, entries: List<DayEntry>, today: Lon
 }
 
 fun customerBalance(c: Customer, entries: List<DayEntry>): Long =
-    c.openingDebt + entries.filter { it.customerId == c.id }.sumOf { it.debtDelta }
+    c.openingDebt + entries.filter { it.customerId == c.id && !it.voided }.sumOf { it.debtDelta }
 
 // F3 paper-debt catch. A new دفعة larger than her recorded balance would flip it negative
 // (لها — the shop owing her), which in the first trial days almost always means her paper-era
@@ -176,7 +181,7 @@ fun paperDebtShortfall(balanceBefore: Long, payment: Long): Long? =
 
 // أمانة still out with her (goods on trust, not yet firm debt).
 fun customerTrial(c: Customer, entries: List<DayEntry>): Long =
-    entries.filter { it.customerId == c.id }.sumOf { it.trialAmount }
+    entries.filter { it.customerId == c.id && !it.voided }.sumOf { it.trialAmount }
 
 // Who owes the shop right now, largest first — the المواعيد list and the daily digest.
 data class Debtor(val customer: Customer, val balance: Long)
@@ -326,7 +331,7 @@ fun remainBySource(shelf: List<Shelf>): Map<String, Int> {
 // entries paid. Voiding a payment removes its entry, so the debt restores by construction
 // (the same never-stored discipline as customer balances).
 fun supplierPaid(entries: List<DayEntry>, sourceId: String): Long =
-    entries.filter { it.sourceId == sourceId }.sumOf { it.moneyOut }
+    entries.filter { it.sourceId == sourceId && !it.voided }.sumOf { it.moneyOut }
 
 fun shopDebtNow(src: Source, entries: List<DayEntry>): Long =
     src.debt - supplierPaid(entries, src.id)

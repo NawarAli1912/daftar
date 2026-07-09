@@ -551,19 +551,25 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
         }
 
         Spacer(Modifier.height(14.dp))
-        // supplier payments (D68) are void-and-redo, not editable — hide تعديل for them
-        val editable = e.moneyOut == 0L && (soldLines.isNotEmpty() || e.t.startsWith("دفعة") || e.t.startsWith("إرجاع"))
-        if (editable) {
-            PrimaryButton("تعديل القيد ✎", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.editEntry(e.id) }
-            Spacer(Modifier.height(9.dp))
+        if (e.voided) {
+            // D71: a voided قيد is kept — offer to bring it back, nothing is destroyed.
+            PrimaryButton("استرجاع القيد ↻", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.restoreEntry(e.id) }
+            Text("هذا القيد ملغى ولا يُحسب. «استرجاع» يعيده كما كان.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        } else {
+            // supplier payments (D68) are void-and-redo, not editable — hide تعديل for them
+            val editable = e.moneyOut == 0L && (soldLines.isNotEmpty() || e.t.startsWith("دفعة") || e.t.startsWith("إرجاع"))
+            if (editable) {
+                PrimaryButton("تعديل القيد ✎", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.editEntry(e.id) }
+                Spacer(Modifier.height(9.dp))
+            }
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cDebt, RoundedCornerShape(rMd)).tap { vm.voidEntry(e.id) }.padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("حذف هذا القيد ↺", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cDebt)
+            }
+            Text("«تعديل» يفتح القيد لتصحيحه، و«حذف» يشطبه ويوقف حسابه — ويمكن استرجاعه لاحقاً.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
         }
-        Box(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cDebt, RoundedCornerShape(rMd)).tap { vm.voidEntry(e.id) }.padding(vertical = 14.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("إلغاء هذا القيد ↺", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cDebt)
-        }
-        Text("«تعديل» يفتح القيد لتصحيحه، و«إلغاء» يُعيد المبلغ والدين والبضاعة كما كانت.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
     }
 }
 

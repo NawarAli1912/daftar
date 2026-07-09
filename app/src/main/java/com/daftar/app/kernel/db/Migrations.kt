@@ -33,3 +33,11 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
         )) db.execSQL("DROP TABLE IF EXISTS `$t`")
     }
 }
+
+// v17 → v18: D71 soft delete — store_entries gains `voided`. Additive, default 0; her ledger
+// is untouched (nothing was voided before).
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE store_entries ADD COLUMN voided INTEGER NOT NULL DEFAULT 0")
+    }
+}

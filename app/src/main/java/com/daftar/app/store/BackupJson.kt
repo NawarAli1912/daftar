@@ -38,7 +38,8 @@ fun snapshotToJson(s: StoreSnapshot): String {
                     .put("customerId", it.customerId ?: JSONObject.NULL).put("debtDelta", it.debtDelta)
                     .put("day", it.day).put("saleAmount", it.saleAmount).put("cashAmount", it.cashAmount)
                     .put("stockDelta", it.stockDelta).put("trialAmount", it.trialAmount).put("lines", it.lines)
-                    .put("sourceId", it.sourceId ?: JSONObject.NULL).put("moneyOut", it.moneyOut),
+                    .put("sourceId", it.sourceId ?: JSONObject.NULL).put("moneyOut", it.moneyOut)
+                    .put("voided", it.voided),
             )
         }
     })
@@ -76,6 +77,7 @@ fun snapshotFromJson(json: String): StoreSnapshot {
                 it.optString("lines", ""),
                 it.optStr("sourceId"), // pre-v16 backups: absent → null/0
                 if (it.has("moneyOut")) it.getLong("moneyOut") else 0L,
+                it.optBoolean("voided", false), // pre-v18 backups: absent → false
             )
         },
     )

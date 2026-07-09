@@ -31,7 +31,7 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
                 Shelf(it.id, it.name, it.tasira, it.shelved, it.sold, it.counted, it.sourceId, it.buy)
             },
             entries = dao.entries().map {
-                DayEntry(it.id, it.t, it.d, it.amt, it.cls, it.customerId, it.debtDelta, it.day, it.saleAmount, it.cashAmount, it.stockDelta, it.trialAmount, it.lines, it.sourceId, it.moneyOut)
+                DayEntry(it.id, it.t, it.d, it.amt, it.cls, it.customerId, it.debtDelta, it.day, it.saleAmount, it.cashAmount, it.stockDelta, it.trialAmount, it.lines, it.sourceId, it.moneyOut, it.voided)
             },
             customers = dao.customers().map { Customer(it.id, it.name, it.phone, it.openingDebt, it.dueEpochDay) },
         )
@@ -49,7 +49,7 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
                 ShelfRow(x.id, x.name, x.tasira, x.shelved, x.sold, x.counted, x.sourceId, x.buy, i)
             },
             entries = s.entries.mapIndexed { i, x ->
-                EntryRow(x.id, x.t, x.d, x.amt, x.cls, x.customerId, x.debtDelta, x.day, x.saleAmount, x.cashAmount, x.stockDelta, x.trialAmount, x.lines, x.sourceId, x.moneyOut, i)
+                EntryRow(x.id, x.t, x.d, x.amt, x.cls, x.customerId, x.debtDelta, x.day, x.saleAmount, x.cashAmount, x.stockDelta, x.trialAmount, x.lines, x.sourceId, x.moneyOut, x.voided, i)
             },
             customers = s.customers.mapIndexed { i, x -> CustomerRow(x.id, x.name, x.phone, x.openingDebt, x.dueEpochDay, i) },
         )

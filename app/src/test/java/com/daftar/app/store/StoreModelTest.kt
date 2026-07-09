@@ -427,6 +427,27 @@ class StoreModelTest {
     }
 
     @Test
+    fun `a voided qayd counts for nothing but is not removed`() {
+        val c = Customer("c1", "أم محمد", openingDebt = 10_000)
+        val pay = DayEntry("e1", "دفعة — أم محمد", "", "+ 6,000", "pos", "c1", debtDelta = -6_000, day = 5, cashAmount = 6_000)
+        assertEquals(4_000L, customerBalance(c, listOf(pay)))
+        assertEquals(6_000L, cashForDay(listOf(pay), 5))
+        // void it → excluded from balance and the day's cash, but the row still exists
+        val voided = pay.copy(voided = true)
+        assertEquals(10_000L, customerBalance(c, listOf(voided))) // back to opening debt
+        assertEquals(0L, cashForDay(listOf(voided), 5))
+        assertTrue(listOf(voided).any { it.id == "e1" }) // still in the book
+    }
+
+    @Test
+    fun `a voided supplier payment stops reducing the shop's debt`() {
+        val shop = Source("s1", Kind.MARKET, "محل", debt = 15_000)
+        val pay = DayEntry("e1", "دفعة للمحل", "", "− 5,000", "neg", day = 1, sourceId = "s1", moneyOut = 5_000)
+        assertEquals(10_000L, shopDebtNow(shop, listOf(pay)))
+        assertEquals(15_000L, shopDebtNow(shop, listOf(pay.copy(voided = true)))) // void → debt restored
+    }
+
+    @Test
     fun `a supplier payment never moves any customer balance`() {
         val c = Customer("c1", "أم محمد", openingDebt = 10_000)
         val supplierPay = DayEntry("e1", "دفعة للمحل", "", "", "neg", customerId = null, day = 1, sourceId = "s1", moneyOut = 5_000)

@@ -551,7 +551,31 @@ class StoreViewModel @Inject constructor(
             shelf = state.shelf.map { x -> deltas.find { d -> d.first == x.id }?.let { d -> x.copy(sold = maxOf(0, x.sold - d.second)) } ?: x },
         )
     }
-    fun voidEntry(id: String) = set { reversed(it, id).copy(detailEntryId = null, undo = null) }
+    // D71 soft delete: voiding KEEPS the قيد (struck-through) but reverses its effects — its
+    // money is excluded by the derivations (!voided), and its stock is put back here. Restore
+    // re-applies both. Nothing is ever destroyed.
+    private fun applyStock(shelf: List<Shelf>, stockDelta: String, sign: Int): List<Shelf> {
+        val deltas = decodeStock(stockDelta)
+        return shelf.map { x -> deltas.find { it.first == x.id }?.let { d -> x.copy(sold = maxOf(0, x.sold + sign * d.second)) } ?: x }
+    }
+    fun voidEntry(id: String) = set { s ->
+        val e = s.entries.find { it.id == id } ?: return@set s
+        if (e.voided) return@set s
+        s.copy(
+            entries = s.entries.map { if (it.id == id) it.copy(voided = true) else it },
+            shelf = applyStock(s.shelf, e.stockDelta, -1), // items back on the shelf
+            detailEntryId = null, undo = null,
+        )
+    }
+    fun restoreEntry(id: String) = set { s ->
+        val e = s.entries.find { it.id == id } ?: return@set s
+        if (!e.voided) return@set s
+        s.copy(
+            entries = s.entries.map { if (it.id == id) it.copy(voided = false) else it },
+            shelf = applyStock(s.shelf, e.stockDelta, 1), // re-apply its stock effect
+            detailEntryId = null,
+        )
+    }
 
     // Edit an old قيد: reopen the matching sheet pre-filled and mark it for replacement. The
     // original is left in place — the save reverses it then adds the corrected one — so backing

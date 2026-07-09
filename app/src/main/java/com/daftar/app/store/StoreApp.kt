@@ -329,7 +329,11 @@ private fun DayNavArrow(sym: String, enabled: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun EntryRow(e: DayEntry, onClick: () -> Unit) {
-    val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
+    // D71 soft delete: a voided قيد stays but reads as struck-through and greyed — it counts
+    // for nothing. Tapping it opens the detail where it can be restored.
+    val strike = if (e.voided) TextDecoration.LineThrough else null
+    val titleColor = if (e.voided) cDim else cInk
+    val amtColor = if (e.voided) cDim else when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
     Row(
         Modifier.fillMaxWidth().tapExpand(onClick).padding(vertical = 12.dp).padding(start = 26.dp)
             .drawBottomLine(),
@@ -337,16 +341,16 @@ private fun EntryRow(e: DayEntry, onClick: () -> Unit) {
         verticalAlignment = Alignment.Top,
     ) {
         Column(Modifier.weight(1f, fill = false)) {
-            Text(e.t, fontSize = fBodyL, fontWeight = FontWeight.SemiBold, color = cInk, lineHeight = 20.sp)
-            Text(e.d, fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 3.dp))
+            Text(e.t, fontSize = fBodyL, fontWeight = FontWeight.SemiBold, color = titleColor, lineHeight = 20.sp, textDecoration = strike)
+            Text(if (e.voided) "ملغى — اضغطي للاسترجاع" else e.d, fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 3.dp))
         }
         Spacer(Modifier.width(10.dp))
         // F6: highlight only meaningful money events (debt/paid/أمانة), not plain cash — like
         // a marker stroke she'd draw in her paper daftar. One highlighted token per row.
-        val amtMod = if (e.cls != "ink" && e.cls != "pos")
+        val amtMod = if (!e.voided && e.cls != "ink" && e.cls != "pos")
             Modifier.marker(amtColor, e.id.hashCode()).padding(horizontal = 3.dp)
         else Modifier
-        Text(e.amt, fontSize = fTitle, fontWeight = FontWeight.Bold, color = amtColor, modifier = amtMod)
+        Text(e.amt, fontSize = fTitle, fontWeight = FontWeight.Bold, color = amtColor, modifier = amtMod, textDecoration = strike)
     }
 }
 

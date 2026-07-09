@@ -331,6 +331,33 @@ fun supplierPaid(entries: List<DayEntry>, sourceId: String): Long =
 fun shopDebtNow(src: Source, entries: List<DayEntry>): Long =
     src.debt - supplierPaid(entries, src.id)
 
+// F4 estimated profit for untracked goods (قبل التطبيق / غير محدد — the only sources with no
+// cost basis). The margin is LEARNED from items that DO carry a per-piece cost (شراء من السوق
+// buy price): margin = (tasira − buy) / tasira. Same item NAME first, else the shop-wide
+// average of tracked items. Applied to untracked SOLD revenue (sold × tasira).
+//   • returns null  ⇒ nothing to learn from (no tracked item) → the UI shows «—», never a guess
+//   • returns 0     ⇒ we CAN estimate, but no untracked pieces have sold yet
+// This is its OWN number: never summed into real ربح تقريباً, never touches cash-in-hand (D70).
+fun estimatedUntrackedProfit(shelf: List<Shelf>): Long? {
+    fun margin(s: Shelf): Double? {
+        val buy = s.buy ?: return null
+        if (s.tasira <= 0 || buy < 0) return null
+        return (s.tasira - buy).toDouble() / s.tasira
+    }
+    val tracked = shelf.mapNotNull { s -> margin(s)?.let { s.name to it } }
+    if (tracked.isEmpty()) return null // no cost basis anywhere → honest «—»
+    val shopWide = tracked.map { it.second }.average()
+    val byName = tracked.groupBy({ it.first }, { it.second }).mapValues { it.value.average() }
+
+    var profit = 0.0
+    for (u in shelf) {
+        if (!(u.sourceId == PRE_ID || u.unspecified) || u.sold <= 0) continue
+        val m = byName[u.name] ?: shopWide
+        profit += u.sold.toLong() * u.tasira * m
+    }
+    return profit.toLong()
+}
+
 fun soldBySource(shelf: List<Shelf>): Map<String, Int> {
     val m = HashMap<String, Int>()
     for (x in shelf) {

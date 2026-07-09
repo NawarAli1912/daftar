@@ -322,6 +322,41 @@ class StoreModelTest {
     }
 
     @Test
+    fun `estimated untracked profit is absent when nothing has a cost basis to learn from`() {
+        val untrackedOnly = listOf(
+            Shelf("a", "فستان", 10_000, shelved = 5, sold = 2, sourceId = PRE_ID),
+            Shelf("b", "بنطال", 6_000, shelved = 4, sold = 1, sourceId = null), // غير محدد
+        )
+        assertNull(estimatedUntrackedProfit(untrackedOnly)) // no tracked item → «—», never a guess
+    }
+
+    @Test
+    fun `estimated untracked profit prefers the same item name's margin over the shop-wide one`() {
+        val shelf = listOf(
+            Shelf("t1", "فستان", 10_000, shelved = 5, sold = 1, sourceId = "s_mkt", buy = 6_000), // فستان margin 0.4
+            Shelf("t2", "حقيبة", 10_000, shelved = 5, sold = 1, sourceId = "s_mkt", buy = 9_000), // حقيبة margin 0.1
+            Shelf("u", "فستان", 10_000, shelved = 10, sold = 3, sourceId = PRE_ID), // untracked فستان
+        )
+        // same-name margin 0.4 → 3×10,000×0.4 = 12,000 (shop-wide 0.25 would wrongly give 7,500)
+        assertEquals(12_000L, estimatedUntrackedProfit(shelf))
+    }
+
+    @Test
+    fun `estimated untracked profit falls back to the shop-wide margin for an unseen name`() {
+        val shelf = listOf(
+            Shelf("t", "حقيبة", 10_000, shelved = 5, sold = 1, sourceId = "s_mkt", buy = 6_000), // margin 0.4
+            Shelf("u", "فستان", 5_000, shelved = 10, sold = 2, sourceId = null), // untracked, name unseen
+        )
+        assertEquals(4_000L, estimatedUntrackedProfit(shelf)) // 2×5,000×0.4
+    }
+
+    @Test
+    fun `estimated untracked profit is zero when we can estimate but nothing untracked has sold`() {
+        val shelf = listOf(Shelf("t", "حقيبة", 10_000, shelved = 5, sold = 1, sourceId = "s_mkt", buy = 6_000))
+        assertEquals(0L, estimatedUntrackedProfit(shelf))
+    }
+
+    @Test
     fun `bale cost recovery is revenue as a percent of cost at today's rate`() {
         val dr = sourceViews(sources, shelf, 1500).first { it.id == "s_dr" }
         assertEquals(20, recoveryPct(dr.revenue, dr.costLocal)) // 120,000 of 600,000

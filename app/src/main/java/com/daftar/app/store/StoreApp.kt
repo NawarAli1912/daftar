@@ -734,6 +734,26 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
         SummaryRow("مصادر مسجّلة", "${st.sources.size}", cInk, cInk, line = true)
         SummaryRow("تحتاج تحديد مصدر", "$unspec", cDebt, cDebt, line = false)
     }
+    // profits — real (from sources with a cost basis) kept strictly apart from the estimate
+    // for untracked goods (F4/D70). The estimate is its OWN amber line, never merged in.
+    val views = sourceViews(st.sources, st.shelf, st.usdRate)
+    val realProfit = views.mapNotNull { it.profit }.sum()
+    val estUntracked = estimatedUntrackedProfit(st.shelf)
+    fun signed(v: Long) = (if (v >= 0) "+ " else "− ") + fmt(kotlin.math.abs(v))
+    Spacer(Modifier.height(10.dp))
+    Column(Modifier.fillMaxWidth().card().padding(15.dp)) {
+        Text("الأرباح", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(bottom = 12.dp))
+        SummaryRow("ربح المصادر (تقريباً)", signed(realProfit), if (realProfit >= 0) cPaid else cDebt, if (realProfit >= 0) cPaid else cDebt, line = true)
+        SummaryRow(
+            "ربح تقديري — بضاعة غير متتبَّعة",
+            if (estUntracked == null) "—" else signed(estUntracked),
+            cAmber, cAmber, line = false,
+        )
+        Text(
+            "«تقديري» مبنيّ على هامش أصناف مشابهة — لا يُضاف للربح المؤكَّد ولا يُحسب في المال المقبوض.",
+            fontSize = fCaption, color = cDim, lineHeight = 16.sp, modifier = Modifier.padding(top = 9.dp),
+        )
+    }
     // backup — so the ledger is never lost
     SectionLabel("النسخة الاحتياطية")
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

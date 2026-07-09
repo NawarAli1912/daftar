@@ -278,6 +278,31 @@ class StoreModelTest {
     }
 
     @Test
+    fun `a payment within the balance needs no paper-debt prompt`() {
+        assertNull(paperDebtShortfall(balanceBefore = 10_000, payment = 6_000))
+        assertNull(paperDebtShortfall(balanceBefore = 10_000, payment = 10_000)) // exact = fits
+    }
+
+    @Test
+    fun `an overshooting payment surfaces the unrecorded paper debt as its shortfall`() {
+        // she pays 15,000 but only 6,000 is recorded → 9,000 was old paper debt
+        assertEquals(9_000L, paperDebtShortfall(balanceBefore = 6_000, payment = 15_000))
+        assertEquals(15_000L, paperDebtShortfall(balanceBefore = 0, payment = 15_000)) // nothing recorded yet
+    }
+
+    @Test
+    fun `recording the shortfall as opening debt lands the payment exactly at zero`() {
+        val c0 = Customer("c1", "أم محمد", openingDebt = 6_000)
+        val pay = DayEntry("e1", "دفعة — أم محمد", "الآن", "+ 15,000", "pos", "c1", debtDelta = -15_000, day = 1)
+        val short = paperDebtShortfall(customerBalance(c0, listOf()), 15_000)!!
+        // «نعم» path: opening debt bumped by the shortfall, then the payment applied
+        val c1 = c0.copy(openingDebt = c0.openingDebt + short)
+        assertEquals(0L, customerBalance(c1, listOf(pay)))
+        // «لا، هي لها» path: payment applied as-is → negative (shop owes her)
+        assertEquals(-9_000L, customerBalance(c0, listOf(pay)))
+    }
+
+    @Test
     fun `a supplier payment reduces the shop's debt and voiding it restores it`() {
         val shop = Source("s1", Kind.MARKET, "محل أم علي", debt = 15_000)
         val pay = DayEntry("e1", "دفعة للمحل — محل أم علي", "الآن", "− 5,000", "neg", day = 1, sourceId = "s1", moneyOut = 5_000)

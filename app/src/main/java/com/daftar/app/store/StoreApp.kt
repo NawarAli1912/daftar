@@ -74,10 +74,12 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     // Back closes an open sheet/overlay first, then falls back to اليوم; only اليوم exits.
     val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
         st.custAddOpen || st.detailEntryId != null || st.detailCustomerId != null ||
-        st.confirm != null || st.editItemId != null || st.maintOpen || st.shopId != null
+        st.confirm != null || st.editItemId != null || st.maintOpen || st.shopId != null ||
+        st.paperDebtPrompt
     androidx.activity.compose.BackHandler(enabled = overlayOpen || st.tab != "today") {
         when {
             st.confirm != null -> vm.dismissConfirm()
+            st.paperDebtPrompt -> vm.closePaperDebt()
             st.maintOpen -> vm.closeMaint()
             st.editItemId != null -> vm.closeEditItem()
             st.custAddOpen -> vm.closeAddCustomer()

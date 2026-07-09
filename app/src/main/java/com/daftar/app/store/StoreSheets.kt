@@ -60,9 +60,35 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
     if (st.detailCustomerId != null) CustomerDetailSheet(st, vm)
     if (st.specifyId != null) SpecifySheet(st, vm) // layers on top of the sale detail
     if (st.maintOpen) MaintSheet(vm)
+    if (st.paperDebtPrompt) PaperDebtSheet(st, vm)
     if (st.confirm != null) ConfirmSheet(st, vm)
     // NOTE: the undo toast is rendered inline in StoreApp's Column (F2) — not a full-screen
     // overlay — so it never covers «+ قيد جديد» or the tab bar, and it can be swiped away.
+}
+
+// ── F3 paper-debt catch — a دفعة overshoots her balance; record her old paper debt first ──
+@Composable
+private fun PaperDebtSheet(st: StoreState, vm: StoreViewModel) {
+    val cust = st.saleCustomerId?.let { id -> st.customers.find { it.id == id } }
+    BottomSheet(onDismiss = vm::closePaperDebt) {
+        Text("عليها دين قديم؟", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp))
+        Text(
+            "الدفعة أكبر من رصيد ${cust?.name ?: "الزبونة"} المسجّل. غالباً لأن دينها القديم من الدفتر الورقي لم يُسجَّل بعد.",
+            fontSize = fBody, color = cDim, lineHeight = 20.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp),
+        )
+        Row(
+            Modifier.fillMaxWidth().card(rMd).padding(horizontal = 13.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("دين قديم من الدفتر الورقي", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDebt)
+            LabeledStepper("", fmt(st.paperDebtAmount), { vm.paperDebtStep(-1) }, { vm.paperDebtStep(1) }, valueMin = 64.dp, valueSize = 18.sp, borderColor = cUnspecBorder, btnColor = cDebt)
+        }
+        Spacer(Modifier.height(12.dp))
+        PrimaryButton("سجّلي الدين القديم ثم الدفعة ✓", fontSize = fBodyL, radius = rMd, vertical = 13.dp) { vm.confirmPaperDebt() }
+        Box(Modifier.fillMaxWidth().padding(top = 12.dp).tap { vm.declinePaperDebt() }, contentAlignment = Alignment.Center) {
+            Text("لا، هي لها — الرصيد يصبح لها", fontSize = fBody, fontWeight = FontWeight.Bold, color = cDim)
+        }
+    }
 }
 
 // ── maintainer tools — reachable only via the hidden long-press on the دفتر wordmark ──

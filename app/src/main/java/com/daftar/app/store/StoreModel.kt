@@ -166,6 +166,14 @@ fun normalizeDues(customers: List<Customer>, entries: List<DayEntry>, today: Lon
 fun customerBalance(c: Customer, entries: List<DayEntry>): Long =
     c.openingDebt + entries.filter { it.customerId == c.id }.sumOf { it.debtDelta }
 
+// F3 paper-debt catch. A new دفعة larger than her recorded balance would flip it negative
+// (لها — the shop owing her), which in the first trial days almost always means her paper-era
+// debt was never entered. This returns the opening debt to record so the payment lands her at
+// zero; null when the payment fits and no prompt is needed. Declining records nothing and lets
+// the balance legitimately go negative.
+fun paperDebtShortfall(balanceBefore: Long, payment: Long): Long? =
+    if (payment > balanceBefore) payment - balanceBefore else null
+
 // أمانة still out with her (goods on trust, not yet firm debt).
 fun customerTrial(c: Customer, entries: List<DayEntry>): Long =
     entries.filter { it.customerId == c.id }.sumOf { it.trialAmount }

@@ -94,6 +94,10 @@ data class StoreState(
     val editingId: String? = null,
     // a pending destructive confirmation ("sample" | "reset") — gates the two data-wiping actions
     val confirm: String? = null,
+    // F3 paper-debt catch: a دفعة would overshoot her balance → offer to record her old
+    // paper-era debt as opening debt first. paperDebtAmount seeds to the shortfall.
+    val paperDebtPrompt: Boolean = false,
+    val paperDebtAmount: Long = 0,
     // maintainer tools sheet (sample data / wipe / sync URL) — opened only by the hidden
     // long-press on the دفتر wordmark, so الملخّص carries nothing destructive
     val maintOpen: Boolean = false,
@@ -433,6 +437,42 @@ class StoreViewModel @Inject constructor(
     fun savePay() {
         val amt = s.payAmount
         if (amt <= 0) return // a payment of nothing isn't a قيد
+        // F3: a NEW payment that overshoots her balance would flip it to لها — usually her
+        // paper-era debt was never entered. Catch it and offer to record the old debt first.
+        val cust0 = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
+        if (s.editingId == null && cust0 != null) {
+            val short = paperDebtShortfall(customerBalance(cust0, s.entries), amt)
+            if (short != null) {
+                set { it.copy(paperDebtPrompt = true, paperDebtAmount = short) }
+                return
+            }
+        }
+        commitPay()
+    }
+
+    fun paperDebtStep(d: Int) = set { it.copy(paperDebtAmount = maxOf(0, it.paperDebtAmount + d * 500)) }
+    fun closePaperDebt() = set { it.copy(paperDebtPrompt = false) }
+    // «نعم»: record her old paper debt as opening debt, THEN apply the payment (lands at 0+).
+    fun confirmPaperDebt() {
+        val cid = s.saleCustomerId ?: return
+        val add = s.paperDebtAmount
+        set { st ->
+            st.copy(
+                customers = st.customers.map { if (it.id == cid) it.copy(openingDebt = it.openingDebt + add) else it },
+                paperDebtPrompt = false,
+            )
+        }
+        commitPay()
+    }
+    // «لا، هي لها»: apply the payment as-is; the balance may go negative (shop owes her).
+    fun declinePaperDebt() {
+        set { it.copy(paperDebtPrompt = false) }
+        commitPay()
+    }
+
+    private fun commitPay() {
+        val amt = s.payAmount
+        if (amt <= 0) return
         val tid = s.payTypeId
         val item = tid?.let { id -> s.shelf.find { it.id == id } }
         val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }

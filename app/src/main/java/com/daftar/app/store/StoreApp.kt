@@ -296,19 +296,14 @@ private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
                 )
             }
         } else {
-            Box(
-                Modifier.fillMaxWidth().card().drawBehind {
-                    val x = if (layoutDirection == LayoutDirection.Ltr) 32.dp.toPx() else size.width - 32.dp.toPx()
-                    drawLine(
-                        color = cDebt.copy(alpha = 0.28f),
-                        start = androidx.compose.ui.geometry.Offset(x, 0f),
-                        end = androidx.compose.ui.geometry.Offset(x, size.height),
-                        strokeWidth = 1.5.dp.toPx(),
-                    )
-                }.padding(horizontal = 14.dp),
-            ) {
-                Column {
-                    entries.forEach { e -> EntryRow(e) { vm.openEntry(e.id) } }
+            Box(Modifier.fillMaxWidth().card()) {
+                Column(Modifier.padding(horizontal = 14.dp)) {
+                    // swipe any قيد to reveal «حذف» (soft delete); tap it to open its detail
+                    entries.forEach { e ->
+                        SwipeRow(onTap = { vm.openEntry(e.id) }, onDelete = { vm.voidEntry(e.id) }) {
+                            EntryRow(e)
+                        }
+                    }
                 }
             }
         }
@@ -328,14 +323,19 @@ private fun DayNavArrow(sym: String, enabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EntryRow(e: DayEntry, onClick: () -> Unit) {
+private fun EntryRow(e: DayEntry) {
     // D71 soft delete: a voided قيد stays but reads as struck-through and greyed — it counts
     // for nothing. Tapping it opens the detail where it can be restored.
     val strike = if (e.voided) TextDecoration.LineThrough else null
     val titleColor = if (e.voided) cDim else cInk
     val amtColor = if (e.voided) cDim else when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
     Row(
-        Modifier.fillMaxWidth().tapExpand(onClick).padding(vertical = 12.dp).padding(start = 26.dp)
+        Modifier.fillMaxWidth()
+            .drawBehind { // the oxblood margin rule — now per-row so it rides the swipe content
+                val x = if (layoutDirection == LayoutDirection.Ltr) 18.dp.toPx() else size.width - 18.dp.toPx()
+                drawLine(cDebt.copy(alpha = 0.28f), androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Offset(x, size.height), strokeWidth = 1.5.dp.toPx())
+            }
+            .padding(vertical = 12.dp).padding(start = 26.dp)
             .drawBottomLine(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,

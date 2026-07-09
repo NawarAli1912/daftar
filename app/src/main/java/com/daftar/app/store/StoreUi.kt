@@ -179,20 +179,6 @@ internal fun Modifier.marker(color: Color, seed: Int = 0): Modifier =
 internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 0.82f, stiffness = 320f)
 internal val BounceSpring: AnimationSpec<Float> = spring(dampingRatio = 0.6f, stiffness = 340f)
 
-// A real slide-up from below (not a fade) — for sheets/panels that present from the bottom.
-@Composable
-internal fun SlideUp(modifier: Modifier = Modifier, bouncy: Boolean = false, content: @Composable () -> Unit) {
-    val state = remember { MutableTransitionState(false).apply { targetState = true } }
-    AnimatedVisibility(
-        visibleState = state,
-        modifier = modifier,
-        enter = slideInVertically(
-            animationSpec = spring(dampingRatio = if (bouncy) 0.7f else 0.86f, stiffness = 300f),
-            initialOffsetY = { it }, // from fully below its own height
-        ) + fadeIn(tween(120)),
-        exit = ExitTransition.None,
-    ) { content() }
-}
 
 @Composable
 internal fun appearProgress(key: Any? = Unit, spec: AnimationSpec<Float> = SheetSpring): Float {
@@ -242,12 +228,6 @@ internal fun <T> PageFlip(target: T, forward: Boolean, modifier: Modifier = Modi
         },
         label = "pageflip",
     ) { content(it) }
-}
-
-@Composable
-internal fun Scrim(onClick: () -> Unit) {
-    val p = appearProgress(spec = tween(200)) // plain fade for the dimming
-    Box(Modifier.fillMaxSize().graphicsLayer { alpha = p }.background(cScrim).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick))
 }
 
 // ── design tokens ──

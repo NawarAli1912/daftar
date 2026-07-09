@@ -194,6 +194,9 @@ private fun SharedRow(visible: Boolean, key: String, content: @Composable () -> 
                 rememberSharedContentState(key),
                 animatedVisibilityScope = av,
                 enter = fadeIn(), exit = fadeOut(),
+                // hold the row's slot while its card is open — the list doesn't reflow, and the
+                // card collapses straight back into the exact spot it came from
+                placeHolderSize = SharedTransitionScope.PlaceHolderSize.contentSize,
                 clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(rLg)),
             )
         } else Modifier

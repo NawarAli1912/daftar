@@ -164,61 +164,39 @@ private fun <T> rememberLast(value: T?): T? {
 }
 
 // ── shared sheet chrome ──
-// Grows out of the tapped element (or up from the bottom, if opened from a button) and
-// collapses back into it. Driven by LocalSheetTransition when present; falls back to the old
-// enter-only slide otherwise.
+// Button-opened sheets have no row to grow from, so they present as a centered pop-up card
+// that scales + fades in and reverses out — the same visual language as the shared-element
+// morph cards (rounded rLg card, scrim), just from the centre. Symmetric enter/exit driven by
+// LocalSheetTransition (OverlaySlot keeps it composed through the collapse).
 @Composable
 private fun BottomSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val state = LocalSheetTransition.current
-    if (state == null) { // un-wrapped caller → legacy enter-only
-        Box(Modifier.fillMaxSize()) {
-            Scrim(onDismiss)
-            SlideUp(Modifier.align(Alignment.BottomCenter)) { SheetPanel(content) }
-        }
-        return
-    }
-    val originNow = LocalSheetOrigin.current.value
-    val origin = remember { originNow } // capture the tapped rect once, at open
-    val transition = androidx.compose.animation.core.rememberTransition(state, label = "sheet")
-    val p by transition.animateFloat(
-        transitionSpec = { spring(dampingRatio = 0.85f, stiffness = 300f) }, label = "p",
-    ) { if (it) 1f else 0f }
+    val p = if (state != null) {
+        val transition = androidx.compose.animation.core.rememberTransition(state, label = "popup")
+        val v by transition.animateFloat(
+            transitionSpec = { spring(dampingRatio = 0.8f, stiffness = 320f) }, label = "p",
+        ) { if (it) 1f else 0f }
+        v
+    } else 1f
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxSize().graphicsLayer { alpha = p.coerceIn(0f, 1f) }.background(cScrim)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
         )
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val screenH = constraints.maxHeight.toFloat()
-            val startScale = if (origin != null) 0.32f else 0.9f
+        BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
+            val maxH = maxHeight * 0.86f
             Column(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                Modifier.fillMaxWidth().heightIn(max = maxH)
                     .graphicsLayer {
-                        val panelH = size.height.coerceAtLeast(1f)
-                        val panelTop = screenH - panelH
-                        // pivot at the tapped row's centre (window coords) so it grows FROM there
-                        val pivotY = origin?.let { ((it.center.y - panelTop) / panelH).coerceIn(-0.6f, 1.1f) } ?: 1f
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, pivotY)
-                        val s = startScale + (1f - startScale) * p
+                        val s = 0.9f + 0.1f * p
                         scaleX = s; scaleY = s
-                        alpha = (p * 1.5f).coerceIn(0f, 1f)
-                        translationY = (1f - p) * 20.dp.toPx()
-                    },
-            ) { SheetPanel(content) }
+                        alpha = (p * 1.4f).coerceIn(0f, 1f)
+                    }
+                    .clip(RoundedCornerShape(rLg)).background(cBg)
+                    .navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),
+                content = content,
+            )
         }
-    }
-}
-
-@Composable
-private fun SheetPanel(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)).background(cBg)
-            .navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 22.dp),
-    ) {
-        Box(Modifier.align(Alignment.CenterHorizontally).width(38.dp).height(4.dp).clip(RoundedCornerShape(rPill)).background(cLine))
-        Spacer(Modifier.height(14.dp))
-        content()
     }
 }
 

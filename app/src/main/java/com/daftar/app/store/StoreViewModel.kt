@@ -22,8 +22,6 @@ data class Undo(val id: String, val before: List<Pair<String, Int>>)
 // The whole app state, mirroring the prototype Component.state 1:1.
 data class StoreState(
     val seeded: Boolean = false,
-    val onb: Int = 0,
-    val setupList: List<SetupPick> = emptyList(),
     val tab: String = "today",          // today | cust | appts | account
     val accountSeg: String = "shelf",   // shelf | sources | sum
     val shelfFilter: String = "all",    // all | unspec
@@ -154,22 +152,6 @@ class StoreViewModel @Inject constructor(
         }
     }
 
-    // ── onboarding ──
-    fun onbNext() = set { it.copy(onb = it.onb + 1) }
-    fun skipOnb() = set { it.copy(onb = 3) }
-    fun setupAdd(name: String, price: Long) = set {
-        if (it.setupList.any { p -> p.name == name }) it
-        else it.copy(setupList = it.setupList + SetupPick(name, price, 10))
-    }
-    fun enterApp() = set {
-        val items = it.setupList.mapIndexed { i, x ->
-            Shelf("u$i", x.name, x.price, shelved = x.qty, sold = 0, sourceId = PRE_ID)
-        }
-        it.copy(
-            seeded = true, shelf = items,
-            tab = if (items.isNotEmpty()) "account" else "today", accountSeg = "shelf",
-        )
-    }
     // Both of these wipe the real ledger, so they're gated behind a confirmation (askConfirm).
     fun askConfirm(kind: String) = set { it.copy(confirm = kind) }
     fun dismissConfirm() = set { it.copy(confirm = null) }

@@ -21,3 +21,15 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         db.execSQL("ALTER TABLE store_entries ADD COLUMN moneyOut INTEGER NOT NULL DEFAULT 0")
     }
 }
+
+// v16 → v17: the pre-V2 legacy slices were deleted (SPEC F6); their tables held only
+// first-build data never shown since the rebuild. The store_* tables — her real ledger —
+// are untouched.
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        for (t in listOf(
+            "customers", "ledger_entries", "reminders", "item_types",
+            "sales", "sale_lines", "stock_sources", "intake_lines",
+        )) db.execSQL("DROP TABLE IF EXISTS `$t`")
+    }
+}

@@ -211,25 +211,10 @@ data class SaleLine(
     val haggled: Boolean get() = price != tasira
 }
 
-data class SetupChip(val name: String, val price: Long)
-data class SetupPick(val name: String, val price: Long, val qty: Int)
-
-data class OnbCard(val icon: String, val eyebrow: String, val title: String, val body: String)
-
 data class StaticRow(val name: String, val sub: String, val amt: String, val cls: String)
 
 fun fmt(n: Long): String = String.format(Locale.US, "%,d", n)
 fun fmt(n: Int): String = fmt(n.toLong())
-
-val SETUP_CHIPS = listOf(
-    SetupChip("فستان", 10_000),
-    SetupChip("بنطال", 7_500),
-    SetupChip("قميص", 5_000),
-    SetupChip("جاكيت", 12_000),
-    SetupChip("طقم أطفال", 8_000),
-    SetupChip("بلوزة", 4_000),
-    SetupChip("تنورة", 6_000),
-)
 
 // Short in-use tips (shown on the day book, dismissible) instead of a first-run demo splash.
 val USAGE_TIPS = listOf(
@@ -238,12 +223,6 @@ val USAGE_TIPS = listOf(
     "من الحساب ← البضاعة أضيفي بضاعتك وحدّدي مصدر كل صنف",
     "«المواعيد» تذكّرك بالديون المستحقة، ويمكنك تأجيل التذكير بضغطة",
     "«أمانة» بضاعة عند الزبونة لم تُبَع بعد — لا تُحسب ديناً حتى تقرّر",
-)
-
-val ONB = listOf(
-    OnbCard("📒", "اليوم", "دفترك اليومي", "كل بيع ودفعة وإرجاع يُسجَّل هنا — تفتح على صفحة اليوم، الأحدث أولاً، مثل دفترك الورقي تماماً."),
-    OnbCard("🧺", "البضاعة", "رفّك", "ما لديك للبيع، كل صنف بتسعيرته. البيع يقترح من الرف مباشرةً — لا كتالوج ولا باركود ولا كتابة."),
-    OnbCard("📦", "المصادر", "من أين أتت؟", "سجّلي كل بالة أو شراء وكلفته لتري أيّها ربح. بضاعتك القديمة تدخل تلقائياً تحت «قبل التطبيق»."),
 )
 
 // الزبائن / المواعيد are unchanged from v1 — the prototype shows them as static samples.

@@ -71,10 +71,8 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
     OverlaySlot(st.screen.takeIf { it == "addsrc" }) { AddSourceSheet(st, vm) }
     OverlaySlot(st.custPickerOpen.takeIf { it }) { CustPicker(st, vm) }
     OverlaySlot(st.custAddOpen.takeIf { it }) { AddCustomerSheet(st, vm) }
-    OverlaySlot(st.editItemId) { ItemEditSheet(st, vm) }
-    // the قيد detail is a shared-element container transform — rendered by EntryDetailShared
-    // in StoreApp (it needs the SharedTransitionLayout scope), not here.
-    OverlaySlot(st.detailCustomerId) { CustomerDetailSheet(st, vm) }
+    // صنف / قيد / زبونة details are shared-element container transforms — rendered by
+    // *DetailShared in StoreApp (they need the SharedTransitionLayout scope), not here.
     OverlaySlot(st.specifyId) { SpecifySheet(st, vm) } // layers on top of the sale detail
     OverlaySlot(st.maintOpen.takeIf { it }) { MaintSheet(vm) }
     OverlaySlot(st.paperDebtPrompt.takeIf { it }) { PaperDebtSheet(st, vm) }
@@ -446,8 +444,8 @@ private fun AddCustomerSheet(st: StoreState, vm: StoreViewModel) {
 // ── one-sheet item editing (v2): tap an item, control everything incl. its source ──
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
-    MorphSheet(onDismiss = vm::closeEditItem) {
+internal fun ColumnScope.ItemEditBody(st: StoreState, vm: StoreViewModel) {
+    run {
         Text("صفحة الصنف", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         // F1: the item's own record — what it sold, for how much vs its تسعيرة, and (when a
         // cost basis exists) its profit. Derived from the ledger; the edit controls follow.
@@ -634,14 +632,13 @@ internal fun ColumnScope.EntryDetailBody(st: StoreState, vm: StoreViewModel, e: 
     }
 }
 
-// ── customer detail: balance + history + record a payment ──
+// ── customer detail: balance + history + record a payment (shared-element card body) ──
 @Composable
-private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
-    val c = st.customers.find { it.id == rememberLast(st.detailCustomerId) } ?: return
+internal fun ColumnScope.CustomerDetailBody(st: StoreState, vm: StoreViewModel, c: Customer) {
     val bal = customerBalance(c, st.entries)
     val trial = customerTrial(c, st.entries)
     val history = st.entries.filter { it.customerId == c.id }
-    MorphSheet(onDismiss = vm::closeCustomer) {
+    run {
         if (st.custEditId == c.id) {
             // v2: every record editable forever — name, phone, and the opening دين قديم.
             Text("تعديل ${c.name}", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
@@ -665,7 +662,7 @@ private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rMd)).tap { vm.cancelEditCustomer() }.padding(vertical = 13.dp),
                 contentAlignment = Alignment.Center,
             ) { Text("تراجع", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cAccent) }
-            return@MorphSheet
+            return@run
         }
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

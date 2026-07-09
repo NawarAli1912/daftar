@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -156,7 +157,10 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                 TabBar(st, vm)
             }
             StoreSheets(st, vm)
-            EntryDetailShared(st, vm) // قيد → detail container transform (shared bounds)
+            // shared-element container transforms (row → detail card) for every editable item
+            EntryDetailShared(st, vm)
+            ItemDetailShared(st, vm)
+            CustomerDetailShared(st, vm)
         }
         }
     }
@@ -168,26 +172,60 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun EntryDetailShared(st: StoreState, vm: StoreViewModel) {
-    val scope = LocalSharedScope.current ?: return
     val id = st.detailEntryId
     val lastId = remember { mutableStateOf(id) }
     if (id != null) lastId.value = id
     val e = st.entries.find { it.id == lastId.value }
-    // scrim
-    AnimatedVisibility(visible = id != null, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
+    SharedDetailOverlay(visible = id != null, key = lastId.value?.let { "entry-$it" }, onDismiss = vm::closeEntry) {
+        if (e != null) EntryDetailBody(st, vm, e)
+    }
+}
+
+// A list row that shares a `key` with its detail card (the source half of the container
+// transform). It hides while its detail is open, and its bounds animate into the card.
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun SharedRow(visible: Boolean, key: String, content: @Composable () -> Unit) {
+    val scope = LocalSharedScope.current
+    AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
+        val av = this
+        val mod = if (scope != null) with(scope) {
+            Modifier.sharedBounds(
+                rememberSharedContentState(key),
+                animatedVisibilityScope = av,
+                enter = fadeIn(), exit = fadeOut(),
+                clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(rLg)),
+            )
+        } else Modifier
+        Box(mod) { content() }
+    }
+}
+
+// A generic shared-element detail overlay: the scrim + a card that shares `key` with the
+// tapped row so Compose morphs one into the other. `visible` is the selection predicate.
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun SharedDetailOverlay(
+    visible: Boolean,
+    key: String?,
+    onDismiss: () -> Unit,
+    body: @Composable ColumnScope.() -> Unit,
+) {
+    val scope = LocalSharedScope.current ?: return
+    AnimatedVisibility(visible = visible, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
         Box(
             Modifier.fillMaxSize().background(cScrim)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { vm.closeEntry() },
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
         )
     }
-    AnimatedVisibility(visible = id != null, enter = fadeIn(tween(70)), exit = fadeOut(tween(70))) {
+    AnimatedVisibility(visible = visible, enter = fadeIn(tween(70)), exit = fadeOut(tween(70))) {
         val av = this
-        if (e != null) {
+        if (key != null) {
             val maxH = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.86f).dp
             Box(Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
                 val card = with(scope) {
                     Modifier.sharedBounds(
-                        rememberSharedContentState("entry-${e.id}"),
+                        rememberSharedContentState(key),
                         animatedVisibilityScope = av,
                         enter = fadeIn(), exit = fadeOut(),
                         clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(rLg)),
@@ -196,9 +234,33 @@ private fun EntryDetailShared(st: StoreState, vm: StoreViewModel) {
                 Column(
                     card.fillMaxWidth().heightIn(max = maxH).clip(RoundedCornerShape(rLg)).background(cBg)
                         .navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),
-                ) { EntryDetailBody(st, vm, e) }
+                    content = body,
+                )
             }
         }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun ItemDetailShared(st: StoreState, vm: StoreViewModel) {
+    val id = st.editItemId
+    val lastId = remember { mutableStateOf(id) }
+    if (id != null) lastId.value = id
+    SharedDetailOverlay(visible = id != null, key = lastId.value?.let { "item-$it" }, onDismiss = vm::closeEditItem) {
+        ItemEditBody(st, vm)
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun CustomerDetailShared(st: StoreState, vm: StoreViewModel) {
+    val id = st.detailCustomerId
+    val lastId = remember { mutableStateOf(id) }
+    if (id != null) lastId.value = id
+    val c = st.customers.find { it.id == lastId.value }
+    SharedDetailOverlay(visible = id != null, key = lastId.value?.let { "cust-$it" }, onDismiss = vm::closeCustomer) {
+        if (c != null) CustomerDetailBody(st, vm, c)
     }
 }
 
@@ -360,26 +422,14 @@ private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
                 )
             }
         } else {
-            val sharedScope = LocalSharedScope.current
             Box(Modifier.fillMaxWidth().card()) {
                 Column(Modifier.padding(horizontal = 14.dp)) {
                     // swipe any قيد to reveal «حذف»; tap to open its detail. Each row shares a
                     // `sharedBounds` key with the detail card so tapping morphs row → card.
                     entries.forEach { e ->
-                        AnimatedVisibility(visible = st.detailEntryId != e.id, enter = fadeIn(), exit = fadeOut()) {
-                            val av = this
-                            val rowMod = if (sharedScope != null) with(sharedScope) {
-                                Modifier.sharedBounds(
-                                    rememberSharedContentState("entry-${e.id}"),
-                                    animatedVisibilityScope = av,
-                                    enter = fadeIn(), exit = fadeOut(),
-                                    clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(rLg)),
-                                )
-                            } else Modifier
-                            Box(rowMod) {
-                                SwipeRow(onTap = { vm.openEntry(e.id) }, onDelete = { vm.voidEntry(e.id) }) {
-                                    EntryRow(e)
-                                }
+                        SharedRow(visible = st.detailEntryId != e.id, key = "entry-${e.id}") {
+                            SwipeRow(onTap = { vm.openEntry(e.id) }, onDelete = { vm.voidEntry(e.id) }) {
+                                EntryRow(e)
                             }
                         }
                     }
@@ -523,7 +573,9 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
                     // F6: mark the name like a paper daftar — oxblood if she owes, amber if
                     // she's holding أمانة; nothing for a settled customer.
                     val nameMark = if (bal > 0) cDebt else if (trial > 0) cAmber else null
-                    StaticListRow(c.name, sub, amt, if (bal > 0) cDebt else cPaid, nameMarker = nameMark) { vm.openCustomer(c.id) }
+                    SharedRow(visible = st.detailCustomerId != c.id, key = "cust-${c.id}") {
+                        StaticListRow(c.name, sub, amt, if (bal > 0) cDebt else cPaid, nameMarker = nameMark) { vm.openCustomer(c.id) }
+                    }
                 }
             }
         }
@@ -623,7 +675,7 @@ private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
                 Text("${g.items.size} " + if (g.items.size == 1) "صنف" else "أصناف", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
             }
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
-                g.items.forEach { r -> ShelfRow(r, vm) }
+                g.items.forEach { r -> SharedRow(visible = st.editItemId != r.id, key = "item-${r.id}") { ShelfRow(r, vm) } }
             }
             Spacer(Modifier.height(12.dp))
         }

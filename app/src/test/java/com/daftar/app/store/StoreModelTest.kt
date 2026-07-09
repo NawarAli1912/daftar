@@ -412,4 +412,46 @@ class StoreModelTest {
         assertEquals(101L, rollViewedDay(today = 100, viewedDay = 100, newToday = 101)) // on today → follows
         assertEquals(98L, rollViewedDay(today = 100, viewedDay = 98, newToday = 101)) // flipped back → stays
     }
+
+    // ── edge-case catalog (F8b): these read as documentation of the ledger's invariants ──
+
+    @Test
+    fun `day totals count only that day's entries, so a void simply drops its contribution`() {
+        val d = 100L
+        val sale = DayEntry("e1", "بيع", "", "", "pos", day = d, saleAmount = 6_000, cashAmount = 6_000)
+        val other = DayEntry("e2", "بيع", "", "", "pos", day = d + 1, saleAmount = 9_000, cashAmount = 9_000)
+        assertEquals(6_000L, salesForDay(listOf(sale, other), d)) // other day excluded
+        assertEquals(6_000L, cashForDay(listOf(sale, other), d))
+        // voiding removes the row entirely (that's how void works) → the day nets to zero
+        assertEquals(0L, salesForDay(listOf(other), d))
+    }
+
+    @Test
+    fun `a supplier payment never moves any customer balance`() {
+        val c = Customer("c1", "أم محمد", openingDebt = 10_000)
+        val supplierPay = DayEntry("e1", "دفعة للمحل", "", "", "neg", customerId = null, day = 1, sourceId = "s1", moneyOut = 5_000)
+        assertEquals(10_000L, customerBalance(c, listOf(supplierPay))) // untouched — it isn't hers
+    }
+
+    @Test
+    fun `an amana trial is tracked apart from hard debt`() {
+        val c = Customer("c1", "سميرة")
+        val trial = DayEntry("e1", "أمانة", "", "", "amber", customerId = "c1", day = 1, trialAmount = 8_000)
+        assertEquals(0L, customerBalance(c, listOf(trial))) // not debt
+        assertEquals(8_000L, customerTrial(c, listOf(trial))) // tracked separately
+    }
+
+    @Test
+    fun `estimated profit tolerates zero and negative learned margins`() {
+        val zero = listOf(
+            Shelf("t", "حقيبة", 10_000, shelved = 5, sold = 1, sourceId = "s", buy = 10_000), // margin 0
+            Shelf("u", "فستان", 5_000, shelved = 4, sold = 2, sourceId = PRE_ID),
+        )
+        assertEquals(0L, estimatedUntrackedProfit(zero)) // 0 margin → 0 estimate, no crash
+        val loss = listOf(
+            Shelf("t", "حقيبة", 10_000, shelved = 5, sold = 1, sourceId = "s", buy = 12_000), // margin −0.2
+            Shelf("u", "فستان", 5_000, shelved = 4, sold = 2, sourceId = PRE_ID), // 2×5,000×−0.2
+        )
+        assertEquals(-2_000L, estimatedUntrackedProfit(loss)) // honestly negative
+    }
 }

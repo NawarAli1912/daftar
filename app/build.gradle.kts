@@ -56,4 +56,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.7.1")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     testImplementation("junit:junit:4.13.2")
+    // real org.json on the unit-test classpath — the android.jar stub throws "not mocked",
+    // which would break the backup round-trip tests (BackupJson uses org.json).
+    testImplementation("org.json:json:20240303")
 }

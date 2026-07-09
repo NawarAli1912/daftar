@@ -91,6 +91,9 @@ data class StoreState(
     val editingId: String? = null,
     // a pending destructive confirmation ("sample" | "reset") — gates the two data-wiping actions
     val confirm: String? = null,
+    // maintainer tools sheet (sample data / wipe / sync URL) — opened only by the hidden
+    // long-press on the دفتر wordmark, so الملخّص carries nothing destructive
+    val maintOpen: Boolean = false,
 )
 
 @HiltViewModel
@@ -165,6 +168,9 @@ class StoreViewModel @Inject constructor(
     // Both of these wipe the real ledger, so they're gated behind a confirmation (askConfirm).
     fun askConfirm(kind: String) = set { it.copy(confirm = kind) }
     fun dismissConfirm() = set { it.copy(confirm = null) }
+
+    fun openMaint() = set { it.copy(maintOpen = true) }
+    fun closeMaint() = set { it.copy(maintOpen = false) }
     fun loadSample() = set {
         val d = today()
         it.copy(

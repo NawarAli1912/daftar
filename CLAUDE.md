@@ -167,6 +167,10 @@ directory name"); delete them. APK ends up at
 are both used — **pass `-s <serial>` to every adb call** (multiple devices attached). adb path:
 `$HOME/Library/Android/sdk/platform-tools/adb`.
 
+**Maintainer tools on device:** «بيانات تجريبية», «مسح الكل» and the sync-URL field are NOT in
+الملخّص — they open via a **~2s long-press on the دفتر wordmark** in the app bar (SPEC F4;
+the owner's screens carry nothing destructive).
+
 **Verifying UI on device (adb caveats):**
 - adb **cannot type Arabic** — drive taps by coordinates. Use `uiautomator dump /sdcard/ui.xml`
   then parse `text="…" bounds="[x1,y1][x2,y2]"` to tap precise element centers.

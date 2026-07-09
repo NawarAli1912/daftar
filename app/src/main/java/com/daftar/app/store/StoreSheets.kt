@@ -57,11 +57,21 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
     if (st.detailEntryId != null) EntryDetailSheet(st, vm)
     if (st.detailCustomerId != null) CustomerDetailSheet(st, vm)
     if (st.specifyId != null) SpecifySheet(st, vm) // layers on top of the sale detail
+    if (st.maintOpen) MaintSheet(vm)
     if (st.confirm != null) ConfirmSheet(st, vm)
     if (st.undo != null && st.screen == "home") UndoToast(vm)
 }
 
-// A confirm-before-you-wipe sheet for the two destructive actions in الملخّص.
+// ── maintainer tools — reachable only via the hidden long-press on the دفتر wordmark ──
+@Composable
+private fun MaintSheet(vm: StoreViewModel) {
+    BottomSheet(onDismiss = vm::closeMaint) {
+        Text("أدوات نوّار — للصيانة", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        MaintContent(vm)
+    }
+}
+
+// A confirm-before-you-wipe sheet for the two destructive actions behind the maintainer sheet.
 @Composable
 private fun ConfirmSheet(st: StoreState, vm: StoreViewModel) {
     val sample = st.confirm == "sample"

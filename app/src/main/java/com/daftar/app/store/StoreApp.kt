@@ -22,8 +22,12 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.graphicsLayer
@@ -67,10 +71,11 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     // Back closes an open sheet/overlay first, then falls back to اليوم; only اليوم exits.
     val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
         st.custAddOpen || st.detailEntryId != null || st.detailCustomerId != null ||
-        st.confirm != null || st.editItemId != null
+        st.confirm != null || st.editItemId != null || st.maintOpen
     androidx.activity.compose.BackHandler(enabled = overlayOpen || st.tab != "today") {
         when {
             st.confirm != null -> vm.dismissConfirm()
+            st.maintOpen -> vm.closeMaint()
             st.editItemId != null -> vm.closeEditItem()
             st.custAddOpen -> vm.closeAddCustomer()
             st.custPickerOpen -> vm.closeCustPicker()
@@ -86,7 +91,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     ) {
         Box(Modifier.fillMaxSize().background(cBg)) {
             Column(Modifier.fillMaxSize()) {
-                AppBar(st)
+                AppBar(st, vm)
                 Swap(st.tab, Modifier.weight(1f).fillMaxWidth()) { tab ->
                     Column(
                         Modifier
@@ -114,7 +119,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun AppBar(st: StoreState) {
+private fun AppBar(st: StoreState, vm: StoreViewModel) {
     val title = when (st.tab) {
         "today" -> "دفتر اليوم"; "cust" -> "الزبائن"; else -> "الحساب"
     }
@@ -125,7 +130,19 @@ private fun AppBar(st: StoreState) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("دفتر", fontFamily = Amiri, fontWeight = FontWeight.Bold, fontSize = 21.sp, color = cDebt)
+            // Hidden maintainer entrance: a deliberate ~2s hold on the wordmark (D-F4).
+            // Nothing destructive stays reachable from الملخّص.
+            Text(
+                "دفتر", fontFamily = Amiri, fontWeight = FontWeight.Bold, fontSize = 21.sp, color = cDebt,
+                modifier = Modifier.pointerInput(Unit) {
+                    detectTapGestures(onPress = {
+                        val held = try {
+                            withTimeout(1800) { awaitRelease(); false }
+                        } catch (e: TimeoutCancellationException) { true }
+                        if (held) vm.openMaint()
+                    })
+                },
+            )
             Text(title, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
             Text(aside, fontSize = fSmall, color = cDim, textAlign = TextAlign.End, modifier = Modifier.widthIn(min = 34.dp))
         }
@@ -695,8 +712,16 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
         Box(Modifier.weight(1f)) { PrimaryButton("⤓ حفظ نسخة", fontSize = fBody, radius = rMd, vertical = 13.dp) { shareBackup(ctx, vm.exportJson()) } }
         Box(Modifier.weight(1f)) { OutlineButton("⤒ استعادة", fontSize = fBody, radius = rMd, vertical = 13.dp, filledCard = true) { importer.launch(arrayOf("application/json", "text/*", "*/*")) } }
     }
+}
+
+// Maintainer tools (sync bridge, sample data, full wipe) — deliberately NOT part of الملخّص.
+// Reached only via the hidden long-press on the دفتر wordmark (SPEC F4): the owner's screen
+// carries nothing that can destroy her ledger.
+@Composable
+internal fun MaintContent(vm: StoreViewModel) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     // sync bridge (FR-8.3): optional one-way push to the owner-tools API; never blocks the app
-    SectionLabel("المزامنة (اختياري)")
+    Text("المزامنة (اختياري)", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
     var syncUrl by remember { mutableStateOf(com.daftar.app.sync.SyncWorker.syncUrl(ctx)) }
     Column(Modifier.fillMaxWidth().card(rMd).padding(13.dp)) {
         Text("ترسل نسخة الدفتر إلى حاسوب نوّار عند توفر الاتصال — المحل يعمل دونها تماماً.", fontSize = fCaption, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 9.dp))

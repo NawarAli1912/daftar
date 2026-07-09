@@ -72,6 +72,16 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
         onDispose { lifecycle.removeObserver(obs) }
     }
     // Back closes an open sheet/overlay first, then falls back to اليوم; only اليوم exits.
+    // F5 paper sounds — page-flip on day change, tick on tab/segment swaps. Guarded by a
+    // remembered previous value so nothing plays on first composition (app launch).
+    val sounds = rememberDaftarSounds()
+    var prevDay by remember { mutableStateOf(st.viewedDay) }
+    var prevTab by remember { mutableStateOf(st.tab) }
+    var prevSeg by remember { mutableStateOf(st.accountSeg) }
+    LaunchedEffect(st.viewedDay) { if (st.viewedDay != prevDay) { sounds.flip(); prevDay = st.viewedDay } }
+    LaunchedEffect(st.tab) { if (st.tab != prevTab) { sounds.tick(); prevTab = st.tab } }
+    LaunchedEffect(st.accountSeg) { if (st.accountSeg != prevSeg) { sounds.tick(); prevSeg = st.accountSeg } }
+
     val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
         st.custAddOpen || st.detailEntryId != null || st.detailCustomerId != null ||
         st.confirm != null || st.editItemId != null || st.maintOpen || st.shopId != null ||

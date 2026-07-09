@@ -125,6 +125,30 @@ internal fun Modifier.dashedBorder(color: Color, radius: Dp, width: Dp = 1.dp): 
         )
     }
 
+// F6 «real daftar» marker highlight — a translucent sweep drawn BEHIND a key token, with
+// slightly uneven top/bottom edges so it reads like a hand-drawn highlighter on paper, not a
+// solid chip. Use sparingly (≤ one token per row): oxblood for debtor names, amber for
+// أمانة/sources, green for paid. `seed` (e.g. the token's hashCode) varies the waver so no two
+// strokes look identical.
+internal fun Modifier.marker(color: Color, seed: Int = 0): Modifier =
+    this.drawBehind {
+        val w = size.width
+        val h = size.height
+        val pad = 3.dp.toPx()
+        // small deterministic jitter from the seed → each stroke sits a touch differently
+        fun j(n: Int) = ((seed / (n + 1)) % 5 - 2) * 0.6.dp.toPx()
+        val top = h * 0.16f
+        val bot = h * 0.94f
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(-pad, top + j(1))
+            lineTo(w + pad, top + j(2))
+            lineTo(w + pad, bot + j(3))
+            lineTo(-pad, bot + j(4))
+            close()
+        }
+        drawPath(path, color.copy(alpha = 0.20f))
+    }
+
 // ── entrance motion — springs, for an Apple-like settle (replaces the prototype's linear eases) ──
 // A 0→1 progress that runs once on first composition; re-runs if `key` changes.
 internal val SheetSpring: AnimationSpec<Float> = spring(dampingRatio = 0.82f, stiffness = 320f)

@@ -329,7 +329,12 @@ private fun EntryRow(e: DayEntry, onClick: () -> Unit) {
             Text(e.d, fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 3.dp))
         }
         Spacer(Modifier.width(10.dp))
-        Text(e.amt, fontSize = fTitle, fontWeight = FontWeight.Bold, color = amtColor)
+        // F6: highlight only meaningful money events (debt/paid/أمانة), not plain cash — like
+        // a marker stroke she'd draw in her paper daftar. One highlighted token per row.
+        val amtMod = if (e.cls != "ink" && e.cls != "pos")
+            Modifier.marker(amtColor, e.id.hashCode()).padding(horizontal = 3.dp)
+        else Modifier
+        Text(e.amt, fontSize = fTitle, fontWeight = FontWeight.Bold, color = amtColor, modifier = amtMod)
     }
 }
 
@@ -420,7 +425,10 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
                         trial > 0 -> "أمانة ${fmt(trial)} — قد تُعاد"
                         else -> c.phone ?: "زبونة"
                     }
-                    StaticListRow(c.name, sub, amt, if (bal > 0) cDebt else cPaid) { vm.openCustomer(c.id) }
+                    // F6: mark the name like a paper daftar — oxblood if she owes, amber if
+                    // she's holding أمانة; nothing for a settled customer.
+                    val nameMark = if (bal > 0) cDebt else if (trial > 0) cAmber else null
+                    StaticListRow(c.name, sub, amt, if (bal > 0) cDebt else cPaid, nameMarker = nameMark) { vm.openCustomer(c.id) }
                 }
             }
         }
@@ -430,14 +438,15 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
 }
 
 @Composable
-private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Color, amtBold: Boolean = true, onClick: (() -> Unit)? = null) {
+private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Color, amtBold: Boolean = true, nameMarker: Color? = null, onClick: (() -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().then(if (onClick != null) Modifier.tap(onClick) else Modifier).padding(vertical = 13.dp).drawBottomLine(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
-            Text(name, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
+            val nameMod = if (nameMarker != null) Modifier.marker(nameMarker, name.hashCode()).padding(horizontal = 3.dp) else Modifier
+            Text(name, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = nameMod)
             Text(sub, fontSize = fCaption, color = cDim)
         }
         Text(amt, fontSize = if (amtBold) 12.5.sp else 13.sp, fontWeight = FontWeight.Bold, color = amtColor)

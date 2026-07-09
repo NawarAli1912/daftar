@@ -41,3 +41,12 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
         db.execSQL("ALTER TABLE store_entries ADD COLUMN voided INTEGER NOT NULL DEFAULT 0")
     }
 }
+
+// v18 → v19: owner copy rename — the pre-app bucket's stored label «قبل التطبيق» becomes her
+// words «تحديد لاحقاً». Only the display label of the fixed src_pre row; the id/kind are the
+// model terms and stay. («غير محدد» is never stored — it's a code fallback — so no data change.)
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("UPDATE store_sources SET label = 'تحديد لاحقاً' WHERE id = 'src_pre' AND label = 'قبل التطبيق'")
+    }
+}

@@ -12,7 +12,7 @@ const val MKT_ID = "src_mkt" // شراء من السوق — market pickings
 const val USD_RATE = 1500L   // BALE cost is entered in USD; local ≈ USD × 1500
 
 enum class Kind(val label: String) {
-    PRE_APP("قبل التطبيق"),
+    PRE_APP("تحديد لاحقاً"),
     BALE("بالة"),
     MARKET("شراء من السوق"),
 }
@@ -251,12 +251,12 @@ val APPT_ROWS = listOf(
 )
 
 fun initialSources() = listOf(
-    Source(PRE_ID, Kind.PRE_APP, "قبل التطبيق", null),
+    Source(PRE_ID, Kind.PRE_APP, "تحديد لاحقاً", null),
     Source(MKT_ID, Kind.MARKET, "شراء من السوق", null),
 )
 
 fun sampleSources() = listOf(
-    Source(PRE_ID, Kind.PRE_APP, "قبل التطبيق", null),
+    Source(PRE_ID, Kind.PRE_APP, "تحديد لاحقاً", null),
     Source(MKT_ID, Kind.MARKET, "شراء من السوق", null),
     Source("s_dr", Kind.BALE, "بالة فساتين", 400),
     Source("s_pc", Kind.BALE, "بالة بنطال + قميص", 400),

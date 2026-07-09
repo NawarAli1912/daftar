@@ -141,7 +141,7 @@ class StoreViewModel @Inject constructor(
     private fun today(): Long = java.time.LocalDate.now().toEpochDay()
 
     private fun srcLabel(id: String?): String =
-        s.sources.find { it.id == id }?.label ?: "غير محدد"
+        s.sources.find { it.id == id }?.label ?: "لا أعلم"
 
     fun sourceLabelFor(id: String?): String = srcLabel(id)
 

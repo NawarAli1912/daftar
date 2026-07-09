@@ -438,7 +438,7 @@ private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
         }
         Text("من أين أتى؟ — وجّهيه لمحله أو بالته الصحيحة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SourcePickChip("غير محدد", st.eiSource == null, true) { vm.eiPickSource(null) }
+            SourcePickChip("لا أعلم", st.eiSource == null, true) { vm.eiPickSource(null) }
             st.sources.forEach { srcOpt ->
                 val label = if (srcOpt.kind == Kind.MARKET && srcOpt.id != MKT_ID) "🏪 ${srcOpt.label}" else srcOpt.label
                 SourcePickChip(label, st.eiSource == srcOpt.id, false) { vm.eiPickSource(srcOpt.id) }
@@ -526,7 +526,7 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
                 soldLines.forEach { l ->
                     val item = st.shelf.find { it.id == l.shelfId }
                     val unspec = item == null || item.unspecified
-                    val srcLabel = if (item != null && !item.unspecified) vm.sourceLabelFor(item.sourceId) else "غير محدد"
+                    val srcLabel = if (item != null && !item.unspecified) vm.sourceLabelFor(item.sourceId) else "لا أعلم"
                     Row(
                         Modifier.fillMaxWidth().padding(vertical = 12.dp).drawBottomLine(),
                         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
@@ -785,7 +785,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
                         Text("السعر", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
                         LabeledStepper("", fmt(st.newPrice), { vm.newPriceStep(-1) }, { vm.newPriceStep(1) }, btnSize = 28.dp, valueMin = 58.dp)
                     }
-                    Text("سيُضاف للمحل كـ«غير محدد» (نقطة حمراء) تحلّينه لاحقاً", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 9.dp))
+                    Text("سيُضاف للمحل كـ«لا أعلم» (نقطة حمراء) تحلّينه لاحقاً", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 9.dp))
                     Spacer(Modifier.height(11.dp))
                     PrimaryButton("أضيفي للسلة", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.addNewItem() }
                 }
@@ -879,7 +879,7 @@ private fun SpecifySheet(st: StoreState, vm: StoreViewModel) {
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(cDebt))
-            Text("غير محدد — لاحقاً", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cDebt)
+            Text("لا أعلم — لاحقاً", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cDebt)
         }
     }
 }
@@ -1073,9 +1073,9 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
             CardStepperRow("التسعيرة", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) })
             Spacer(Modifier.height(8.dp))
             CardStepperRow("العدد في المحل", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) })
-            Text("من أين؟ («غير محدد» الافتراضي — تحلّينه لاحقاً)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+            Text("من أين؟ («لا أعلم» الافتراضي — تحلّينه لاحقاً)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SourcePickChip("غير محدد", st.aiSource == "none", true) { vm.aiPickSource("none") }
+                SourcePickChip("لا أعلم", st.aiSource == "none", true) { vm.aiPickSource("none") }
                 st.sources.forEach { srcOpt ->
                     val sel = st.aiSource == srcOpt.id
                     val label = if (srcOpt.kind == Kind.MARKET && srcOpt.id != MKT_ID) "🏪 ${srcOpt.label}" else srcOpt.label
@@ -1095,7 +1095,7 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
                 }
                 Text("شراء من السوق يُسجَّل لكل قطعة — الكلفة تتجمّع في المصدر.", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 7.dp))
             }
-            Text("بضاعتك الموجودة الآن؟ اتركيها على «قبل التطبيق» — بلا كلفة ولا ربح. ما لا تعرفين مصدره اجعليه «غير محدد» تحلّينه لاحقاً.", fontSize = fCaption, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
+            Text("بضاعتك الموجودة الآن؟ اتركيها على «تحديد لاحقاً» — بلا كلفة ولا ربح. ما لا تعرفين مصدره اجعليه «لا أعلم» تحلّينه لاحقاً.", fontSize = fCaption, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
         }
         SheetFooter("أضيفي للمحل ✓", vm::saveAiItem)
     }

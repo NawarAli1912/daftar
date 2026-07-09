@@ -522,7 +522,7 @@ private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
     data class Grp(val label: String, val color: Color, val unspec: Boolean, val items: List<Shelf>)
     val groups = buildList {
         val un = st.shelf.filter { it.unspecified && match(it) }
-        if (un.isNotEmpty()) add(Grp("غير محدد", cDebt, true, un))
+        if (un.isNotEmpty()) add(Grp("لا أعلم", cDebt, true, un))
         st.sources.forEach { src ->
             val items = st.shelf.filter { it.sourceId == src.id && match(it) }
             if (items.isNotEmpty()) add(Grp(src.label, sourceColor(src.kind), false, items))
@@ -618,13 +618,13 @@ private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
     // قبل التطبيق — everything from before the app whose source nobody remembers
     Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).card().padding(horizontal = 15.dp, vertical = 13.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("قبل التطبيق", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
+            Text("تحديد لاحقاً", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
             Box(Modifier.clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).padding(horizontal = 7.dp, vertical = 2.dp)) {
                 Text("بضاعة قديمة", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cDim)
             }
         }
         Text(
-            "كل ما كان قبل التطبيق ولا نستطيع تذكّر مصدره — بلا كلفة، والربح «—» بصدق. في المحل: ${pre?.remain ?: 0} قطعة",
+            "كل ما كان تحديد لاحقاً ولا نستطيع تذكّر مصدره — بلا كلفة، والربح «—» بصدق. في المحل: ${pre?.remain ?: 0} قطعة",
             fontSize = fCaption, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),
         )
     }

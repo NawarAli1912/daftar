@@ -98,7 +98,10 @@ multi‑language, no confirmation dialogs.
 **Owner overrides applied after the doc:** numerals render **Western** (0123, not ٠١٢٣);
 the USD→local **rate is editable** ("today's rate" on المصادر), not hardcoded; UI copy says
 **«في المحل»** not «على الرف» and shelving reads **«نقل إلى المحل»** (2026‑07‑09) — الرف stays
-the *model* term (`shelf`, `shelved`), only her words changed.
+the *model* term (`shelf`, `shelved`), only her words changed. The two no‑cost source buckets
+are her words too (2026‑07‑09): **«غير محدد» → «لا أعلم»** and **«قبل التطبيق» → «تحديد لاحقاً»**
+— the model keeps `sourceId==null` / `PRE_ID`/`PRE_APP`; only display labels changed (the
+persisted `src_pre` label is renamed by `MIGRATION_18_19`).
 
 ---
 

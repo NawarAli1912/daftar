@@ -4,6 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+    id("org.jetbrains.kotlinx.kover")
 }
 
 // iCloud syncs ~/Desktop and creates " 2" conflict copies inside build outputs

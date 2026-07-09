@@ -240,9 +240,10 @@ internal val fTitle = 15.sp   // was 15 / 15.5 — row/card titles, CTAs
 internal val fHead = 16.sp    // was 16 / 16.5 / 17 — sheet titles, primary buttons
 internal val fGlyph = 18.sp   // tab/nav glyphs
 
-// radius scale (dp)
-internal val rXs = 8.dp   // was 6 / 8 / 9 — badges, chips, small controls
-internal val rSm = 10.dp  // was 10 / 11 — inputs, small buttons
-internal val rMd = 12.dp  // was 12 / 13 — secondary cards, banners, mid buttons
-internal val rLg = 14.dp  // was 14 / 15 — cards, primary buttons, chooser rows
+// radius scale (dp) — Apple-soft: generously rounded, continuous-feeling corners. Bumped
+// from the old tight 8/10/12/14 scale (owner: "more rounded corners like apple design").
+internal val rXs = 11.dp  // badges, chips, small controls
+internal val rSm = 14.dp  // inputs, small buttons
+internal val rMd = 18.dp  // secondary cards, banners, mid buttons
+internal val rLg = 24.dp  // cards, primary buttons, chooser rows
 internal val rPill = 99.dp // fully-round pills / handles

@@ -437,7 +437,7 @@ private fun SegBtn(label: String, active: Boolean, modifier: Modifier, onClick: 
 @Composable
 private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
     val unspec = st.shelf.count { it.unspecified }
-    Text("رفّك — ما لديك للبيع. البيع يقترح من هنا فقط.", fontSize = fSmall, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 10.dp))
+    Text("محلّك — ما لديك للبيع. البيع يقترح من هنا فقط.", fontSize = fSmall, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(bottom = 12.dp)) {
         FilterChip("الكل", st.shelfFilter == "all") { vm.setFilter("all") }
         FilterChip("غير محدد ($unspec)", st.shelfFilter == "unspec", dot = true) { vm.setFilter("unspec") }
@@ -446,7 +446,7 @@ private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
     Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
         rows.forEach { r -> ShelfRow(r, vm) }
         Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { PrimaryButton("+ صنف للرف", fontSize = fBody, radius = rSm, vertical = 11.dp) { vm.openAddItem() } }
+            Box(Modifier.weight(1f)) { PrimaryButton("+ صنف للمحل", fontSize = fBody, radius = rSm, vertical = 11.dp) { vm.openAddItem() } }
             Box(Modifier.weight(1f)) { OutlineButton("+ بالة", fontSize = fBody, radius = rSm, vertical = 11.dp) { vm.openAddSource() } }
         }
     }
@@ -465,7 +465,7 @@ private fun ShelfRow(r: Shelf, vm: StoreViewModel) {
         Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(
                 buildString {
-                    append("على الرف ")
+                    append("في المحل ")
                     append(oh)
                     if (r.buy != null) append(" · شراء ${fmt(r.buy)}")
                 },
@@ -513,7 +513,7 @@ private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
             }
         }
         Text(
-            "كل ما كان قبل التطبيق ولا نستطيع تذكّر مصدره — بلا كلفة، والربح «—» بصدق. على الرف: ${pre?.remain ?: 0} قطعة",
+            "كل ما كان قبل التطبيق ولا نستطيع تذكّر مصدره — بلا كلفة، والربح «—» بصدق. في المحل: ${pre?.remain ?: 0} قطعة",
             fontSize = fCaption, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),
         )
     }
@@ -649,7 +649,7 @@ private fun SourceCard(sv: SourceView, vm: StoreViewModel) {
                 SourceStat("الإيراد المنسوب", sv.revFmt, cInk)
                 SourceStat("الربح تقريباً", sv.profitFmt, if (sv.profit == null) cDim else if (sv.profit >= 0) cPaid else cDebt, bold = true)
             }
-            Text("على الرف الآن: ${sv.remain} قطعة", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 9.dp))
+            Text("في المحل الآن: ${sv.remain} قطعة", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 9.dp))
             if (sv.isBale) {
                 Row(
                     Modifier.fillMaxWidth().padding(top = 9.dp).clip(RoundedCornerShape(rSm)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rSm)).padding(horizontal = 11.dp, vertical = 8.dp),
@@ -687,7 +687,7 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
     }
     Column(Modifier.fillMaxWidth().card().padding(15.dp)) {
         Text("إجمالي المحل", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(bottom = 12.dp))
-        SummaryRow("أصناف على الرف", "$totalOnHand قطعة", cInk, cInk, line = true)
+        SummaryRow("أصناف في المحل", "$totalOnHand قطعة", cInk, cInk, line = true)
         SummaryRow("مصادر مسجّلة", "${st.sources.size}", cInk, cInk, line = true)
         SummaryRow("تحتاج تحديد مصدر", "$unspec", cDebt, cDebt, line = false)
     }

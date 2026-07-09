@@ -95,8 +95,10 @@ every ledger rule has a test named after it (NFR‑10); every change references 
 **Non‑goals:** no per‑item inventory, no cash‑drawer accounting, no multi‑user, no
 multi‑language, no confirmation dialogs.
 
-**Two owner overrides applied after the doc:** numerals render **Western** (0123, not ٠١٢٣);
-the USD→local **rate is editable** ("today's rate" on المصادر), not hardcoded.
+**Owner overrides applied after the doc:** numerals render **Western** (0123, not ٠١٢٣);
+the USD→local **rate is editable** ("today's rate" on المصادر), not hardcoded; UI copy says
+**«في المحل»** not «على الرف» and shelving reads **«نقل إلى المحل»** (2026‑07‑09) — الرف stays
+the *model* term (`shelf`, `shelved`), only her words changed.
 
 ---
 

@@ -290,7 +290,7 @@ private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
         Spacer(Modifier.height(9.dp))
         CardStepperRow("التسعيرة", fmt(st.eiTasira), { vm.eiTasiraStep(-1) }, { vm.eiTasiraStep(1) })
         Spacer(Modifier.height(8.dp))
-        CardStepperRow("على الرف الآن", "${st.eiOnHand}", { vm.eiOnHandStep(-1) }, { vm.eiOnHandStep(1) })
+        CardStepperRow("في المحل الآن", "${st.eiOnHand}", { vm.eiOnHandStep(-1) }, { vm.eiOnHandStep(1) })
         Spacer(Modifier.height(8.dp))
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 10.dp),
@@ -317,7 +317,7 @@ private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
 private fun Chooser(vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeSheet) {
         Text("ماذا تسجّلين؟", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
-        ChooserOption("🧾", "بيع", "أصناف من الرف بأسعار", outlined = true) { vm.openSale() }
+        ChooserOption("🧾", "بيع", "أصناف من المحل بأسعار", outlined = true) { vm.openSale() }
         Spacer(Modifier.height(10.dp))
         ChooserOption("💵", "دفعة", "مبلغ على الرصيد") { vm.openPay() }
         Spacer(Modifier.height(10.dp))
@@ -497,7 +497,7 @@ private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
                             Box(
                                 Modifier.weight(1f).clip(RoundedCornerShape(rXs)).background(cCard).border(1.dp, cLine, RoundedCornerShape(rXs)).tap { vm.voidEntry(e.id) }.padding(vertical = 8.dp),
                                 contentAlignment = Alignment.Center,
-                            ) { Text("أعادتها — للرف", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent) }
+                            ) { Text("أعادتها — للمحل", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent) }
                         }
                     }
                 }
@@ -618,7 +618,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 8.dp)) {
             CustomerRow(st, vm)
             Spacer(Modifier.height(13.dp))
-            Text("مقترحة من الرف — اضغطي لإضافتها", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 9.dp))
+            Text("مقترحة من المحل — اضغطي لإضافتها", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 9.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 st.shelf.filter { it.onHand > 0 }.sortedByDescending { it.onHand }.forEach { g ->
                     Column(
@@ -642,7 +642,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
                         Text("السعر", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
                         LabeledStepper("", fmt(st.newPrice), { vm.newPriceStep(-1) }, { vm.newPriceStep(1) }, btnSize = 28.dp, valueMin = 58.dp)
                     }
-                    Text("سيُضاف للرف كـ«غير محدد» (نقطة حمراء) تحلّينه لاحقاً", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 9.dp))
+                    Text("سيُضاف للمحل كـ«غير محدد» (نقطة حمراء) تحلّينه لاحقاً", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 9.dp))
                     Spacer(Modifier.height(11.dp))
                     PrimaryButton("أضيفي للسلة", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.addNewItem() }
                 }
@@ -780,13 +780,13 @@ private fun PackageSheet(st: StoreState, vm: StoreViewModel) {
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     BaleStat("بيعت", "${sv.sold}", cPaid)
-                    BaleStat("على الرف", "${sv.remain}", cInk)
+                    BaleStat("في المحل", "${sv.remain}", cInk)
                     BaleStat("في البالة", "${sv.inPkg}", cAmber)
                     BaleStat("متوسط سعر البيع", avgSoldPrice(sv.revenue, sv.sold)?.let { fmt(it) } ?: "—", cInk)
                 }
             }
             Spacer(Modifier.height(12.dp))
-            Text("عُدّي أصناف البالة وارفعيها على الرف — كلها أو جزءاً. ما يبقى «في البالة» تُنزلينه لاحقاً. اضغطي اسم الصنف لتعديله.", fontSize = fSmall, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 12.dp))
+            Text("عُدّي أصناف البالة وانقليها إلى المحل — كلها أو جزءاً. ما يبقى «في البالة» تنقلينه لاحقاً. اضغطي اسم الصنف لتعديله.", fontSize = fSmall, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 12.dp))
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
                 items.forEach { p -> PackageItemRow(p, vm) }
                 Box(Modifier.fillMaxWidth().tap { vm.togglePkgAdd() }.padding(top = 11.dp, bottom = 7.dp), contentAlignment = Alignment.Center) {
@@ -831,16 +831,16 @@ private fun PackageItemRow(p: Shelf, vm: StoreViewModel) {
         Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("في البالة: ${p.inPkg}", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAmber)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("على الرف", fontSize = fCaption, color = cDim)
+                Text("في المحل", fontSize = fCaption, color = cDim)
                 StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shelveStep(p.id, -1) }
                 Text("${p.shelved}", fontSize = fTitle, fontWeight = FontWeight.ExtraBold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 28.dp))
                 StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shelveStep(p.id, 1) }
             }
         }
         if (p.inPkg > 0) {
-            Text("رفّ الكل (${p.inPkg}) ←", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.shelveAll(p.id) })
+            Text("انقلي الكل (${p.inPkg}) ←", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.shelveAll(p.id) })
         } else {
-            Text("الكل على الرف ✓", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cPaid, modifier = Modifier.padding(top = 7.dp))
+            Text("الكل في المحل ✓", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cPaid, modifier = Modifier.padding(top = 7.dp))
         }
     }
 }
@@ -922,14 +922,14 @@ private fun ShopSheet(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
     Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
-        SheetHeader("إضافة صنف للرف", onClose = vm::closeAddItem)
+        SheetHeader("إضافة صنف للمحل", onClose = vm::closeAddItem)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
             Text("الصنف", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
             TextInput(st.aiName, vm::setAiName, "مثال: فستان", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
             Spacer(Modifier.height(11.dp))
             CardStepperRow("التسعيرة", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) })
             Spacer(Modifier.height(8.dp))
-            CardStepperRow("العدد على الرف", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) })
+            CardStepperRow("العدد في المحل", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) })
             Text("من أين؟ («غير محدد» الافتراضي — تحلّينه لاحقاً)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SourcePickChip("غير محدد", st.aiSource == "none", true) { vm.aiPickSource("none") }
@@ -954,7 +954,7 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
             }
             Text("بضاعتك الموجودة الآن؟ اتركيها على «قبل التطبيق» — بلا كلفة ولا ربح. ما لا تعرفين مصدره اجعليه «غير محدد» تحلّينه لاحقاً.", fontSize = fCaption, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
         }
-        SheetFooter("أضيفي للرف ✓", vm::saveAiItem)
+        SheetFooter("أضيفي للمحل ✓", vm::saveAiItem)
     }
 }
 

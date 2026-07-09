@@ -489,7 +489,7 @@ class StoreViewModel @Inject constructor(
         val entry = DayEntry(
             id = "e" + System.currentTimeMillis(),
             t = "إرجاع" + (item?.let { " — " + it.name } ?: "") + " — " + (cust?.name ?: "نقدي"),
-            d = "الآن · قيمة تُعاد للرصيد" + (item?.let { " · أُعيد للرف" } ?: ""),
+            d = "الآن · قيمة تُعاد للرصيد" + (item?.let { " · أُعيد للمحل" } ?: ""),
             amt = "↩ " + fmt(amt), cls = "amber",
             customerId = s.saleCustomerId,
             debtDelta = -amt, // a return credits her balance

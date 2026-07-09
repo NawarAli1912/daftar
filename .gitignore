@@ -15,3 +15,6 @@ build.nosync/
 # claude code local tooling + kotlin build cache (machine-specific)
 .claude/
 .kotlin/
+
+# se-skills session workspace (working memory; durable facts live in docs/)
+.se/

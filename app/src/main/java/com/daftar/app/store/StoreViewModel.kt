@@ -429,7 +429,9 @@ class StoreViewModel @Inject constructor(
     }
 
     // ── payment (D37) ──
-    fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = null, editingId = null) }
+    // F3 picker-first: a دفعة opens on «لمن؟» — نقدي is a deliberate choice, never a
+    // forgotten default (the silent-no-op trap: recording a payment without the customer).
+    fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = null, editingId = null, custPickerOpen = true) }
     fun payAmountStep(d: Int) = set { it.copy(payAmount = maxOf(0, it.payAmount + d * 500)) }
     fun payPickType(id: String) = set {
         val it0 = it

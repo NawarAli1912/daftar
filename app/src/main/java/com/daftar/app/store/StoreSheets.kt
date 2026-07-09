@@ -573,23 +573,35 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
                 Text(fmt(st.payAmount), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 120.dp))
                 StepBtn("+", 42.dp, 12.dp, 1.5.dp, cLine, cAccent, 22.sp) { vm.payAmountStep(1) }
             }
-            Text("نوع (اختياري) — يُسند المبلغ لمصدره", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                st.shelf.filter { it.onHand > 0 }.take(8).forEach { x ->
-                    val sel = st.payTypeId == x.id
-                    Column(
-                        Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.payPickType(x.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(x.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
-                        Text(fmt(x.tasira), fontSize = fCaption, color = if (sel) cAink else cDim)
+            if (st.saleCustomerId != null) {
+                // نوع attributes an old-debt payment to what she took — meaningful only
+                // with a customer (F3): anonymous item-money is a بيع, not a دفعة.
+                Text("نوع (اختياري) — يُسند المبلغ لمصدره", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    st.shelf.filter { it.onHand > 0 }.take(8).forEach { x ->
+                        val sel = st.payTypeId == x.id
+                        Column(
+                            Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.payPickType(x.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(x.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
+                            Text(fmt(x.tasira), fontSize = fCaption, color = if (sel) cAink else cDim)
+                        }
                     }
                 }
-            }
-            if (st.payTypeId != null) {
-                val name = st.shelf.find { it.id == st.payTypeId }?.name ?: ""
-                Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(rMd)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp)) {
-                    Text("مبلغ $name يُحسب إيراداً لمصدر الصنف — ويُنقص قطعة من الرف.", fontSize = fSmall, color = cPaid, lineHeight = 18.sp)
+                if (st.payTypeId != null) {
+                    val name = st.shelf.find { it.id == st.payTypeId }?.name ?: ""
+                    Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(rMd)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                        Text("مبلغ $name يُحسب إيراداً لمصدر الصنف — ويُنقص قطعة من الرف.", fontSize = fSmall, color = cPaid, lineHeight = 18.sp)
+                    }
+                }
+            } else {
+                // نقدي: no balance will change — if this money is for an item, it's a sale
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 16.dp).clip(RoundedCornerShape(rMd)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp),
+                ) {
+                    Text("دفعة نقدي لا تُنقص دين أحد.", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAmber)
+                    Text("مبلغ عن صنف؟ سجّليه بيعاً ←", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.openSale() })
                 }
             }
         }

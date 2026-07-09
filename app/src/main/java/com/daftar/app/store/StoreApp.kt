@@ -102,8 +102,10 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
             else -> vm.setTab("today")
         }
     }
+    val sheetOrigin = remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     CompositionLocalProvider(
         LocalTextStyle provides TextStyle(fontFamily = Plex, color = cInk),
+        LocalSheetOrigin provides sheetOrigin,
     ) {
         Box(Modifier.fillMaxSize().background(cBg)) {
             Column(Modifier.fillMaxSize()) {
@@ -329,7 +331,7 @@ private fun DayNavArrow(sym: String, enabled: Boolean, onClick: () -> Unit) {
 private fun EntryRow(e: DayEntry, onClick: () -> Unit) {
     val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
     Row(
-        Modifier.fillMaxWidth().tap(onClick).padding(vertical = 12.dp).padding(start = 26.dp)
+        Modifier.fillMaxWidth().tapExpand(onClick).padding(vertical = 12.dp).padding(start = 26.dp)
             .drawBottomLine(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,
@@ -450,7 +452,7 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Color, amtBold: Boolean = true, nameMarker: Color? = null, onClick: (() -> Unit)? = null) {
     Row(
-        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.tap(onClick) else Modifier).padding(vertical = 13.dp).drawBottomLine(),
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.tapExpand(onClick) else Modifier).padding(vertical = 13.dp).drawBottomLine(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -561,7 +563,7 @@ private fun sourceColor(kind: Kind): Color = when (kind) {
 private fun ShelfRow(r: Shelf, vm: StoreViewModel) {
     val oh = r.onHand
     val onHandColor = if (oh < 0) cDebt else if (oh == 0) cDim else cInk
-    Column(Modifier.fillMaxWidth().tap { vm.openEditItem(r.id) }.padding(vertical = 12.dp).drawBottomLine()) {
+    Column(Modifier.fillMaxWidth().tapExpand { vm.openEditItem(r.id) }.padding(vertical = 12.dp).drawBottomLine()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("${r.name} ✎", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.weight(1f, fill = false))
             Text(fmt(r.tasira), fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)

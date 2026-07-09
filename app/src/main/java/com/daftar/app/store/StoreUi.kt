@@ -38,6 +38,8 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -68,10 +70,16 @@ internal val cGreenBorder = Color(0xFFCFE0D3)
 internal val cScrim = Color(0x57140F0D)       // rgba(20,17,13,.34)
 internal val cUndoAccent = Color(0xFFF4C84A)
 
+// The tapped element's on-screen rect (window coords), so a sheet can grow FROM it and shrink
+// back INTO it (Dynamic-Island style). `tapExpand` sets it; a plain `tap` clears it so a
+// button-opened sheet just slides up from the bottom instead of morphing from a stale rect.
+internal val LocalSheetOrigin = androidx.compose.runtime.compositionLocalOf { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+
 // A tap target with a satisfying, iOS-style press: the element springs down to 0.96 while
 // held and settles back with a gentle bounce on release. No ripple.
 internal fun Modifier.tap(onClick: () -> Unit): Modifier = this.composed {
     val src = remember { MutableInteractionSource() }
+    val origin = LocalSheetOrigin.current
     val pressed by src.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.96f else 1f,
@@ -79,7 +87,24 @@ internal fun Modifier.tap(onClick: () -> Unit): Modifier = this.composed {
         label = "press",
     )
     graphicsLayer { scaleX = scale; scaleY = scale }
-        .clickable(interactionSource = src, indication = null, onClick = onClick)
+        .clickable(interactionSource = src, indication = null) { origin.value = null; onClick() }
+}
+
+// Like `tap`, but records this element's window rect first — the sheet it opens will expand
+// out of this exact spot and collapse back into it.
+internal fun Modifier.tapExpand(onClick: () -> Unit): Modifier = this.composed {
+    val src = remember { MutableInteractionSource() }
+    val origin = LocalSheetOrigin.current
+    var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    val pressed by src.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 650f),
+        label = "press",
+    )
+    Modifier.onGloballyPositioned { bounds = it.boundsInWindow() }
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .clickable(interactionSource = src, indication = null) { origin.value = bounds; onClick() }
 }
 
 // Rounded ± stepper button.

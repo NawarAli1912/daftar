@@ -1,8 +1,14 @@
 package com.daftar.app.store
 
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -27,10 +33,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -43,25 +53,27 @@ import com.daftar.app.kernel.theme.Plex
 
 @Composable
 internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
+    // full-screen flow sheets (opened from buttons) keep their current entrance
     when (st.screen) {
-        "chooser" -> Chooser(vm)
         "pay" -> PaySheet(st, vm)
         "sale" -> SaleSheet(st, vm)
         "return" -> ReturnSheet(st, vm)
         "additem" -> AddItemSheet(st, vm)
         "package" -> PackageSheet(st, vm)
-        "addsrc" -> AddSourceSheet(st, vm)
     }
     if (st.shopId != null) ShopSheet(st, vm)
-    if (st.custPickerOpen) CustPicker(st, vm)
-    if (st.custAddOpen) AddCustomerSheet(st, vm)
-    if (st.editItemId != null) ItemEditSheet(st, vm)
-    if (st.detailEntryId != null) EntryDetailSheet(st, vm)
-    if (st.detailCustomerId != null) CustomerDetailSheet(st, vm)
-    if (st.specifyId != null) SpecifySheet(st, vm) // layers on top of the sale detail
-    if (st.maintOpen) MaintSheet(vm)
-    if (st.paperDebtPrompt) PaperDebtSheet(st, vm)
-    if (st.confirm != null) ConfirmSheet(st, vm)
+    // bottom sheets — expand from the tapped element and collapse back into it (OverlaySlot)
+    OverlaySlot(st.screen.takeIf { it == "chooser" }) { Chooser(vm) }
+    OverlaySlot(st.screen.takeIf { it == "addsrc" }) { AddSourceSheet(st, vm) }
+    OverlaySlot(st.custPickerOpen.takeIf { it }) { CustPicker(st, vm) }
+    OverlaySlot(st.custAddOpen.takeIf { it }) { AddCustomerSheet(st, vm) }
+    OverlaySlot(st.editItemId) { ItemEditSheet(st, vm) }
+    OverlaySlot(st.detailEntryId) { EntryDetailSheet(st, vm) }
+    OverlaySlot(st.detailCustomerId) { CustomerDetailSheet(st, vm) }
+    OverlaySlot(st.specifyId) { SpecifySheet(st, vm) } // layers on top of the sale detail
+    OverlaySlot(st.maintOpen.takeIf { it }) { MaintSheet(vm) }
+    OverlaySlot(st.paperDebtPrompt.takeIf { it }) { PaperDebtSheet(st, vm) }
+    OverlaySlot(st.confirm) { ConfirmSheet(st, vm) }
     // NOTE: the undo toast is rendered inline in StoreApp's Column (F2) — not a full-screen
     // overlay — so it never covers «+ قيد جديد» or the tab bar, and it can be swiped away.
 }
@@ -123,22 +135,87 @@ private fun ConfirmSheet(st: StoreState, vm: StoreViewModel) {
     }
 }
 
+// ── overlay presence: expand-from-item, collapse-back-to-it ──
+// The shared transition state that drives a sheet's enter AND exit. `OverlaySlot` provides it
+// and keeps the sheet composed through the collapse, so dismissing returns the sheet to its
+// place instead of making it vanish.
+internal val LocalSheetTransition = androidx.compose.runtime.compositionLocalOf<MutableTransitionState<Boolean>?> { null }
+
+@Composable
+private fun OverlaySlot(active: Any?, content: @Composable () -> Unit) {
+    val state = remember { MutableTransitionState(false) }
+    state.targetState = active != null
+    // stay composed while entering, shown, or collapsing — leave only once fully hidden
+    if (state.currentState || state.targetState) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalSheetTransition provides state) { content() }
+    }
+}
+
+// Retains the last non-null value so a sheet keeps its content during the collapse, after the
+// triggering state has already been nulled.
+@Composable
+private fun <T> rememberLast(value: T?): T? {
+    val holder = remember { mutableStateOf(value) }
+    if (value != null) holder.value = value
+    return holder.value
+}
+
 // ── shared sheet chrome ──
+// Grows out of the tapped element (or up from the bottom, if opened from a button) and
+// collapses back into it. Driven by LocalSheetTransition when present; falls back to the old
+// enter-only slide otherwise.
 @Composable
 private fun BottomSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    Box(Modifier.fillMaxSize()) {
-        Scrim(onDismiss)
-        SlideUp(Modifier.align(Alignment.BottomCenter)) { // real slide up from below
-            Column(
-                Modifier.fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)).background(cBg)
-                    .navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 22.dp),
-            ) {
-                Box(Modifier.align(Alignment.CenterHorizontally).width(38.dp).height(4.dp).clip(RoundedCornerShape(rPill)).background(cLine))
-                Spacer(Modifier.height(14.dp))
-                content()
-            }
+    val state = LocalSheetTransition.current
+    if (state == null) { // un-wrapped caller → legacy enter-only
+        Box(Modifier.fillMaxSize()) {
+            Scrim(onDismiss)
+            SlideUp(Modifier.align(Alignment.BottomCenter)) { SheetPanel(content) }
         }
+        return
+    }
+    val originNow = LocalSheetOrigin.current.value
+    val origin = remember { originNow } // capture the tapped rect once, at open
+    val transition = androidx.compose.animation.core.rememberTransition(state, label = "sheet")
+    val p by transition.animateFloat(
+        transitionSpec = { spring(dampingRatio = 0.85f, stiffness = 300f) }, label = "p",
+    ) { if (it) 1f else 0f }
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier.fillMaxSize().graphicsLayer { alpha = p.coerceIn(0f, 1f) }.background(cScrim)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+        )
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val screenH = constraints.maxHeight.toFloat()
+            val startScale = if (origin != null) 0.32f else 0.9f
+            Column(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .graphicsLayer {
+                        val panelH = size.height.coerceAtLeast(1f)
+                        val panelTop = screenH - panelH
+                        // pivot at the tapped row's centre (window coords) so it grows FROM there
+                        val pivotY = origin?.let { ((it.center.y - panelTop) / panelH).coerceIn(-0.6f, 1.1f) } ?: 1f
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, pivotY)
+                        val s = startScale + (1f - startScale) * p
+                        scaleX = s; scaleY = s
+                        alpha = (p * 1.5f).coerceIn(0f, 1f)
+                        translationY = (1f - p) * 20.dp.toPx()
+                    },
+            ) { SheetPanel(content) }
+        }
+    }
+}
+
+@Composable
+private fun SheetPanel(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)).background(cBg)
+            .navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 22.dp),
+    ) {
+        Box(Modifier.align(Alignment.CenterHorizontally).width(38.dp).height(4.dp).clip(RoundedCornerShape(rPill)).background(cLine))
+        Spacer(Modifier.height(14.dp))
+        content()
     }
 }
 
@@ -315,7 +392,7 @@ private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
         Text("صفحة الصنف", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         // F1: the item's own record — what it sold, for how much vs its تسعيرة, and (when a
         // cost basis exists) its profit. Derived from the ledger; the edit controls follow.
-        val item = st.shelf.find { it.id == st.editItemId }
+        val item = st.shelf.find { it.id == rememberLast(st.editItemId) }
         if (item != null) {
             val stats = itemStats(item, st.sources, st.shelf, st.entries, st.usdRate)
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 13.dp)) {
@@ -427,7 +504,7 @@ private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
 // ── entry detail: view & void a past قيد ──
 @Composable
 private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
-    val e = st.entries.find { it.id == st.detailEntryId } ?: return
+    val e = st.entries.find { it.id == rememberLast(st.detailEntryId) } ?: return
     val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
     BottomSheet(onDismiss = vm::closeEntry) {
         Text("القيد", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
@@ -493,7 +570,7 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
 // ── customer detail: balance + history + record a payment ──
 @Composable
 private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
-    val c = st.customers.find { it.id == st.detailCustomerId } ?: return
+    val c = st.customers.find { it.id == rememberLast(st.detailCustomerId) } ?: return
     val bal = customerBalance(c, st.entries)
     val trial = customerTrial(c, st.entries)
     val history = st.entries.filter { it.customerId == c.id }

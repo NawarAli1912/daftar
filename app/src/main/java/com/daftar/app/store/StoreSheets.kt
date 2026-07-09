@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -726,15 +727,52 @@ private fun SpecifySheet(st: StoreState, vm: StoreViewModel) {
     }
 }
 
-// ── package (count & shelve) ──
+// ── the bale screen (F1) — one place to rename, read stats, count, shelve and edit ──
 @Composable
 private fun PackageSheet(st: StoreState, vm: StoreViewModel) {
-    val pkgLabel = st.sources.find { it.id == st.pkgId }?.label ?: ""
+    val sv = sourceViews(st.sources, st.shelf, st.usdRate).find { it.id == st.pkgId } ?: return
     val items = st.shelf.filter { it.sourceId == st.pkgId }
     Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
-        SheetHeader("📦 $pkgLabel", onClose = vm::closePackage, back = vm::closePackage)
+        SheetHeader("📦 ${sv.label}", onClose = vm::closePackage, back = vm::closePackage)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp)) {
-            Text("عُدّي أصناف البالة وارفعيها على الرف — كلها أو جزءاً. ما يبقى «في البالة» تُنزلينه لاحقاً.", fontSize = fSmall, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 12.dp))
+            // rename — the same in-place pattern the shops use (source-generic handlers)
+            Row(Modifier.fillMaxWidth().padding(bottom = 11.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                if (st.shopRenameId == sv.id) {
+                    TextInput(st.shopName, vm::setShopName, "اسم البالة", modifier = Modifier.weight(1f), bg = cCard)
+                    Text("حفظ", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(start = 10.dp).tap { vm.saveRenameShop() })
+                } else {
+                    Text("${sv.label} ✎", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.tap { vm.startRenameShop(sv.id) })
+                    Text(sv.kindLabel, fontSize = fCaption, color = cDim)
+                }
+            }
+            // stats — the bale's ledger at a glance
+            Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 13.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    BaleStat("التكلفة", sv.costFmt, cInk)
+                    BaleStat("الإيراد المنسوب", sv.revFmt, cInk)
+                    BaleStat("الربح تقريباً", sv.profitFmt, if (sv.profit == null) cDim else if (sv.profit >= 0) cPaid else cDebt, bold = true)
+                }
+                val pct = recoveryPct(sv.revenue, sv.costLocal)
+                if (pct != null) {
+                    val done = pct >= 100
+                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("استرداد رأس المال", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
+                        Text(if (done) "$pct% ✓" else "$pct%", fontSize = fBody, fontWeight = FontWeight.ExtraBold, color = if (done) cPaid else cAmber)
+                    }
+                    Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(8.dp).clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs))) {
+                        Box(Modifier.fillMaxWidth(minOf(pct, 100) / 100f).fillMaxHeight().background(if (done) cPaid else cAmber))
+                    }
+                    Text("يتغيّر مع سعر صرف اليوم", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 5.dp))
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    BaleStat("بيعت", "${sv.sold}", cPaid)
+                    BaleStat("على الرف", "${sv.remain}", cInk)
+                    BaleStat("في البالة", "${sv.inPkg}", cAmber)
+                    BaleStat("متوسط سعر البيع", avgSoldPrice(sv.revenue, sv.sold)?.let { fmt(it) } ?: "—", cInk)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("عُدّي أصناف البالة وارفعيها على الرف — كلها أو جزءاً. ما يبقى «في البالة» تُنزلينه لاحقاً. اضغطي اسم الصنف لتعديله.", fontSize = fSmall, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 12.dp))
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
                 items.forEach { p -> PackageItemRow(p, vm) }
                 Box(Modifier.fillMaxWidth().tap { vm.togglePkgAdd() }.padding(top = 11.dp, bottom = 7.dp), contentAlignment = Alignment.Center) {
@@ -761,10 +799,19 @@ private fun PackageSheet(st: StoreState, vm: StoreViewModel) {
 }
 
 @Composable
+private fun BaleStat(label: String, value: String, color: Color, bold: Boolean = false) {
+    Column {
+        Text(label, fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
+        Text(value, fontSize = fTitle, fontWeight = if (bold) FontWeight.ExtraBold else FontWeight.Bold, color = color, modifier = Modifier.padding(top = 1.dp))
+    }
+}
+
+@Composable
 private fun PackageItemRow(p: Shelf, vm: StoreViewModel) {
     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp).drawBottomLine()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(p.name, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
+        // the name opens the one-sheet item editor (F1) — tasira, counts, source, everything
+        Row(Modifier.fillMaxWidth().tap { vm.openEditItem(p.id) }, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("${p.name} ✎", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
             Text(fmt(p.tasira), fontSize = fSmall, color = cDim)
         }
         Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -847,6 +894,8 @@ private fun AddSourceSheet(st: StoreState, vm: StoreViewModel) {
                 Text(Kind.BALE.label, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
             }
         }
+        TextInput(st.newSrcName, vm::setNewSrcName, "اسم البالة — مثال: بالة شتوية", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd)
+        Spacer(Modifier.height(12.dp))
         Row(
             Modifier.fillMaxWidth().card(rMd).padding(horizontal = 13.dp, vertical = 11.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,

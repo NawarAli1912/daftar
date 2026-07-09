@@ -646,11 +646,14 @@ private fun SourceCard(sv: SourceView, vm: StoreViewModel) {
     val stripe = if (sv.kindLabel == Kind.PRE_APP.label) cDim
     else if (sv.profit != null && sv.profit >= 0) cPaid else cDebt
     Box(
-        Modifier.fillMaxWidth().padding(bottom = 10.dp).card().drawBehind {
-            val w = 3.dp.toPx()
-            val x = if (layoutDirection == LayoutDirection.Ltr) 0f else size.width - w
-            drawRect(stripe, androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Size(w, size.height))
-        },
+        Modifier.fillMaxWidth().padding(bottom = 10.dp).card()
+            // F1: the whole bale card opens its screen — no separate tap target to find
+            .then(if (sv.isBale) Modifier.tap { vm.openPackage(sv.id) } else Modifier)
+            .drawBehind {
+                val w = 3.dp.toPx()
+                val x = if (layoutDirection == LayoutDirection.Ltr) 0f else size.width - w
+                drawRect(stripe, androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Size(w, size.height))
+            },
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 13.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -667,10 +670,10 @@ private fun SourceCard(sv: SourceView, vm: StoreViewModel) {
             Text("على الرف الآن: ${sv.remain} قطعة", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 9.dp))
             if (sv.isBale) {
                 Row(
-                    Modifier.fillMaxWidth().padding(top = 9.dp).clip(RoundedCornerShape(rSm)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rSm)).tap { vm.openPackage(sv.id) }.padding(horizontal = 11.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(top = 9.dp).clip(RoundedCornerShape(rSm)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rSm)).padding(horizontal = 11.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("عدّ ورفّ البضاعة ←", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent)
+                    Text("إدارة البالة ←", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent)
                     Text("${sv.inPkg} في البالة", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cAmber)
                 }
             }

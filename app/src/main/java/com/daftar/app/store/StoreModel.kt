@@ -299,6 +299,7 @@ data class SourceView(
     val label: String,
     val kindLabel: String,
     val remain: Int,
+    val sold: Int,
     val isBale: Boolean,
     val inPkg: Int,
     val costFmt: String,
@@ -330,9 +331,28 @@ fun remainBySource(shelf: List<Shelf>): Map<String, Int> {
     return m
 }
 
+fun soldBySource(shelf: List<Shelf>): Map<String, Int> {
+    val m = HashMap<String, Int>()
+    for (x in shelf) {
+        val k = x.sourceId ?: "_"
+        m[k] = (m[k] ?: 0) + x.sold
+    }
+    return m
+}
+
+// F1 bale-screen stats. Capital recovery — «رجّعت ثمنها؟» — is raw percent (passes 100 once
+// the bale has paid for itself; the bar caps the drawing, not the number). null ⇒ nothing
+// to recover against (no cost basis). Both move with today's rate, like profit (R3).
+fun recoveryPct(revenue: Long, costLocal: Long?): Int? =
+    if (costLocal == null || costLocal <= 0L) null else (revenue * 100 / costLocal).toInt()
+
+// Average fetched per sold piece; null until something sells.
+fun avgSoldPrice(revenue: Long, sold: Int): Long? = if (sold <= 0) null else revenue / sold
+
 fun sourceViews(sources: List<Source>, shelf: List<Shelf>, usdRate: Long): List<SourceView> {
     val rev = revenueBySource(shelf)
     val rem = remainBySource(shelf)
+    val sold = soldBySource(shelf)
     return sources.map { s ->
         val r = rev[s.id] ?: 0L
         val mkt = if (s.kind == Kind.MARKET)
@@ -350,6 +370,7 @@ fun sourceViews(sources: List<Source>, shelf: List<Shelf>, usdRate: Long): List<
             label = s.label,
             kindLabel = s.kind.label,
             remain = rem[s.id] ?: 0,
+            sold = sold[s.id] ?: 0,
             isBale = s.kind == Kind.BALE,
             inPkg = inPkg,
             costFmt = when (s.kind) {

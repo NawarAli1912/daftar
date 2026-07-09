@@ -70,6 +70,7 @@ data class StoreState(
     val specifyId: String? = null,
     val addSrcKind: Kind? = null,
     val newCost: Long = 400,
+    val newSrcName: String = "", // bale name at creation (F1); empty ⇒ auto «بالة N»
     val aiName: String = "",
     val aiTasira: Long = 5_000,
     val aiCount: Int = 1,
@@ -239,17 +240,20 @@ class StoreViewModel @Inject constructor(
     }
 
     // ── add source ──
-    fun openAddSource() = set { it.copy(screen = "addsrc", addSrcKind = Kind.BALE, newCost = 400) }
+    fun openAddSource() = set { it.copy(screen = "addsrc", addSrcKind = Kind.BALE, newCost = 400, newSrcName = "") }
     fun closeAddSource() = set { it.copy(screen = "home", addSrcKind = null) }
     fun pickKind(k: Kind) = set { it.copy(addSrcKind = k) }
     fun costStep(d: Int) = set { it.copy(newCost = maxOf(0, it.newCost + d * 50)) }
+    fun setNewSrcName(v: String) = set { it.copy(newSrcName = v) }
     fun saveSource() = set {
         val k = it.addSrcKind ?: Kind.BALE
         val n = it.sources.count { x -> x.kind == k } + 1
         val id = "s" + System.currentTimeMillis()
+        // F1: her name if she gave one, the running «بالة N» otherwise
+        val label = it.newSrcName.trim().ifEmpty { k.label + " " + n }
         it.copy(
-            sources = it.sources + Source(id, k, k.label + " " + n, it.newCost),
-            screen = "home", addSrcKind = null, accountSeg = "sources", tab = "account",
+            sources = it.sources + Source(id, k, label, it.newCost),
+            screen = "home", addSrcKind = null, newSrcName = "", accountSeg = "sources", tab = "account",
         )
     }
 

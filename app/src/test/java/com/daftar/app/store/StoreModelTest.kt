@@ -278,6 +278,31 @@ class StoreModelTest {
     }
 
     @Test
+    fun `bale cost recovery is revenue as a percent of cost at today's rate`() {
+        val dr = sourceViews(sources, shelf, 1500).first { it.id == "s_dr" }
+        assertEquals(20, recoveryPct(dr.revenue, dr.costLocal)) // 120,000 of 600,000
+        assertEquals(150, recoveryPct(revenue = 900_000, costLocal = 600_000)) // paid for itself — passes 100
+        assertNull(recoveryPct(revenue = 120_000, costLocal = null)) // قبل التطبيق: nothing to recover
+        assertNull(recoveryPct(revenue = 120_000, costLocal = 0)) // zero-cost guard
+    }
+
+    @Test
+    fun `average sold price is revenue over pieces sold, absent until something sells`() {
+        val dr = sourceViews(sources, shelf, 1500).first { it.id == "s_dr" }
+        assertEquals(12, dr.sold) // فستان 12 pieces
+        assertEquals(10_000L, avgSoldPrice(dr.revenue, dr.sold))
+        assertNull(avgSoldPrice(revenue = 0, sold = 0))
+    }
+
+    @Test
+    fun `a bale's piece ledger sums sold, on shelf and in bale across its items`() {
+        val pc = sourceViews(sources, shelf, 1500).first { it.id == "s_pc" }
+        assertEquals(28 + 9, pc.sold)
+        assertEquals(33, pc.remain) // (40−28) + (30−9)
+        assertEquals(8, pc.inPkg) // قميص: 30 counted − 22 shelved
+    }
+
+    @Test
     fun `day book rolls to the new today on resume only when it was viewing the old today`() {
         assertEquals(101L, rollViewedDay(today = 100, viewedDay = 100, newToday = 101)) // on today → follows
         assertEquals(98L, rollViewedDay(today = 100, viewedDay = 98, newToday = 101)) // flipped back → stays

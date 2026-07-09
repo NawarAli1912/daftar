@@ -57,14 +57,12 @@ import com.daftar.app.kernel.theme.Plex
 
 @Composable
 internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
-    // full-screen flow sheets (opened from buttons) keep their current entrance
-    when (st.screen) {
-        "pay" -> PaySheet(st, vm)
-        "sale" -> SaleSheet(st, vm)
-        "return" -> ReturnSheet(st, vm)
-        "additem" -> AddItemSheet(st, vm)
-        "package" -> PackageSheet(st, vm)
-    }
+    // button-opened editors — centered pop-up cards (scale + fade), via OverlaySlot
+    OverlaySlot(st.screen.takeIf { it == "pay" }) { PaySheet(st, vm) }
+    OverlaySlot(st.screen.takeIf { it == "sale" }) { SaleSheet(st, vm) }
+    OverlaySlot(st.screen.takeIf { it == "return" }) { ReturnSheet(st, vm) }
+    OverlaySlot(st.screen.takeIf { it == "additem" }) { AddItemSheet(st, vm) }
+    OverlaySlot(st.screen.takeIf { it == "package" }) { PackageSheet(st, vm) }
     if (st.shopId != null) ShopSheet(st, vm)
     // bottom sheets — expand from the tapped element and collapse back into it (OverlaySlot)
     OverlaySlot(st.screen.takeIf { it == "chooser" }) { Chooser(vm) }
@@ -196,6 +194,61 @@ private fun BottomSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.
                     .navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),
                 content = content,
             )
+        }
+    }
+}
+
+// A form pop-up: same centered scale+fade card, but with a fixed header (title + ✕) and a
+// pinned footer save button, and a scrollable middle. For the button-opened editors
+// (بيع / دفعة / إرجاع / إضافة صنف) — one language with the simple pop-ups above.
+@Composable
+private fun PopupEditor(
+    title: String,
+    onClose: () -> Unit,
+    footerLabel: String,
+    onSave: () -> Unit,
+    back: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val state = LocalSheetTransition.current
+    val p = if (state != null) {
+        val transition = androidx.compose.animation.core.rememberTransition(state, label = "popup")
+        val v by transition.animateFloat(
+            transitionSpec = { spring(dampingRatio = 0.8f, stiffness = 320f) }, label = "p",
+        ) { if (it) 1f else 0f }
+        v
+    } else 1f
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier.fillMaxSize().graphicsLayer { alpha = p.coerceIn(0f, 1f) }.background(cScrim)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+        )
+        BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
+            val maxH = maxHeight * 0.9f
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = maxH)
+                    .graphicsLayer { val s = 0.9f + 0.1f * p; scaleX = s; scaleY = s; alpha = (p * 1.4f).coerceIn(0f, 1f) }
+                    .clip(RoundedCornerShape(rLg)).background(cBg).navigationBarsPadding(),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 18.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (back != null) Text("‹", fontSize = 22.sp, color = cDim, modifier = Modifier.tap(back)) else Spacer(Modifier.width(1.dp))
+                    Text(title, fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk)
+                    Text("✕", fontSize = 20.sp, color = cDim, modifier = Modifier.tap(onClose))
+                }
+                HorizontalDivider(color = cLine, thickness = 1.dp)
+                Column(
+                    Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 15.dp),
+                    content = content,
+                )
+                HorizontalDivider(color = cLine, thickness = 1.dp)
+                Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 14.dp)) {
+                    PrimaryButton(footerLabel, fontSize = fHead) { onSave() }
+                }
+            }
         }
     }
 }
@@ -447,9 +500,8 @@ private fun Chooser(vm: StoreViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
-        SheetHeader("إرجاع جديد", onClose = vm::closeSheet)
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
+    PopupEditor("إرجاع جديد", onClose = vm::closeSheet, footerLabel = "حفظ الإرجاع ✓", onSave = vm::saveReturn) {
+        run {
             CustomerRow(st, vm)
             Spacer(Modifier.height(14.dp))
             Text("قيمة الإرجاع", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
@@ -478,7 +530,6 @@ private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
                 Text("تُخصم القيمة من دين الزبونة" + (if (st.returnItemId != null) " ويعود الصنف إلى الرف." else "."), fontSize = fSmall, color = cPaid, lineHeight = 18.sp)
             }
         }
-        SheetFooter("حفظ الإرجاع ✓", vm::saveReturn)
     }
 }
 
@@ -684,9 +735,8 @@ private fun ChooserOption(icon: String, title: String, sub: String, outlined: Bo
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PaySheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
-        SheetHeader("دفعة جديدة", onClose = vm::closeSheet)
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
+    PopupEditor("دفعة جديدة", onClose = vm::closeSheet, footerLabel = "حفظ ✓", onSave = vm::savePay) {
+        run {
             CustomerRow(st, vm)
             Spacer(Modifier.height(14.dp))
             Text("كم المبلغ؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
@@ -730,7 +780,6 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
                 }
             }
         }
-        SheetFooter("حفظ ✓", vm::savePay)
     }
 }
 
@@ -738,9 +787,8 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
-        SheetHeader("بيع جديد", onClose = vm::closeSheet)
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 8.dp)) {
+    PopupEditor("بيع جديد", onClose = vm::closeSheet, footerLabel = "حفظ ✓", onSave = vm::saveSale) {
+        run {
             CustomerRow(st, vm)
             Spacer(Modifier.height(13.dp))
             Text("مقترحة من المحل — اضغطي لإضافتها", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 9.dp))
@@ -806,7 +854,6 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
             }
             Spacer(Modifier.height(8.dp))
         }
-        SheetFooter("حفظ ✓", vm::saveSale)
     }
 }
 
@@ -1046,9 +1093,8 @@ private fun ShopSheet(st: StoreState, vm: StoreViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
-        SheetHeader("إضافة صنف للمحل", onClose = vm::closeAddItem)
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
+    PopupEditor("إضافة صنف للمحل", onClose = vm::closeAddItem, footerLabel = "أضيفي للمحل ✓", onSave = vm::saveAiItem) {
+        run {
             Text("الصنف", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
             TextInput(st.aiName, vm::setAiName, "مثال: فستان", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
             Spacer(Modifier.height(11.dp))
@@ -1079,7 +1125,6 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
             }
             Text("بضاعتك الموجودة الآن؟ اتركيها على «تحديد لاحقاً» — بلا كلفة ولا ربح. ما لا تعرفين مصدره اجعليه «لا أعلم» تحلّينه لاحقاً.", fontSize = fCaption, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
         }
-        SheetFooter("أضيفي للمحل ✓", vm::saveAiItem)
     }
 }
 

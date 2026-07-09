@@ -23,14 +23,21 @@ doubt about layout/copy/interaction, the prototype is the spec — not this file
 
 ## 2. Current status (2026-07)
 
-- **Feature‑complete release candidate**, not "design phase" (the committed `README.md` is
-  stale — it still describes a planning phase and a planned .NET backend; ignore that framing).
-- Active branch: **`869dzugy6-walking-skeleton`** (pushed to `origin`). `main` is still at the
-  initial commit — this branch carries the entire app and is far ahead.
-- Tagged `v1.0.0-rc1` … `v1.0.0-rc7`; sideload APKs land on `~/Desktop/daftar-1.0.0-*.apk`.
-- Persists locally with Room (DB **v14**, `fallbackToDestructiveMigration`). JSON backup/restore
-  via the share sheet. Daily debt‑digest notification via `RemindersWorker`.
-- **The 1.0 gate is a real‑world trial on her actual stock**, not a feature checklist.
+- **rc9 is installed on the owner's phone** (with the adaptive launcher icon) — the 1.0 gate,
+  a **real‑world trial on her actual stock**, is now actually running. Feedback from her use
+  drives the work; it's not a feature checklist. (The committed `README.md` is stale — it still
+  describes a planning phase and a planned .NET backend; ignore that framing.)
+- Main line: **`869dzugy6-walking-skeleton`** (pushed to `origin`); `main` is still at the
+  initial commit. Current focus branches off it — as of 2026‑07‑09 a **general‑UX polish pass**
+  (shared motion vocabulary + normalized type/radius token scales) on
+  `ux-motion-standardize-tab-segment-day-transitions`.
+- Tagged `v1.0.0-rc1` … `v1.0.0-rc8`; `versionName` is **1.0.0-rc9**. Sideload APKs land on
+  `~/Desktop/daftar-1.0.0-*.apk`.
+- Persists locally with Room (DB **v15** — a real `MIGRATION_14_15` preserves the ledger across
+  updates; destructive fallback remains only for pre‑trial versions). JSON backup/restore via
+  the share sheet. Daily debt‑digest notification via `RemindersWorker`. An **optional one‑way
+  sync bridge** (`sync/SyncWorker`, FR‑8.3) opportunistically pushes the backup JSON to the
+  maintainer's owner‑tools API — never blocks the app.
 
 Architecture question already settled: **client‑only / local‑first is the right foundation**
 for a single‑user offline shop ledger. A backend/sync (FR‑8/9 below) is deferred (D18) and only
@@ -107,15 +114,18 @@ A slice reads frontend‑to‑data in one folder. The whole running app is one s
 - `StoreApp.kt` — chrome, tabs, the four screens.
 - `StoreSheets.kt` — every bottom sheet / full‑screen overlay (sale, pay, return, add item/source,
   package, customer/entry detail, pickers, confirm, undo toast).
-- `StoreUi.kt` — primitives, colors, the spring‑motion helpers (`Modifier.tap`, `SlideUp`,
-  `appearProgress`, `riseFade`).
+- `StoreUi.kt` — primitives, colors, **design tokens** (type scale `fCaption…fHead`, radius
+  scale `rXs…rLg` — use these, never raw sp/dp steps), the spring‑motion helpers
+  (`Modifier.tap`, `SlideUp`, `appearProgress`, `riseFade`) and screen‑level transitions
+  (`Swap` for tab/segment switches, `PageFlip` for the day book's ‹ › page‑turn).
 - `StoreRepository.kt` + `BackupJson.kt` — persistence and JSON import/export.
 
 **`com.daftar.app.kernel`** — cross‑cutting: `db/` (Room — `StoreEntities`, `StoreDao`,
 `DaftarDatabase`), `theme/`, `ui/`, `format/`, `i18n/`, and pure `ledger/` math.
 
-**`reminders/RemindersWorker`** — the one retained non‑store piece; scheduled from `DaftarApp`
-(`@HiltAndroidApp`) to post the daily debt digest.
+**`reminders/RemindersWorker`** — scheduled from `DaftarApp` (`@HiltAndroidApp`) to post the
+daily debt digest. **`sync/SyncWorker`** — the opportunistic backup push (§2); both are retained
+non‑store pieces.
 
 > **Legacy to retire:** `today/ sales/ payments/ customers/ stock/` and the reminders *screens*
 > (plus older `kernel/ledger/*` math and `kernel/db/Entities.kt`+`Daos.kt`) are the pre‑V2 first
@@ -146,9 +156,11 @@ JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
   ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon
 ```
 
-**iCloud gotcha:** `~/Desktop` is iCloud‑synced and creates `" 2"` conflict copies inside build
-outputs mid‑build. The build dir is therefore redirected to **`build.nosync/`** (see
-`app/build.gradle.kts`) and `.nosync` is excluded from iCloud. APK ends up at
+**iCloud gotcha:** the repo now lives at `~/dev/daftar` (moved off the iCloud‑synced Desktop),
+but the `build.nosync/` redirect (see `app/build.gradle.kts`) is kept, and stray iCloud
+conflict‑copy directories from the Desktop era can still lurk in the tree — e.g. empty
+`mipmap-xhdpi 216 96`‑style dirs under `res/` break `mergeDebugResources` ("Invalid resource
+directory name"); delete them. APK ends up at
 `app/build.nosync/outputs/apk/debug/app-debug.apk`.
 
 **Device/emulator:** Pixel 10 Pro emulator (`emulator-5554`) + a physical Samsung over Wi‑Fi ADB
@@ -165,16 +177,18 @@ are both used — **pass `-s <serial>` to every adb call** (multiple devices att
 
 ## 8. Conventions
 
-- **One branch per ticket** `<ticket-id>-slug`; **single‑line kebab‑case commits**
-  (`fix-edit-cancel-data-loss-...`); merge to `main` as a PR whose title carries the ticket so
-  ClickUp auto‑links. Work is tracked in ClickUp ("Daftar" folder).
+- **One branch per unit of work** `<slug>` (historically `<ticket-id>-slug`); **single‑line
+  kebab‑case commits** (`fix-edit-cancel-data-loss-...`); merge to `main` as a PR.
+  **ClickUp was dropped as the tracker (owner decision, 2026‑07‑09** — see
+  `.claude/se-config.md`): specs/plans live in `docs/`, so NFR‑11's "references a ticket"
+  is satisfied by descriptive branch/commit slugs, not tracker IDs.
 - **Commit/push only when asked.** Don't bump the version or tag a release unprompted.
 - **Decisions** are numbered in `docs/DECISIONS.md` (D1…D61+) with their *why*; significant
   choices get a decision entry, not just a commit.
 - **Grooming style:** batch owner decisions into `AskUserQuestion` multi‑choice with a short
   description per option and a clear recommendation. The owner is the only stakeholder.
 - **Memory:** a persistent per‑project memory lives under
-  `~/.claude/projects/-Users-nawarali-Desktop-dev-daftar/memory/` (indexed by `MEMORY.md`) —
+  `~/.claude/projects/-Users-nawarali-dev-daftar/memory/` (indexed by `MEMORY.md`) —
   check it at session start; it records non‑obvious project facts across sessions.
 - The binding engineering contract is the framework `RULES.md` referenced in the global
   `~/.claude/CLAUDE.md`; the weekend "session types" agenda is in `docs/SESSIONS.md`.

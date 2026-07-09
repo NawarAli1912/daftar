@@ -671,6 +671,12 @@ class StoreViewModel @Inject constructor(
     }
     fun saveSale() {
         if (s.lines.isEmpty()) return // tighten: a sale needs at least one item
+        // F1/D11: an أمانة is lent to a specific customer — never نقدي. Block the save and
+        // nudge the picker open («لمن الأمانة؟») instead of silently recording an ownerless trial.
+        if (trialRequiresCustomer(s.pay, s.saleCustomerId)) {
+            set { it.copy(custPickerOpen = true) }
+            return
+        }
         val total = total()
         val isTrial = s.pay == "trial"
         val paid = when {

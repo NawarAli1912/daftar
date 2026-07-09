@@ -183,6 +183,11 @@ fun paperDebtShortfall(balanceBefore: Long, payment: Long): Long? =
 fun customerTrial(c: Customer, entries: List<DayEntry>): Long =
     entries.filter { it.customerId == c.id && !it.voided }.sumOf { it.trialAmount }
 
+// An أمانة is goods lent to a *specific* customer to try — it is never نقدي (D11/FR-5).
+// A trial with no customer must be blocked at capture and the picker nudged open.
+fun trialRequiresCustomer(pay: String, customerId: String?): Boolean =
+    pay == "trial" && customerId == null
+
 // Who owes the shop right now, largest first — the المواعيد list and the daily digest.
 data class Debtor(val customer: Customer, val balance: Long)
 

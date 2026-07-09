@@ -475,4 +475,12 @@ class StoreModelTest {
         )
         assertEquals(-2_000L, estimatedUntrackedProfit(loss)) // honestly negative
     }
+
+    @Test
+    fun `trial requires customer blocks an ownerless amana only`() {
+        assertTrue(trialRequiresCustomer("trial", null)) // أمانة نقدي — must be blocked (D11)
+        assertEquals(false, trialRequiresCustomer("trial", "c1")) // trial with a customer is fine
+        assertEquals(false, trialRequiresCustomer("full", null)) // a cash sale needs no customer
+        assertEquals(false, trialRequiresCustomer("partial", null)) // debt sale needs no customer
+    }
 }

@@ -322,6 +322,32 @@ class StoreModelTest {
     }
 
     @Test
+    fun `item stats sum actual sale prices, average them, and track the last-sold day`() {
+        val item = Shelf("h1", "فستان", tasira = 10_000, shelved = 20, sold = 3, sourceId = "s_mkt", buy = 6_000)
+        val entries = listOf(
+            // sold at 9,000 (haggled below the 10,000 tasira) then 8,000 — 3 pieces total
+            DayEntry("e1", "بيع", "", "", "pos", day = 5, lines = "h1|فستان|9000|1;hX|قميص|5000|2"),
+            DayEntry("e2", "بيع", "", "", "pos", day = 8, lines = "h1|فستان|8000|2"),
+        )
+        val s = itemStats(item, sources = listOf(Source("s_mkt", Kind.MARKET, "محل", null)), shelf = listOf(item), entries = entries, usdRate = 1_500)
+        assertEquals(3, s.soldPieces)
+        assertEquals(9_000L + 8_000L * 2, s.revenue) // 25,000 actual, not tasira × sold
+        assertEquals(25_000L / 3, s.avgSellPrice) // 8,333 — below tasira, shows the haggling
+        assertEquals(8L, s.lastSoldDay)
+        assertEquals(25_000L - 6_000L * 3, s.profit) // buy cost basis → 7,000
+    }
+
+    @Test
+    fun `item stats leave profit absent for an untracked item and nulls when never sold`() {
+        val pre = Shelf("h2", "بنطال", tasira = 5_000, shelved = 10, sold = 0, sourceId = PRE_ID)
+        val s = itemStats(pre, emptyList(), listOf(pre), emptyList(), 1_500)
+        assertEquals(0, s.soldPieces)
+        assertNull(s.avgSellPrice)
+        assertNull(s.lastSoldDay)
+        assertNull(s.profit) // قبل التطبيق has no cost basis
+    }
+
+    @Test
     fun `estimated untracked profit is absent when nothing has a cost basis to learn from`() {
         val untrackedOnly = listOf(
             Shelf("a", "فستان", 10_000, shelved = 5, sold = 2, sourceId = PRE_ID),

@@ -312,7 +312,40 @@ private fun AddCustomerSheet(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeEditItem) {
-        Text("تعديل الصنف", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        Text("صفحة الصنف", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        // F1: the item's own record — what it sold, for how much vs its تسعيرة, and (when a
+        // cost basis exists) its profit. Derived from the ledger; the edit controls follow.
+        val item = st.shelf.find { it.id == st.editItemId }
+        if (item != null) {
+            val stats = itemStats(item, st.sources, st.shelf, st.entries, st.usdRate)
+            Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 13.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    BaleStat("بيعت", "${stats.soldPieces}", cPaid)
+                    BaleStat("الإيراد", fmt(stats.revenue), cInk)
+                    BaleStat("متوسط البيع", stats.avgSellPrice?.let { fmt(it) } ?: "—", cInk)
+                }
+                stats.avgSellPrice?.let { avg ->
+                    val diff = avg - item.tasira
+                    val txt = when {
+                        diff == 0L -> "بالتسعيرة تماماً (${fmt(item.tasira)})"
+                        diff > 0 -> "أعلى من التسعيرة بـ${fmt(diff)}"
+                        else -> "أقل من التسعيرة بـ${fmt(-diff)} (مساومة)"
+                    }
+                    Text(txt, fontSize = fCaption, color = if (diff < 0) cAmber else cPaid, modifier = Modifier.padding(top = 9.dp))
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    BaleStat("آخر بيع", stats.lastSoldDay?.let { dayLabel(it, st.today) } ?: "—", cDim)
+                    if (stats.profit != null) {
+                        BaleStat(
+                            "ربح تقريباً",
+                            (if (stats.profit >= 0) "+ " else "− ") + fmt(kotlin.math.abs(stats.profit)),
+                            if (stats.profit >= 0) cPaid else cDebt, bold = true,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
         TextInput(st.eiName, vm::setEiName, "اسم الصنف", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
         Spacer(Modifier.height(9.dp))
         CardStepperRow("التسعيرة", fmt(st.eiTasira), { vm.eiTasiraStep(-1) }, { vm.eiTasiraStep(1) })

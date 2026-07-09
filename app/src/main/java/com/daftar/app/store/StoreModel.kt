@@ -358,6 +358,46 @@ fun estimatedUntrackedProfit(shelf: List<Shelf>): Long? {
     return profit.toLong()
 }
 
+// F1 per-item page stats, derived from the actual sale lines in the ledger (voided entries are
+// already gone from `entries`, so this is always current truth). Profit is shown only when the
+// item has a cost basis — a شراء buy price, or its share of its bale's cost.
+data class ItemStats(
+    val soldPieces: Int,
+    val revenue: Long,        // actual money taken (Σ agreed price × qty), not tasira × sold
+    val avgSellPrice: Long?,  // revenue ÷ pieces; null until something sells
+    val lastSoldDay: Long?,   // epoch-day of the most recent sale containing it
+    val profit: Long?,        // null ⇒ no cost basis (قبل التطبيق / غير محدد, no buy)
+)
+
+fun itemStats(item: Shelf, sources: List<Source>, shelf: List<Shelf>, entries: List<DayEntry>, usdRate: Long): ItemStats {
+    var qty = 0
+    var rev = 0L
+    var last = Long.MIN_VALUE
+    for (e in entries) for (l in decodeLines(e.lines)) if (l.shelfId == item.id) {
+        qty += l.qty
+        rev += l.price * l.qty
+        if (e.day > last) last = e.day
+    }
+    val perPieceCost: Long? = when {
+        item.buy != null -> item.buy // شراء من السوق — real per-piece cost
+        else -> {
+            val src = sources.find { it.id == item.sourceId }
+            if (src?.kind == Kind.BALE) {
+                val baleCost = (src.cost ?: 0L) * usdRate
+                val piecesInBale = shelf.filter { it.sourceId == src.id }.sumOf { it.cnt }
+                if (piecesInBale > 0) baleCost / piecesInBale else null // the item's share of the bale
+            } else null
+        }
+    }
+    return ItemStats(
+        soldPieces = qty,
+        revenue = rev,
+        avgSellPrice = if (qty > 0) rev / qty else null,
+        lastSoldDay = if (qty > 0) last else null,
+        profit = perPieceCost?.let { rev - it * qty },
+    )
+}
+
 fun soldBySource(shelf: List<Shelf>): Map<String, Int> {
     val m = HashMap<String, Int>()
     for (x in shelf) {

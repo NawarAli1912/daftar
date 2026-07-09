@@ -62,8 +62,8 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
     OverlaySlot(st.screen.takeIf { it == "sale" }) { SaleSheet(st, vm) }
     OverlaySlot(st.screen.takeIf { it == "return" }) { ReturnSheet(st, vm) }
     OverlaySlot(st.screen.takeIf { it == "additem" }) { AddItemSheet(st, vm) }
-    OverlaySlot(st.screen.takeIf { it == "package" }) { PackageSheet(st, vm) }
-    if (st.shopId != null) ShopSheet(st, vm)
+    // إدارة بالة / shop are shared-element morphs (open from a source card) — PackageDetailShared
+    // and ShopDetailShared in StoreApp.
     // bottom sheets — expand from the tapped element and collapse back into it (OverlaySlot)
     OverlaySlot(st.screen.takeIf { it == "chooser" }) { Chooser(vm) }
     OverlaySlot(st.screen.takeIf { it == "addsrc" }) { AddSourceSheet(st, vm) }
@@ -249,31 +249,6 @@ private fun PopupEditor(
                     PrimaryButton(footerLabel, fontSize = fHead) { onSave() }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun SheetHeader(title: String, onClose: () -> Unit, back: (() -> Unit)? = null) {
-    Column(Modifier.fillMaxWidth().background(cBg).statusBarsPadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (back != null) Text("‹", fontSize = 22.sp, color = cDim, modifier = Modifier.tap(back))
-            Text(title, fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk)
-            Text("✕", fontSize = 20.sp, color = cDim, modifier = Modifier.tap(onClose))
-        }
-        HorizontalDivider(color = cLine, thickness = 1.dp)
-    }
-}
-
-@Composable
-private fun SheetFooter(label: String, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(cBg)) {
-        HorizontalDivider(color = cLine, thickness = 1.dp)
-        Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 14.dp)) {
-            PrimaryButton(label, fontSize = fHead) { onClick() }
         }
     }
 }
@@ -915,12 +890,11 @@ private fun SpecifySheet(st: StoreState, vm: StoreViewModel) {
 
 // ── the bale screen (F1) — one place to rename, read stats, count, shelve and edit ──
 @Composable
-private fun PackageSheet(st: StoreState, vm: StoreViewModel) {
-    val sv = sourceViews(st.sources, st.shelf, st.usdRate).find { it.id == st.pkgId } ?: return
-    val items = st.shelf.filter { it.sourceId == st.pkgId }
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
-        SheetHeader("📦 ${sv.label}", onClose = vm::closePackage, back = vm::closePackage)
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp)) {
+internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
+    val sv = sourceViews(st.sources, st.shelf, st.usdRate).find { it.id == rememberLast(st.pkgId) } ?: return
+    val items = st.shelf.filter { it.sourceId == sv.id }
+    run {
+        Text("📦 ${sv.label}", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp))
             // rename — the same in-place pattern the shops use (source-generic handlers)
             Row(Modifier.fillMaxWidth().padding(bottom = 11.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (st.shopRenameId == sv.id) {
@@ -982,7 +956,7 @@ private fun PackageSheet(st: StoreState, vm: StoreViewModel) {
             }
         }
     }
-}
+
 
 @Composable
 private fun BaleStat(label: String, value: String, color: Color, bold: Boolean = false) {
@@ -1019,13 +993,12 @@ private fun PackageItemRow(p: Shelf, vm: StoreViewModel) {
 
 // ── the shop screen (F2) — rename, stats, items and the shop's debt with «دفعتُ للمحل» ──
 @Composable
-private fun ShopSheet(st: StoreState, vm: StoreViewModel) {
-    val sv = sourceViews(st.sources, st.shelf, st.usdRate).find { it.id == st.shopId } ?: return
-    val items = st.shelf.filter { it.sourceId == st.shopId }
-    val debtNow = maxOf(0, shopDebtNow(st.sources.first { it.id == st.shopId }, st.entries))
-    Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
-        SheetHeader("🏪 ${sv.label}", onClose = vm::closeShop, back = vm::closeShop)
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp)) {
+internal fun ColumnScope.ShopBody(st: StoreState, vm: StoreViewModel) {
+    val sv = sourceViews(st.sources, st.shelf, st.usdRate).find { it.id == rememberLast(st.shopId) } ?: return
+    val items = st.shelf.filter { it.sourceId == sv.id }
+    val debtNow = maxOf(0, shopDebtNow(st.sources.first { it.id == sv.id }, st.entries))
+    run {
+        Text("🏪 ${sv.label}", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp))
             // rename — same in-place pattern as the bale screen
             Row(Modifier.fillMaxWidth().padding(bottom = 11.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (st.shopRenameId == sv.id) {
@@ -1087,7 +1060,6 @@ private fun ShopSheet(st: StoreState, vm: StoreViewModel) {
             }
         }
     }
-}
 
 // ── add item to shelf ──
 @OptIn(ExperimentalLayoutApi::class)

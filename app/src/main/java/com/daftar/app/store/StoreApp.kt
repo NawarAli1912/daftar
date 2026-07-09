@@ -161,6 +161,8 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
             EntryDetailShared(st, vm)
             ItemDetailShared(st, vm)
             CustomerDetailShared(st, vm)
+            BaleDetailShared(st, vm)
+            ShopDetailShared(st, vm)
         }
         }
     }
@@ -264,6 +266,28 @@ private fun CustomerDetailShared(st: StoreState, vm: StoreViewModel) {
     val c = st.customers.find { it.id == lastId.value }
     SharedDetailOverlay(visible = id != null, key = lastId.value?.let { "cust-$it" }, onDismiss = vm::closeCustomer) {
         if (c != null) CustomerDetailBody(st, vm, c)
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun BaleDetailShared(st: StoreState, vm: StoreViewModel) {
+    val id = st.pkgId
+    val lastId = remember { mutableStateOf(id) }
+    if (id != null) lastId.value = id
+    SharedDetailOverlay(visible = id != null, key = lastId.value?.let { "bale-$it" }, onDismiss = vm::closePackage) {
+        PackageBody(st, vm)
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun ShopDetailShared(st: StoreState, vm: StoreViewModel) {
+    val id = st.shopId
+    val lastId = remember { mutableStateOf(id) }
+    if (id != null) lastId.value = id
+    SharedDetailOverlay(visible = id != null, key = lastId.value?.let { "shop-$it" }, onDismiss = vm::closeShop) {
+        ShopBody(st, vm)
     }
 }
 
@@ -765,7 +789,9 @@ private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
 
     MarketCard(st, vm, views)
 
-    views.filter { it.isBale }.forEach { sv -> SourceCard(sv, vm) }
+    views.filter { it.isBale }.forEach { sv ->
+        SharedRow(visible = st.pkgId != sv.id, key = "bale-${sv.id}") { SourceCard(sv, vm) }
+    }
     OutlineButton("+ بالة جديدة", fontSize = fBodyL, radius = rMd, vertical = 13.dp, filledCard = true) { vm.openAddSource() }
 }
 
@@ -791,7 +817,7 @@ private fun MarketCard(st: StoreState, vm: StoreViewModel, views: List<SourceVie
             SourceStat("الربح تقريباً", (if (profit >= 0) "+ " else "− ") + fmt(kotlin.math.abs(profit)), if (profit >= 0) cPaid else cDebt, bold = true)
         }
 
-        shopViews.forEach { shop -> ShopRow(st, vm, shop) }
+        shopViews.forEach { shop -> SharedRow(visible = st.shopId != shop.id, key = "shop-${shop.id}") { ShopRow(st, vm, shop) } }
 
         if (st.shopAddOpen) {
             Column(Modifier.fillMaxWidth().padding(top = 11.dp).drawTopLine().padding(top = 11.dp)) {

@@ -222,60 +222,6 @@ private fun SheetPanel(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-// The true Dynamic-Island morph: a floating card that grows out of the tapped row's EXACT
-// rect (position + size) and collapses straight back into it. Used for every editable-item
-// sheet (قيد / صنف / زبونة). It maps the card's laid-out rect to the origin rect via a
-// graphicsLayer transform — `onGloballyPositioned` sits BEFORE the layer so it reads the
-// untransformed bounds (no feedback loop). Falls back to a centred pop if there's no origin.
-@Composable
-private fun MorphSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    val state = LocalSheetTransition.current
-    val originNow = LocalSheetOrigin.current.value
-    val origin = remember { originNow }
-    if (state == null) { // safety fallback — behave like a bottom sheet
-        Box(Modifier.fillMaxSize()) { Scrim(onDismiss); SlideUp(Modifier.align(Alignment.BottomCenter)) { SheetPanel(content) } }
-        return
-    }
-    val transition = androidx.compose.animation.core.rememberTransition(state, label = "morph")
-    val p by transition.animateFloat(
-        transitionSpec = { spring(dampingRatio = 0.82f, stiffness = 260f) }, label = "p",
-    ) { if (it) 1f else 0f }
-    var cardBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    Box(Modifier.fillMaxSize()) {
-        Box(
-            Modifier.fillMaxSize().graphicsLayer { alpha = p.coerceIn(0f, 1f) }.background(cScrim)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
-        )
-        BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-            val maxH = maxHeight * 0.86f
-            Column(
-                Modifier.fillMaxWidth().heightIn(max = maxH)
-                    .onGloballyPositioned { cardBounds = it.boundsInWindow() } // untransformed (before the layer)
-                    .graphicsLayer {
-                        val o = origin
-                        val c = cardBounds
-                        if (o != null && c != null && c.width > 1f && c.height > 1f) {
-                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0.5f)
-                            scaleX = androidx.compose.ui.util.lerp(o.width / c.width, 1f, p)
-                            scaleY = androidx.compose.ui.util.lerp(o.height / c.height, 1f, p)
-                            translationX = androidx.compose.ui.util.lerp(o.center.x - c.center.x, 0f, p)
-                            translationY = androidx.compose.ui.util.lerp(o.center.y - c.center.y, 0f, p)
-                        } else {
-                            val s = 0.9f + 0.1f * p
-                            scaleX = s; scaleY = s
-                        }
-                        alpha = ((p - 0.05f) / 0.95f).coerceIn(0f, 1f)
-                    }
-                    .clip(RoundedCornerShape(rLg))
-                    .background(cBg)
-                    .navigationBarsPadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp),
-            ) { content() }
-        }
-    }
-}
-
 @Composable
 private fun SheetHeader(title: String, onClose: () -> Unit, back: (() -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().background(cBg).statusBarsPadding()) {

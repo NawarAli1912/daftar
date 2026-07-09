@@ -16,9 +16,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -61,6 +72,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.daftar.app.kernel.theme.Amiri
 import com.daftar.app.kernel.theme.Plex
 
+// The SharedTransitionScope from the app-root SharedTransitionLayout, so any row and its
+// detail card can share a `sharedBounds` key and morph into each other (the real Material
+// container transform — replaces the hand-rolled scale morph).
+@OptIn(ExperimentalSharedTransitionApi::class)
+internal val LocalSharedScope = compositionLocalOf<SharedTransitionScope?> { null }
+
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     val st by vm.state.collectAsState()
@@ -103,13 +121,16 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
         }
     }
     val sheetOrigin = remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    CompositionLocalProvider(
-        LocalTextStyle provides TextStyle(fontFamily = Plex, color = cInk),
-        LocalSheetOrigin provides sheetOrigin,
-    ) {
-        Box(Modifier.fillMaxSize().background(cBg)) {
-            Column(Modifier.fillMaxSize()) {
-                AppBar(st, vm)
+    SharedTransitionLayout(Modifier.fillMaxSize()) {
+        val sharedScope = this
+        CompositionLocalProvider(
+            LocalTextStyle provides TextStyle(fontFamily = Plex, color = cInk),
+            LocalSheetOrigin provides sheetOrigin,
+            LocalSharedScope provides sharedScope,
+        ) {
+            Box(Modifier.fillMaxSize().background(cBg)) {
+                Column(Modifier.fillMaxSize()) {
+                    AppBar(st, vm)
                 Swap(st.tab, Modifier.weight(1f).fillMaxWidth()) { tab ->
                     Column(
                         Modifier
@@ -135,6 +156,48 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                 TabBar(st, vm)
             }
             StoreSheets(st, vm)
+            EntryDetailShared(st, vm) // قيد → detail container transform (shared bounds)
+        }
+        }
+    }
+}
+
+// The قيد detail as a Material container transform: the tapped day-book row and this card
+// share a `sharedBounds` key, so Compose animates the real bounds row↔card and cross-fades
+// the content (crisp text, no scale distortion). Driven by st.detailEntryId.
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun EntryDetailShared(st: StoreState, vm: StoreViewModel) {
+    val scope = LocalSharedScope.current ?: return
+    val id = st.detailEntryId
+    val lastId = remember { mutableStateOf(id) }
+    if (id != null) lastId.value = id
+    val e = st.entries.find { it.id == lastId.value }
+    // scrim
+    AnimatedVisibility(visible = id != null, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
+        Box(
+            Modifier.fillMaxSize().background(cScrim)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { vm.closeEntry() },
+        )
+    }
+    AnimatedVisibility(visible = id != null, enter = fadeIn(tween(70)), exit = fadeOut(tween(70))) {
+        val av = this
+        if (e != null) {
+            val maxH = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.86f).dp
+            Box(Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
+                val card = with(scope) {
+                    Modifier.sharedBounds(
+                        rememberSharedContentState("entry-${e.id}"),
+                        animatedVisibilityScope = av,
+                        enter = fadeIn(), exit = fadeOut(),
+                        clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(rLg)),
+                    )
+                }
+                Column(
+                    card.fillMaxWidth().heightIn(max = maxH).clip(RoundedCornerShape(rLg)).background(cBg)
+                        .navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),
+                ) { EntryDetailBody(st, vm, e) }
+            }
         }
     }
 }
@@ -257,6 +320,7 @@ private fun TipBanner() {
 private fun st_todayEpochDay(): Long = java.time.LocalDate.now().toEpochDay()
 
 // ── اليوم ──
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
     val isToday = st.viewedDay == st.today
@@ -296,12 +360,27 @@ private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
                 )
             }
         } else {
+            val sharedScope = LocalSharedScope.current
             Box(Modifier.fillMaxWidth().card()) {
                 Column(Modifier.padding(horizontal = 14.dp)) {
-                    // swipe any قيد to reveal «حذف» (soft delete); tap it to open its detail
+                    // swipe any قيد to reveal «حذف»; tap to open its detail. Each row shares a
+                    // `sharedBounds` key with the detail card so tapping morphs row → card.
                     entries.forEach { e ->
-                        SwipeRow(onTap = { vm.openEntry(e.id) }, onDelete = { vm.voidEntry(e.id) }) {
-                            EntryRow(e)
+                        AnimatedVisibility(visible = st.detailEntryId != e.id, enter = fadeIn(), exit = fadeOut()) {
+                            val av = this
+                            val rowMod = if (sharedScope != null) with(sharedScope) {
+                                Modifier.sharedBounds(
+                                    rememberSharedContentState("entry-${e.id}"),
+                                    animatedVisibilityScope = av,
+                                    enter = fadeIn(), exit = fadeOut(),
+                                    clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(rLg)),
+                                )
+                            } else Modifier
+                            Box(rowMod) {
+                                SwipeRow(onTap = { vm.openEntry(e.id) }, onDelete = { vm.voidEntry(e.id) }) {
+                                    EntryRow(e)
+                                }
+                            }
                         }
                     }
                 }

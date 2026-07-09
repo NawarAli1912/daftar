@@ -72,7 +72,8 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
     OverlaySlot(st.custPickerOpen.takeIf { it }) { CustPicker(st, vm) }
     OverlaySlot(st.custAddOpen.takeIf { it }) { AddCustomerSheet(st, vm) }
     OverlaySlot(st.editItemId) { ItemEditSheet(st, vm) }
-    OverlaySlot(st.detailEntryId) { EntryDetailSheet(st, vm) }
+    // the قيد detail is a shared-element container transform — rendered by EntryDetailShared
+    // in StoreApp (it needs the SharedTransitionLayout scope), not here.
     OverlaySlot(st.detailCustomerId) { CustomerDetailSheet(st, vm) }
     OverlaySlot(st.specifyId) { SpecifySheet(st, vm) } // layers on top of the sale detail
     OverlaySlot(st.maintOpen.takeIf { it }) { MaintSheet(vm) }
@@ -560,11 +561,13 @@ private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
 }
 
 // ── entry detail: view & void a past قيد ──
+// The قيد detail content — rendered inside the shared-element container transform (the
+// day-book row morphs into this card). `e` is resolved by the caller so it survives the
+// collapse animation. Kept as a ColumnScope body so the shared-bounds card supplies the Column.
 @Composable
-private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
-    val e = st.entries.find { it.id == rememberLast(st.detailEntryId) } ?: return
+internal fun ColumnScope.EntryDetailBody(st: StoreState, vm: StoreViewModel, e: DayEntry) {
     val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
-    MorphSheet(onDismiss = vm::closeEntry) {
+    run {
         Text("القيد", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         Column(Modifier.fillMaxWidth().card(rMd).padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {

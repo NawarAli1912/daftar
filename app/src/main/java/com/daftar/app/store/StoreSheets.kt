@@ -61,7 +61,8 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
     if (st.specifyId != null) SpecifySheet(st, vm) // layers on top of the sale detail
     if (st.maintOpen) MaintSheet(vm)
     if (st.confirm != null) ConfirmSheet(st, vm)
-    if (st.undo != null && st.screen == "home") UndoToast(vm)
+    // NOTE: the undo toast is rendered inline in StoreApp's Column (F2) — not a full-screen
+    // overlay — so it never covers «+ قيد جديد» or the tab bar, and it can be swiped away.
 }
 
 // ── maintainer tools — reachable only via the hidden long-press on the دفتر wordmark ──
@@ -991,23 +992,6 @@ private fun AddSourceSheet(st: StoreState, vm: StoreViewModel) {
         }
         Spacer(Modifier.height(12.dp))
         PrimaryButton("أضيفي المصدر ✓", fontSize = fTitle, radius = rLg, vertical = 14.dp) { vm.saveSource() }
-    }
-}
-
-// ── undo toast ──
-@Composable
-private fun UndoToast(vm: StoreViewModel) {
-    Box(Modifier.fillMaxSize().navigationBarsPadding()) {
-        SlideUp(Modifier.align(Alignment.BottomCenter), bouncy = true) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 74.dp)
-                .clip(RoundedCornerShape(rMd)).background(cInk).padding(horizontal = 16.dp, vertical = 13.dp),
-            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("تم التسجيل في الدفتر", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cCard)
-            Text("↺ تراجع", fontSize = fTitle, fontWeight = FontWeight.ExtraBold, color = cUndoAccent, modifier = Modifier.tap { vm.undoSale() })
-        }
-        }
     }
 }
 

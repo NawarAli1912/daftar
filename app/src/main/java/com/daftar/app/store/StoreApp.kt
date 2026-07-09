@@ -22,7 +22,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.input.pointer.pointerInput
@@ -52,6 +54,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -107,6 +110,9 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                         }
                     }
                 }
+                // Undo bar (F2): inline, above the button + tabs so it never covers them;
+                // swipe sideways or ✕ to dismiss; still auto-hides after 10s.
+                if (st.undo != null && st.screen == "home") UndoBar(vm)
                 if (st.tab == "today") {
                     Box(Modifier.fillMaxWidth().background(cBg).padding(start = 16.dp, end = 16.dp, top = 9.dp, bottom = 6.dp)) {
                         PrimaryButton("+ قيد جديد", fontSize = fHead) { vm.openChooser() }
@@ -115,6 +121,41 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                 TabBar(st, vm)
             }
             StoreSheets(st, vm)
+        }
+    }
+}
+
+// F2: a compact undo bar that lives in the layout flow (never over the button/tabs).
+// Drag it sideways past a threshold — or tap ✕ — to dismiss; ↺ تراجع still voids.
+@Composable
+private fun UndoBar(vm: StoreViewModel) {
+    val offsetX = remember { androidx.compose.animation.core.Animatable(0f) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .offset { androidx.compose.ui.unit.IntOffset(offsetX.value.toInt(), 0) }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        scope.launch {
+                            if (kotlin.math.abs(offsetX.value) > 180f) vm.dismissUndo()
+                            else offsetX.animateTo(0f)
+                        }
+                    },
+                ) { change, dragAmount ->
+                    change.consume()
+                    scope.launch { offsetX.snapTo(offsetX.value + dragAmount) }
+                }
+            }
+            .clip(RoundedCornerShape(rMd)).background(cInk).padding(start = 14.dp, end = 10.dp, top = 11.dp, bottom = 11.dp),
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("تم التسجيل في الدفتر", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cCard)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("↺ تراجع", fontSize = fBodyL, fontWeight = FontWeight.ExtraBold, color = cUndoAccent, modifier = Modifier.tap { vm.undoSale() })
+            Text("✕", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.tap { vm.dismissUndo() })
         }
     }
 }

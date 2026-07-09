@@ -152,6 +152,12 @@ class StoreViewModel @Inject constructor(
         }
     }
 
+    // Swipe/✕ dismiss of the undo toast (F2) — clears the bar but keeps the entry.
+    fun dismissUndo() {
+        undoJob?.cancel()
+        set { it.copy(undo = null) }
+    }
+
     // Both of these wipe the real ledger, so they're gated behind a confirmation (askConfirm).
     fun askConfirm(kind: String) = set { it.copy(confirm = kind) }
     fun dismissConfirm() = set { it.copy(confirm = null) }

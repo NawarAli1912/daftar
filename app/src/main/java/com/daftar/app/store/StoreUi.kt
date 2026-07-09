@@ -1,5 +1,6 @@
 package com.daftar.app.store
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.AnimationSpec
@@ -9,7 +10,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -102,7 +107,7 @@ internal fun StepBtn(
 }
 
 // card surface: cream fill + hairline border + rounded corner
-internal fun Modifier.card(radius: Dp = 14.dp): Modifier =
+internal fun Modifier.card(radius: Dp = rLg): Modifier =
     this.clip(RoundedCornerShape(radius))
         .background(cCard)
         .border(1.dp, cLine, RoundedCornerShape(radius))
@@ -158,14 +163,62 @@ internal fun Modifier.riseFade(p: Float, riseDp: Dp = 10.dp, fromScale: Float = 
         scaleY = s
     }
 
+// ── screen-level transitions — one shared vocabulary so tabs, segments and day-flips
+// all move the same way (replaces the instant, un-animated content swaps) ──
+
+// A gentle fade + small rise when the keyed content changes. For tab and segment switches.
+@Composable
+internal fun <T> Swap(target: T, modifier: Modifier = Modifier, content: @Composable (T) -> Unit) {
+    AnimatedContent(
+        targetState = target,
+        modifier = modifier,
+        transitionSpec = {
+            (fadeIn(tween(220)) + slideInVertically(spring(dampingRatio = 0.9f, stiffness = 380f)) { h -> h / 22 }) togetherWith
+                fadeOut(tween(110))
+        },
+        label = "swap",
+    ) { content(it) }
+}
+
+// A directional horizontal slide — the day book's page-turn. `forward` = moving to a newer day.
+@Composable
+internal fun <T> PageFlip(target: T, forward: Boolean, modifier: Modifier = Modifier, content: @Composable (T) -> Unit) {
+    AnimatedContent(
+        targetState = target,
+        modifier = modifier,
+        transitionSpec = {
+            val dir = if (forward) 1 else -1
+            (slideInHorizontally(spring(dampingRatio = 0.9f, stiffness = 320f)) { w -> dir * w / 5 } + fadeIn(tween(200))) togetherWith
+                (slideOutHorizontally(tween(160)) { w -> -dir * w / 5 } + fadeOut(tween(140)))
+        },
+        label = "pageflip",
+    ) { content(it) }
+}
+
 @Composable
 internal fun Scrim(onClick: () -> Unit) {
     val p = appearProgress(spec = tween(200)) // plain fade for the dimming
     Box(Modifier.fillMaxSize().graphicsLayer { alpha = p }.background(cScrim).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick))
 }
 
-internal val sp11 = 11.sp
-internal val sp12 = 12.sp
-internal val sp13 = 13.sp
-internal val sp14 = 14.sp
-internal val sp15 = 15.sp
+// ── design tokens ──
+// One type scale and one radius scale, so the whole app speaks in named steps instead of
+// ad-hoc per-element numbers. Each old value maps to the nearest step (shift ≤ 1px), which
+// removes the un-systematic sizing without meaningfully moving the 1:1 prototype layout.
+// Display sizes (amounts/totals/emoji: 20–74sp) stay as literals — they're intentional.
+
+// type scale (sp)
+internal val fCaption = 11.sp // was 10.5 / 11 / 11.5 — sub-labels, hints, meta
+internal val fSmall = 12.sp   // was 12 / 12.5 — secondary text, chips
+internal val fBody = 13.sp    // was 13 / 13.5 — body, list sub-rows
+internal val fBodyL = 14.sp   // was 14 / 14.5 — list titles, inputs
+internal val fTitle = 15.sp   // was 15 / 15.5 — row/card titles, CTAs
+internal val fHead = 16.sp    // was 16 / 16.5 / 17 — sheet titles, primary buttons
+internal val fGlyph = 18.sp   // tab/nav glyphs
+
+// radius scale (dp)
+internal val rXs = 8.dp   // was 6 / 8 / 9 — badges, chips, small controls
+internal val rSm = 10.dp  // was 10 / 11 — inputs, small buttons
+internal val rMd = 12.dp  // was 12 / 13 — secondary cards, banners, mid buttons
+internal val rLg = 14.dp  // was 14 / 15 — cards, primary buttons, chooser rows
+internal val rPill = 99.dp // fully-round pills / handles

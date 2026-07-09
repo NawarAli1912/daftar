@@ -70,17 +70,17 @@ private fun ConfirmSheet(st: StoreState, vm: StoreViewModel) {
     else "سيُمحى الدفتر والبضاعة والزبائن نهائياً وتعودين للبداية. لا يمكن التراجع."
     val cta = if (sample) "استبدال بالتجريبية" else "نعم، امسحي الكل"
     BottomSheet(onDismiss = vm::dismissConfirm) {
-        Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp))
-        Text(body, fontSize = 13.sp, color = cDim, lineHeight = 19.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 16.dp))
+        Text(title, fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp))
+        Text(body, fontSize = fBody, color = cDim, lineHeight = 19.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 16.dp))
         Box(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cDebt).tap { if (sample) vm.loadSample() else vm.resetApp() }.padding(vertical = 14.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cDebt).tap { if (sample) vm.loadSample() else vm.resetApp() }.padding(vertical = 14.dp),
             contentAlignment = Alignment.Center,
-        ) { Text(cta, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cAink) }
+        ) { Text(cta, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cAink) }
         Spacer(Modifier.height(9.dp))
         Box(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(13.dp)).tap { vm.dismissConfirm() }.padding(vertical = 13.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rMd)).tap { vm.dismissConfirm() }.padding(vertical = 13.dp),
             contentAlignment = Alignment.Center,
-        ) { Text("تراجع", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cAccent) }
+        ) { Text("تراجع", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cAccent) }
     }
 }
 
@@ -95,7 +95,7 @@ private fun BottomSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.
                     .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)).background(cBg)
                     .navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 22.dp),
             ) {
-                Box(Modifier.align(Alignment.CenterHorizontally).width(38.dp).height(4.dp).clip(RoundedCornerShape(99.dp)).background(cLine))
+                Box(Modifier.align(Alignment.CenterHorizontally).width(38.dp).height(4.dp).clip(RoundedCornerShape(rPill)).background(cLine))
                 Spacer(Modifier.height(14.dp))
                 content()
             }
@@ -111,7 +111,7 @@ private fun SheetHeader(title: String, onClose: () -> Unit, back: (() -> Unit)? 
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
             if (back != null) Text("‹", fontSize = 22.sp, color = cDim, modifier = Modifier.tap(back))
-            Text(title, fontSize = 16.5.sp, fontWeight = FontWeight.Bold, color = cInk)
+            Text(title, fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk)
             Text("✕", fontSize = 20.sp, color = cDim, modifier = Modifier.tap(onClose))
         }
         HorizontalDivider(color = cLine, thickness = 1.dp)
@@ -123,13 +123,13 @@ private fun SheetFooter(label: String, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(cBg)) {
         HorizontalDivider(color = cLine, thickness = 1.dp)
         Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 14.dp)) {
-            PrimaryButton(label, fontSize = 17.sp) { onClick() }
+            PrimaryButton(label, fontSize = fHead) { onClick() }
         }
     }
 }
 
 @Composable
-private fun TextInput(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, bg: Color = cBg, radius: androidx.compose.ui.unit.Dp = 10.dp, fontSize: androidx.compose.ui.unit.TextUnit = 14.sp) {
+private fun TextInput(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, bg: Color = cBg, radius: androidx.compose.ui.unit.Dp = rSm, fontSize: androidx.compose.ui.unit.TextUnit = fBodyL) {
     BasicTextField(
         value = value, onValueChange = onValueChange,
         modifier = modifier.clip(RoundedCornerShape(radius)).background(bg).border(1.dp, cLine, RoundedCornerShape(radius)).padding(horizontal = 12.dp, vertical = 11.dp),
@@ -163,10 +163,10 @@ private fun LabeledStepper(
 @Composable
 private fun CardStepperRow(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit, borderColor: Color = cLine, btnColor: Color = cAccent, labelColor: Color = cDim, bg: Color = cCard) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(bg).border(1.dp, if (bg == cCard) cLine else borderColor, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(bg).border(1.dp, if (bg == cCard) cLine else borderColor, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = labelColor)
+        Text(label, fontSize = fBody, fontWeight = FontWeight.SemiBold, color = labelColor)
         LabeledStepper("", value, onMinus, onPlus, borderColor = borderColor, btnColor = btnColor)
     }
 }
@@ -174,9 +174,9 @@ private fun CardStepperRow(label: String, value: String, onMinus: () -> Unit, on
 @Composable
 private fun SnoozeChip(label: String, onClick: () -> Unit) {
     Box(
-        Modifier.clip(RoundedCornerShape(9.dp)).background(cCard).border(1.dp, cLine, RoundedCornerShape(9.dp)).tap(onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        Modifier.clip(RoundedCornerShape(rXs)).background(cCard).border(1.dp, cLine, RoundedCornerShape(rXs)).tap(onClick).padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
-        Text(label, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = cAccent)
+        Text(label, fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent)
     }
 }
 
@@ -184,13 +184,13 @@ private fun SnoozeChip(label: String, onClick: () -> Unit) {
 private fun CustomerRow(st: StoreState, vm: StoreViewModel) {
     val cust = st.saleCustomerId?.let { id -> st.customers.find { it.id == id } }
     Row(
-        Modifier.fillMaxWidth().card(12.dp).tap { vm.openCustPicker() }.padding(horizontal = 13.dp, vertical = 11.dp),
+        Modifier.fillMaxWidth().card(rMd).tap { vm.openCustPicker() }.padding(horizontal = 13.dp, vertical = 11.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("الزبونة", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+        Text("الزبونة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
         Text(
             (cust?.name ?: "بدون اسم — نقدي") + " ›",
-            fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = if (cust != null) cDebt else cInk,
+            fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (cust != null) cDebt else cInk,
         )
     }
 }
@@ -198,47 +198,47 @@ private fun CustomerRow(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun CustPicker(st: StoreState, vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeCustPicker) {
-        Text("لِمَن هذه العملية؟", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        Text("لِمَن هذه العملية؟", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         // نقدي — no customer
         Row(
-            Modifier.fillMaxWidth().padding(bottom = 8.dp).card(12.dp).tap { vm.pickCustomer(null) }.padding(horizontal = 14.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().padding(bottom = 8.dp).card(rMd).tap { vm.pickCustomer(null) }.padding(horizontal = 14.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("نقدي — بدون اسم", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk)
-            if (st.saleCustomerId == null) Text("✓", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cPaid)
+            Text("نقدي — بدون اسم", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
+            if (st.saleCustomerId == null) Text("✓", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cPaid)
         }
         // debtors first — a دفعة is almost always one of them paying her tab (v2)
         st.customers.sortedByDescending { customerBalance(it, st.entries) }.forEach { c ->
             val bal = customerBalance(c, st.entries)
             Row(
-                Modifier.fillMaxWidth().padding(bottom = 8.dp).card(12.dp).tap { vm.pickCustomer(c.id) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().padding(bottom = 8.dp).card(rMd).tap { vm.pickCustomer(c.id) }.padding(horizontal = 14.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(c.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk)
+                Text(c.name, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
                 Text(
                     if (bal > 0) "عليها ${fmt(bal)}" else "لا دين",
-                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (bal > 0) cDebt else cPaid,
+                    fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = if (bal > 0) cDebt else cPaid,
                 )
             }
         }
         if (!st.custNewOpen) {
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cCard).dashedBorder(cLine, 12.dp).tap { vm.toggleCustNew() }.padding(horizontal = 14.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).dashedBorder(cLine, rMd).tap { vm.toggleCustNew() }.padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("+ زبونة جديدة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = cAccent)
+                Text("+ زبونة جديدة", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cAccent)
             }
         } else {
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(13.dp)).padding(horizontal = 13.dp, vertical = 12.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp)) {
                 TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth())
                 Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("دين قديم (اختياري)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+                    Text("دين قديم (اختياري)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
                     LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, btnSize = 28.dp, valueMin = 60.dp)
                 }
                 Spacer(Modifier.height(11.dp))
-                PrimaryButton("أضيفي الزبونة ✓", fontSize = 14.sp, radius = 11.dp, vertical = 11.dp) { vm.addCustomer() }
+                PrimaryButton("أضيفي الزبونة ✓", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.addCustomer() }
             }
         }
     }
@@ -248,23 +248,23 @@ private fun CustPicker(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun AddCustomerSheet(st: StoreState, vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeAddCustomer) {
-        Text("زبونة جديدة", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp))
-        Text("تُضاف إلى دفتر الزبائن — سجّلي ديونها ودفعاتها لاحقاً.", fontSize = 12.sp, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp))
-        TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+        Text("زبونة جديدة", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp))
+        Text("تُضاف إلى دفتر الزبائن — سجّلي ديونها ودفعاتها لاحقاً.", fontSize = fSmall, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp))
+        TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
         Spacer(Modifier.height(9.dp))
-        TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+        TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
         Row(
-            Modifier.fillMaxWidth().padding(top = 11.dp).card(12.dp).padding(horizontal = 13.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().padding(top = 11.dp).card(rMd).padding(horizontal = 13.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
             Column {
-                Text("دين قديم (اختياري)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cInk)
-                Text("رصيد سابق من الدفتر الورقي", fontSize = 10.5.sp, color = cDim)
+                Text("دين قديم (اختياري)", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk)
+                Text("رصيد سابق من الدفتر الورقي", fontSize = fCaption, color = cDim)
             }
             LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 64.dp)
         }
         Spacer(Modifier.height(14.dp))
-        PrimaryButton("أضيفي الزبونة ✓", fontSize = 15.sp, radius = 13.dp, vertical = 14.dp) { vm.saveNewCustomer() }
+        PrimaryButton("أضيفي الزبونة ✓", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.saveNewCustomer() }
     }
 }
 
@@ -273,21 +273,21 @@ private fun AddCustomerSheet(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeEditItem) {
-        Text("تعديل الصنف", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
-        TextInput(st.eiName, vm::setEiName, "اسم الصنف", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+        Text("تعديل الصنف", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        TextInput(st.eiName, vm::setEiName, "اسم الصنف", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
         Spacer(Modifier.height(9.dp))
         CardStepperRow("التسعيرة", fmt(st.eiTasira), { vm.eiTasiraStep(-1) }, { vm.eiTasiraStep(1) })
         Spacer(Modifier.height(8.dp))
         CardStepperRow("على الرف الآن", "${st.eiOnHand}", { vm.eiOnHandStep(-1) }, { vm.eiOnHandStep(1) })
         Spacer(Modifier.height(8.dp))
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("سعر الشراء للقطعة", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cAmber)
+            Text("سعر الشراء للقطعة", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAmber)
             LabeledStepper("", fmt(st.eiBuy), { vm.eiBuyStep(-1) }, { vm.eiBuyStep(1) }, borderColor = cAmberBorder, btnColor = cAmber)
         }
-        Text("من أين أتى؟ — وجّهيه لمحله أو بالته الصحيحة", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 8.dp))
+        Text("من أين أتى؟ — وجّهيه لمحله أو بالته الصحيحة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SourcePickChip("غير محدد", st.eiSource == null, true) { vm.eiPickSource(null) }
             st.sources.forEach { srcOpt ->
@@ -296,7 +296,7 @@ private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
             }
         }
         Spacer(Modifier.height(14.dp))
-        PrimaryButton("حفظ التعديل ✓", fontSize = 15.sp, radius = 13.dp, vertical = 14.dp) { vm.saveEditItem() }
+        PrimaryButton("حفظ التعديل ✓", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.saveEditItem() }
     }
 }
 
@@ -304,7 +304,7 @@ private fun ItemEditSheet(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun Chooser(vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeSheet) {
-        Text("ماذا تسجّلين؟", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        Text("ماذا تسجّلين؟", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         ChooserOption("🧾", "بيع", "أصناف من الرف بأسعار", outlined = true) { vm.openSale() }
         Spacer(Modifier.height(10.dp))
         ChooserOption("💵", "دفعة", "مبلغ على الرصيد") { vm.openPay() }
@@ -322,30 +322,30 @@ private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
             CustomerRow(st, vm)
             Spacer(Modifier.height(14.dp))
-            Text("قيمة الإرجاع", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
+            Text("قيمة الإرجاع", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
             Row(
-                Modifier.fillMaxWidth().card(15.dp).padding(16.dp),
+                Modifier.fillMaxWidth().card(rLg).padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
             ) {
                 StepBtn("−", 42.dp, 12.dp, 1.5.dp, cLine, cAccent, 22.sp) { vm.returnAmountStep(-1) }
                 Text(fmt(st.returnAmount), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 120.dp))
                 StepBtn("+", 42.dp, 12.dp, 1.5.dp, cLine, cAccent, 22.sp) { vm.returnAmountStep(1) }
             }
-            Text("الصنف المُعاد (اختياري) — يعود إلى الرف", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+            Text("الصنف المُعاد (اختياري) — يعود إلى الرف", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 st.shelf.take(10).forEach { x ->
                     val sel = st.returnItemId == x.id
                     Column(
-                        Modifier.clip(RoundedCornerShape(11.dp)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(11.dp)).tap { vm.returnPickItem(x.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                        Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.returnPickItem(x.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(x.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
-                        Text(fmt(x.tasira), fontSize = 11.sp, color = if (sel) cAink else cDim)
+                        Text(x.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
+                        Text(fmt(x.tasira), fontSize = fCaption, color = if (sel) cAink else cDim)
                     }
                 }
             }
-            Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(12.dp)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp)) {
-                Text("تُخصم القيمة من دين الزبونة" + (if (st.returnItemId != null) " ويعود الصنف إلى الرف." else "."), fontSize = 12.sp, color = cPaid, lineHeight = 18.sp)
+            Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(rMd)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text("تُخصم القيمة من دين الزبونة" + (if (st.returnItemId != null) " ويعود الصنف إلى الرف." else "."), fontSize = fSmall, color = cPaid, lineHeight = 18.sp)
             }
         }
         SheetFooter("حفظ الإرجاع ✓", vm::saveReturn)
@@ -358,21 +358,21 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
     val e = st.entries.find { it.id == st.detailEntryId } ?: return
     val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; else -> cInk }
     BottomSheet(onDismiss = vm::closeEntry) {
-        Text("القيد", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
-        Column(Modifier.fillMaxWidth().card(13.dp).padding(horizontal = 14.dp, vertical = 12.dp)) {
+        Text("القيد", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        Column(Modifier.fillMaxWidth().card(rMd).padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                Text(e.t, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false))
+                Text(e.t, fontSize = fTitle, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false))
                 Spacer(Modifier.width(10.dp))
-                Text(e.amt, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = amtColor)
+                Text(e.amt, fontSize = fHead, fontWeight = FontWeight.Bold, color = amtColor)
             }
-            Text(e.d, fontSize = 12.sp, color = cDim, modifier = Modifier.padding(top = 4.dp))
+            Text(e.d, fontSize = fSmall, color = cDim, modifier = Modifier.padding(top = 4.dp))
         }
 
         // the sold items, each with a source chip to attribute where it came from
         val soldLines = decodeLines(e.lines)
         if (soldLines.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
-            Text("الأصناف المُباعة — اضغطي المصدر لتحديد من أين أتت", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp))
+            Text("الأصناف المُباعة — اضغطي المصدر لتحديد من أين أتت", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp))
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
                 soldLines.forEach { l ->
                     val item = st.shelf.find { it.id == l.shelfId }
@@ -383,18 +383,18 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f, fill = false)) {
-                            Text(l.name, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = cInk)
-                            Text("${fmt(l.price)} · ×${l.qty}", fontSize = 11.5.sp, color = cDim)
+                            Text(l.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
+                            Text("${fmt(l.price)} · ×${l.qty}", fontSize = fCaption, color = cDim)
                         }
                         Spacer(Modifier.width(8.dp))
                         Row(
-                            Modifier.clip(RoundedCornerShape(9.dp)).background(cBg).border(1.dp, if (unspec) cUnspecBorder else cLine, RoundedCornerShape(9.dp))
+                            Modifier.clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, if (unspec) cUnspecBorder else cLine, RoundedCornerShape(rXs))
                                 .then(if (item != null) Modifier.tap { vm.openSpecify(l.shelfId) } else Modifier)
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             if (unspec) Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(cDebt))
-                            Text(if (item != null) "$srcLabel ✎" else srcLabel, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (unspec) cDebt else cDim)
+                            Text(if (item != null) "$srcLabel ✎" else srcLabel, fontSize = fSmall, fontWeight = FontWeight.Bold, color = if (unspec) cDebt else cDim)
                         }
                     }
                 }
@@ -404,16 +404,16 @@ private fun EntryDetailSheet(st: StoreState, vm: StoreViewModel) {
         Spacer(Modifier.height(14.dp))
         val editable = soldLines.isNotEmpty() || e.t.startsWith("دفعة") || e.t.startsWith("إرجاع")
         if (editable) {
-            PrimaryButton("تعديل القيد ✎", fontSize = 15.sp, radius = 13.dp, vertical = 14.dp) { vm.editEntry(e.id) }
+            PrimaryButton("تعديل القيد ✎", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.editEntry(e.id) }
             Spacer(Modifier.height(9.dp))
         }
         Box(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cDebt, RoundedCornerShape(13.dp)).tap { vm.voidEntry(e.id) }.padding(vertical = 14.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cDebt, RoundedCornerShape(rMd)).tap { vm.voidEntry(e.id) }.padding(vertical = 14.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("إلغاء هذا القيد ↺", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cDebt)
+            Text("إلغاء هذا القيد ↺", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cDebt)
         }
-        Text("«تعديل» يفتح القيد لتصحيحه، و«إلغاء» يُعيد المبلغ والدين والبضاعة كما كانت.", fontSize = 11.5.sp, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        Text("«تعديل» يفتح القيد لتصحيحه، و«إلغاء» يُعيد المبلغ والدين والبضاعة كما كانت.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
     }
 }
 
@@ -427,76 +427,76 @@ private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeCustomer) {
         if (st.custEditId == c.id) {
             // v2: every record editable forever — name, phone, and the opening دين قديم.
-            Text("تعديل ${c.name}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
-            TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+            Text("تعديل ${c.name}", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+            TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
             Spacer(Modifier.height(9.dp))
-            TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+            TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
             Row(
-                Modifier.fillMaxWidth().padding(top = 11.dp).card(12.dp).padding(horizontal = 13.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().padding(top = 11.dp).card(rMd).padding(horizontal = 13.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
-                    Text("دين قديم", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cInk)
-                    Text("تعديله يعدّل رصيدها مباشرةً", fontSize = 10.5.sp, color = cDim)
+                    Text("دين قديم", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk)
+                    Text("تعديله يعدّل رصيدها مباشرةً", fontSize = fCaption, color = cDim)
                 }
                 LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 64.dp)
             }
             Spacer(Modifier.height(14.dp))
-            PrimaryButton("حفظ التعديل ✓", fontSize = 15.sp, radius = 13.dp, vertical = 14.dp) { vm.saveEditCustomer() }
+            PrimaryButton("حفظ التعديل ✓", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.saveEditCustomer() }
             Spacer(Modifier.height(9.dp))
             Box(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(13.dp)).tap { vm.cancelEditCustomer() }.padding(vertical = 13.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rMd)).tap { vm.cancelEditCustomer() }.padding(vertical = 13.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text("تراجع", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cAccent) }
+            ) { Text("تراجع", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cAccent) }
             return@BottomSheet
         }
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(c.name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = cInk)
-                Box(Modifier.clip(RoundedCornerShape(8.dp)).background(cBg).border(1.dp, cLine, RoundedCornerShape(8.dp)).tap { vm.startEditCustomer(c.id) }.padding(horizontal = 9.dp, vertical = 3.dp)) {
-                    Text("✎ تعديل", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = cAccent)
+                Text(c.name, fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk)
+                Box(Modifier.clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).tap { vm.startEditCustomer(c.id) }.padding(horizontal = 9.dp, vertical = 3.dp)) {
+                    Text("✎ تعديل", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cAccent)
                 }
             }
             Text(
                 if (bal > 0) "عليها ${fmt(bal)}" else if (bal == 0L) "لا دين" else "لها ${fmt(-bal)}",
-                fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (bal > 0) cDebt else cPaid,
+                fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (bal > 0) cDebt else cPaid,
             )
         }
         // أمانة معها — each trial قيد resolves on its own (v2): kept → sale, or back to the shelf.
         val trialEntries = history.filter { it.trialAmount > 0 }
         if (trialEntries.isNotEmpty()) {
-            Text("أمانة معها (قد تُعاد): ${fmt(trial)}", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(cCard).border(1.dp, cAmber, RoundedCornerShape(11.dp)).padding(horizontal = 13.dp, vertical = 4.dp)) {
+            Text("أمانة معها (قد تُعاد): ${fmt(trial)}", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(rSm)).background(cCard).border(1.dp, cAmber, RoundedCornerShape(rSm)).padding(horizontal = 13.dp, vertical = 4.dp)) {
                 trialEntries.forEach { e ->
                     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 decodeLines(e.lines).joinToString(" + ") { "${it.name} ×${it.qty}" }.ifEmpty { "أمانة" },
-                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false),
+                                fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false),
                             )
-                            Text(fmt(e.trialAmount), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cAmber)
+                            Text(fmt(e.trialAmount), fontSize = fBody, fontWeight = FontWeight.Bold, color = cAmber)
                         }
                         Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             Box(
-                                Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).background(cCard).border(1.dp, cAmber, RoundedCornerShape(9.dp)).tap { vm.convertTrialEntry(e.id) }.padding(vertical = 8.dp),
+                                Modifier.weight(1f).clip(RoundedCornerShape(rXs)).background(cCard).border(1.dp, cAmber, RoundedCornerShape(rXs)).tap { vm.convertTrialEntry(e.id) }.padding(vertical = 8.dp),
                                 contentAlignment = Alignment.Center,
-                            ) { Text("أبقتها — بيع", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cAmber) }
+                            ) { Text("أبقتها — بيع", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAmber) }
                             Box(
-                                Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).background(cCard).border(1.dp, cLine, RoundedCornerShape(9.dp)).tap { vm.voidEntry(e.id) }.padding(vertical = 8.dp),
+                                Modifier.weight(1f).clip(RoundedCornerShape(rXs)).background(cCard).border(1.dp, cLine, RoundedCornerShape(rXs)).tap { vm.voidEntry(e.id) }.padding(vertical = 8.dp),
                                 contentAlignment = Alignment.Center,
-                            ) { Text("أعادتها — للرف", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cAccent) }
+                            ) { Text("أعادتها — للرف", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent) }
                         }
                     }
                 }
             }
             Spacer(Modifier.height(6.dp))
         }
-        c.phone?.let { Text("☎ $it", fontSize = 12.sp, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)) }
+        c.phone?.let { Text("☎ $it", fontSize = fSmall, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)) }
         // reminder: due date + one-tap snooze (FR-3.2), only while she owes
         if (bal > 0) {
             val overdue = c.dueEpochDay != null && c.dueEpochDay < st.today
-            Text("التذكير: ${dueStatus(c.dueEpochDay, st.today)}", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = if (overdue) cDebt else cInk, modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 6.dp))
-            Text("ذكّريني بعد:", fontSize = 11.sp, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+            Text("التذكير: ${dueStatus(c.dueEpochDay, st.today)}", fontSize = fSmall, fontWeight = FontWeight.Bold, color = if (overdue) cDebt else cInk, modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 6.dp))
+            Text("ذكّريني بعد:", fontSize = fCaption, color = cDim, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 SnoozeChip("أسبوع") { vm.snooze(c.id, 7) }
                 SnoozeChip("أسبوعان") { vm.snooze(c.id, 14) }
@@ -505,39 +505,39 @@ private fun CustomerDetailSheet(st: StoreState, vm: StoreViewModel) {
         }
         Spacer(Modifier.height(12.dp))
         if (history.isEmpty()) {
-            Text("لا حركات مسجّلة بعد", fontSize = 13.sp, color = cDim, modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp))
+            Text("لا حركات مسجّلة بعد", fontSize = fBody, color = cDim, modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp))
         } else {
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
                 history.take(8).forEach { e ->
                     val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; else -> cInk }
                     Row(Modifier.fillMaxWidth().padding(vertical = 11.dp).drawBottomLine(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f, fill = false)) {
-                            Text(e.t, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cInk)
-                            Text(e.d, fontSize = 11.sp, color = cDim)
+                            Text(e.t, fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk)
+                            Text(e.d, fontSize = fCaption, color = cDim)
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text(e.amt, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = amtColor)
+                        Text(e.amt, fontSize = fBody, fontWeight = FontWeight.Bold, color = amtColor)
                     }
                 }
             }
         }
         Spacer(Modifier.height(12.dp))
-        PrimaryButton("+ دفعة من ${c.name}", fontSize = 15.sp, radius = 13.dp, vertical = 14.dp) { vm.payThisCustomer(c.id) }
+        PrimaryButton("+ دفعة من ${c.name}", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.payThisCustomer(c.id) }
     }
 }
 
 @Composable
 private fun ChooserOption(icon: String, title: String, sub: String, outlined: Boolean = false, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(cCard)
-            .border(if (outlined) 1.5.dp else 1.dp, if (outlined) cAccent else cLine, RoundedCornerShape(15.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(rLg)).background(cCard)
+            .border(if (outlined) 1.5.dp else 1.dp, if (outlined) cAccent else cLine, RoundedCornerShape(rLg))
             .tap(onClick).padding(15.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp),
     ) {
         Text(icon, fontSize = 23.sp)
         Column {
-            Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = cInk)
-            Text(sub, fontSize = 12.sp, color = cDim)
+            Text(title, fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk)
+            Text(sub, fontSize = fSmall, color = cDim)
         }
     }
 }
@@ -551,32 +551,32 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
             CustomerRow(st, vm)
             Spacer(Modifier.height(14.dp))
-            Text("كم المبلغ؟", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
+            Text("كم المبلغ؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
             Row(
-                Modifier.fillMaxWidth().card(15.dp).padding(16.dp),
+                Modifier.fillMaxWidth().card(rLg).padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
             ) {
                 StepBtn("−", 42.dp, 12.dp, 1.5.dp, cLine, cAccent, 22.sp) { vm.payAmountStep(-1) }
                 Text(fmt(st.payAmount), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 120.dp))
                 StepBtn("+", 42.dp, 12.dp, 1.5.dp, cLine, cAccent, 22.sp) { vm.payAmountStep(1) }
             }
-            Text("نوع (اختياري) — يُسند المبلغ لمصدره", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+            Text("نوع (اختياري) — يُسند المبلغ لمصدره", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 st.shelf.filter { it.onHand > 0 }.take(8).forEach { x ->
                     val sel = st.payTypeId == x.id
                     Column(
-                        Modifier.clip(RoundedCornerShape(11.dp)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(11.dp)).tap { vm.payPickType(x.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                        Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.payPickType(x.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(x.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
-                        Text(fmt(x.tasira), fontSize = 11.sp, color = if (sel) cAink else cDim)
+                        Text(x.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
+                        Text(fmt(x.tasira), fontSize = fCaption, color = if (sel) cAink else cDim)
                     }
                 }
             }
             if (st.payTypeId != null) {
                 val name = st.shelf.find { it.id == st.payTypeId }?.name ?: ""
-                Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(12.dp)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp)) {
-                    Text("مبلغ $name يُحسب إيراداً لمصدر الصنف — ويُنقص قطعة من الرف.", fontSize = 12.sp, color = cPaid, lineHeight = 18.sp)
+                Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(rMd)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Text("مبلغ $name يُحسب إيراداً لمصدر الصنف — ويُنقص قطعة من الرف.", fontSize = fSmall, color = cPaid, lineHeight = 18.sp)
                 }
             }
         }
@@ -593,33 +593,33 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 8.dp)) {
             CustomerRow(st, vm)
             Spacer(Modifier.height(13.dp))
-            Text("مقترحة من الرف — اضغطي لإضافتها", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 9.dp))
+            Text("مقترحة من الرف — اضغطي لإضافتها", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 9.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 st.shelf.filter { it.onHand > 0 }.sortedByDescending { it.onHand }.forEach { g ->
                     Column(
-                        Modifier.widthIn(min = 64.dp).clip(RoundedCornerShape(11.dp)).background(cCard).border(1.5.dp, cLine, RoundedCornerShape(11.dp)).tap { vm.addLine(g.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                        Modifier.widthIn(min = 64.dp).clip(RoundedCornerShape(rSm)).background(cCard).border(1.5.dp, cLine, RoundedCornerShape(rSm)).tap { vm.addLine(g.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(g.name, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = cInk)
-                        Text("${fmt(g.tasira)} · ${g.onHand}", fontSize = 11.sp, color = cDim, modifier = Modifier.padding(top = 1.dp))
+                        Text(g.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
+                        Text("${fmt(g.tasira)} · ${g.onHand}", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 1.dp))
                     }
                 }
                 Box(
-                    Modifier.clip(RoundedCornerShape(11.dp)).dashedBorder(cLine, 11.dp, 1.5.dp).tap { vm.toggleAddNew() }.padding(horizontal = 13.dp, vertical = 9.dp),
+                    Modifier.clip(RoundedCornerShape(rSm)).dashedBorder(cLine, rSm, 1.5.dp).tap { vm.toggleAddNew() }.padding(horizontal = 13.dp, vertical = 9.dp),
                     contentAlignment = Alignment.Center,
-                ) { Text("+ صنف جديد", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = cDim) }
+                ) { Text("+ صنف جديد", fontSize = fBody, fontWeight = FontWeight.Bold, color = cDim) }
             }
             if (st.addNewOpen) {
-                Column(Modifier.fillMaxWidth().padding(top = 11.dp).clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(13.dp)).padding(horizontal = 13.dp, vertical = 12.dp)) {
+                Column(Modifier.fillMaxWidth().padding(top = 11.dp).clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp)) {
                     TextInput(st.newName, vm::setNewName, "اسم الصنف", modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(9.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("السعر", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+                        Text("السعر", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
                         LabeledStepper("", fmt(st.newPrice), { vm.newPriceStep(-1) }, { vm.newPriceStep(1) }, btnSize = 28.dp, valueMin = 58.dp)
                     }
-                    Text("سيُضاف للرف كـ«غير محدد» (نقطة حمراء) تحلّينه لاحقاً", fontSize = 11.sp, color = cAmber, modifier = Modifier.padding(top = 9.dp))
+                    Text("سيُضاف للرف كـ«غير محدد» (نقطة حمراء) تحلّينه لاحقاً", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 9.dp))
                     Spacer(Modifier.height(11.dp))
-                    PrimaryButton("أضيفي للسلة", fontSize = 14.sp, radius = 11.dp, vertical = 11.dp) { vm.addNewItem() }
+                    PrimaryButton("أضيفي للسلة", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.addNewItem() }
                 }
             }
             if (st.lines.isNotEmpty()) {
@@ -631,12 +631,12 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
                     Spacer(Modifier.height(2.dp))
                     HorizontalDivider(color = cInk, thickness = 1.dp)
                     Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                        Text("المجموع", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk)
+                        Text("المجموع", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
                         Text(fmt(st.lines.sumOf { it.price * it.qty }), fontSize = 21.sp, fontWeight = FontWeight.Bold, color = cInk)
                     }
                 }
             }
-            Text("كيف دفعت؟", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+            Text("كيف دفعت؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 PayModeBtn("دفعت الكل", st.pay == "full", Modifier.weight(1f)) { vm.setPay("full") }
                 PayModeBtn("دفعت جزءاً", st.pay == "partial", Modifier.weight(1f)) { vm.setPay("partial") }
@@ -646,12 +646,12 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
                 val total = st.lines.sumOf { it.price * it.qty }
                 val paid = minOf(st.partialPaid, total)
                 Spacer(Modifier.height(10.dp))
-                Column(Modifier.fillMaxWidth().card(13.dp).padding(horizontal = 13.dp, vertical = 12.dp)) {
+                Column(Modifier.fillMaxWidth().card(rMd).padding(horizontal = 13.dp, vertical = 12.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("كم دفعت الآن؟", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+                        Text("كم دفعت الآن؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
                         LabeledStepper("", fmt(st.partialPaid), { vm.partialStep(-1) }, { vm.partialStep(1) }, valueMin = 70.dp)
                     }
-                    Text("الباقي ديناً: ${fmt(total - paid)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cDebt, modifier = Modifier.padding(top = 8.dp))
+                    Text("الباقي ديناً: ${fmt(total - paid)}", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDebt, modifier = Modifier.padding(top = 8.dp))
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -665,19 +665,19 @@ private fun SaleLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
     Column(Modifier.fillMaxWidth().padding(vertical = 11.dp).drawBottomLine()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f, fill = false)) {
-                Text(l.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = cInk)
-                if (l.haggled) Text(fmt(l.tasira), fontSize = 11.sp, color = cDim, textDecoration = TextDecoration.LineThrough, modifier = Modifier.padding(horizontal = 6.dp))
+                Text(l.name, fontSize = fTitle, fontWeight = FontWeight.SemiBold, color = cInk)
+                if (l.haggled) Text(fmt(l.tasira), fontSize = fCaption, color = cDim, textDecoration = TextDecoration.LineThrough, modifier = Modifier.padding(horizontal = 6.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 StepBtn("−", 28.dp, 8.dp, 1.5.dp, cLine, cAccent, 17.sp) { vm.priceStep(i, -1) }
-                Text(fmt(l.price), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
+                Text(fmt(l.price), fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
                 StepBtn("+", 28.dp, 8.dp, 1.5.dp, cLine, cAccent, 17.sp) { vm.priceStep(i, 1) }
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text("الكمية", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+            Text("الكمية", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
             StepBtn("−", 23.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.qtyStep(i, -1) }
-            Text("×${l.qty}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 20.dp))
+            Text("×${l.qty}", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 20.dp))
             StepBtn("+", 23.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.qtyStep(i, 1) }
         }
     }
@@ -686,32 +686,32 @@ private fun SaleLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
 @Composable
 private fun PayModeBtn(label: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.clip(RoundedCornerShape(12.dp)).background(if (active) cAccent else cCard).border(1.5.dp, if (active) cAccent else cLine, RoundedCornerShape(12.dp)).tap(onClick).padding(vertical = 11.dp, horizontal = 4.dp),
+        modifier.clip(RoundedCornerShape(rMd)).background(if (active) cAccent else cCard).border(1.5.dp, if (active) cAccent else cLine, RoundedCornerShape(rMd)).tap(onClick).padding(vertical = 11.dp, horizontal = 4.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = if (active) cAink else cDim) }
+    ) { Text(label, fontSize = fBody, fontWeight = FontWeight.Bold, color = if (active) cAink else cDim) }
 }
 
 // ── specify source ──
 @Composable
 private fun SpecifySheet(st: StoreState, vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeSpecify) {
-        Text("من أي مصدر؟", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp))
-        Text("توجيه القطع لأي مصدر — حتى المنفَذ — يزيد عدّاداته.", fontSize = 12.sp, color = cDim, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        Text("من أي مصدر؟", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp))
+        Text("توجيه القطع لأي مصدر — حتى المنفَذ — يزيد عدّاداته.", fontSize = fSmall, color = cDim, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         st.sources.forEach { srcOpt ->
             Row(
-                Modifier.fillMaxWidth().padding(bottom = 8.dp).card(12.dp).tap { vm.pickSource(srcOpt.id) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().padding(bottom = 8.dp).card(rMd).tap { vm.pickSource(srcOpt.id) }.padding(horizontal = 14.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("📦 ${srcOpt.label}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk)
-                Text(srcOpt.kind.label, fontSize = 11.sp, color = cDim)
+                Text("📦 ${srcOpt.label}", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
+                Text(srcOpt.kind.label, fontSize = fCaption, color = cDim)
             }
         }
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cCard).dashedBorder(cLine, 12.dp).tap { vm.pickSource("none") }.padding(horizontal = 14.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).dashedBorder(cLine, rMd).tap { vm.pickSource("none") }.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(cDebt))
-            Text("غير محدد — لاحقاً", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = cDebt)
+            Text("غير محدد — لاحقاً", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cDebt)
         }
     }
 }
@@ -724,26 +724,26 @@ private fun PackageSheet(st: StoreState, vm: StoreViewModel) {
     Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
         SheetHeader("📦 $pkgLabel", onClose = vm::closePackage, back = vm::closePackage)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp)) {
-            Text("عُدّي أصناف البالة وارفعيها على الرف — كلها أو جزءاً. ما يبقى «في البالة» تُنزلينه لاحقاً.", fontSize = 12.sp, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 12.dp))
+            Text("عُدّي أصناف البالة وارفعيها على الرف — كلها أو جزءاً. ما يبقى «في البالة» تُنزلينه لاحقاً.", fontSize = fSmall, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 12.dp))
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
                 items.forEach { p -> PackageItemRow(p, vm) }
                 Box(Modifier.fillMaxWidth().tap { vm.togglePkgAdd() }.padding(top = 11.dp, bottom = 7.dp), contentAlignment = Alignment.Center) {
-                    Text("+ عدّ صنف في البالة", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cAccent)
+                    Text("+ عدّ صنف في البالة", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAccent)
                 }
             }
             if (st.pkgAddOpen) {
-                Column(Modifier.fillMaxWidth().padding(top = 11.dp).clip(RoundedCornerShape(13.dp)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(13.dp)).padding(horizontal = 13.dp, vertical = 12.dp)) {
+                Column(Modifier.fillMaxWidth().padding(top = 11.dp).clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp)) {
                     TextInput(st.aiName, vm::setAiName, "اسم الصنف", modifier = Modifier.fillMaxWidth())
                     Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("التسعيرة", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+                        Text("التسعيرة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
                         LabeledStepper("", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) }, btnSize = 26.dp, valueMin = 56.dp, valueSize = 15.sp, btnFont = 16.sp)
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("العدد المعدود", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+                        Text("العدد المعدود", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
                         LabeledStepper("", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) }, btnSize = 26.dp, valueMin = 32.dp, valueSize = 15.sp, btnFont = 16.sp)
                     }
                     Spacer(Modifier.height(11.dp))
-                    PrimaryButton("عدّ (يبقى في البالة) ✓", fontSize = 14.sp, radius = 11.dp, vertical = 11.dp) { vm.savePkgCount() }
+                    PrimaryButton("عدّ (يبقى في البالة) ✓", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.savePkgCount() }
                 }
             }
         }
@@ -754,22 +754,22 @@ private fun PackageSheet(st: StoreState, vm: StoreViewModel) {
 private fun PackageItemRow(p: Shelf, vm: StoreViewModel) {
     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp).drawBottomLine()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk)
-            Text(fmt(p.tasira), fontSize = 12.sp, color = cDim)
+            Text(p.name, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
+            Text(fmt(p.tasira), fontSize = fSmall, color = cDim)
         }
         Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("في البالة: ${p.inPkg}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cAmber)
+            Text("في البالة: ${p.inPkg}", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAmber)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("على الرف", fontSize = 11.5.sp, color = cDim)
+                Text("على الرف", fontSize = fCaption, color = cDim)
                 StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shelveStep(p.id, -1) }
-                Text("${p.shelved}", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 28.dp))
+                Text("${p.shelved}", fontSize = fTitle, fontWeight = FontWeight.ExtraBold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 28.dp))
                 StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shelveStep(p.id, 1) }
             }
         }
         if (p.inPkg > 0) {
-            Text("رفّ الكل (${p.inPkg}) ←", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.shelveAll(p.id) })
+            Text("رفّ الكل (${p.inPkg}) ←", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.shelveAll(p.id) })
         } else {
-            Text("الكل على الرف ✓", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = cPaid, modifier = Modifier.padding(top = 7.dp))
+            Text("الكل على الرف ✓", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cPaid, modifier = Modifier.padding(top = 7.dp))
         }
     }
 }
@@ -781,13 +781,13 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
     Column(Modifier.fillMaxSize().riseFade(appearProgress(), riseDp = 460.dp, fade = false).background(cBg)) {
         SheetHeader("إضافة صنف للرف", onClose = vm::closeAddItem)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 15.dp)) {
-            Text("الصنف", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
-            TextInput(st.aiName, vm::setAiName, "مثال: فستان", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = 12.dp, fontSize = 15.sp)
+            Text("الصنف", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
+            TextInput(st.aiName, vm::setAiName, "مثال: فستان", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
             Spacer(Modifier.height(11.dp))
             CardStepperRow("التسعيرة", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) })
             Spacer(Modifier.height(8.dp))
             CardStepperRow("العدد على الرف", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) })
-            Text("من أين؟ («غير محدد» الافتراضي — تحلّينه لاحقاً)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+            Text("من أين؟ («غير محدد» الافتراضي — تحلّينه لاحقاً)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SourcePickChip("غير محدد", st.aiSource == "none", true) { vm.aiPickSource("none") }
                 st.sources.forEach { srcOpt ->
@@ -801,15 +801,15 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
             if (aiKind == Kind.MARKET || st.aiSource == "none") {
                 Spacer(Modifier.height(11.dp))
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(12.dp)).padding(horizontal = 13.dp, vertical = 10.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("سعر الشراء للقطعة", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cAmber)
+                    Text("سعر الشراء للقطعة", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAmber)
                     LabeledStepper("", fmt(st.aiBuy), { vm.aiBuyStep(-1) }, { vm.aiBuyStep(1) }, borderColor = cAmberBorder, btnColor = cAmber)
                 }
-                Text("شراء من السوق يُسجَّل لكل قطعة — الكلفة تتجمّع في المصدر.", fontSize = 11.sp, color = cAmber, modifier = Modifier.padding(top = 7.dp))
+                Text("شراء من السوق يُسجَّل لكل قطعة — الكلفة تتجمّع في المصدر.", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 7.dp))
             }
-            Text("بضاعتك الموجودة الآن؟ اتركيها على «قبل التطبيق» — بلا كلفة ولا ربح. ما لا تعرفين مصدره اجعليه «غير محدد» تحلّينه لاحقاً.", fontSize = 11.5.sp, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
+            Text("بضاعتك الموجودة الآن؟ اتركيها على «قبل التطبيق» — بلا كلفة ولا ربح. ما لا تعرفين مصدره اجعليه «غير محدد» تحلّينه لاحقاً.", fontSize = fCaption, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
         }
         SheetFooter("أضيفي للرف ✓", vm::saveAiItem)
     }
@@ -820,8 +820,8 @@ private fun SourcePickChip(label: String, selected: Boolean, unspec: Boolean, on
     val bg = if (selected) (if (unspec) cDebt else cAccent) else cCard
     val col = if (selected) (if (unspec) Color.White else cAink) else (if (unspec) cDebt else cInk)
     val border = if (selected) (if (unspec) cDebt else cAccent) else (if (unspec) cUnspecBorder else cLine)
-    Box(Modifier.clip(RoundedCornerShape(11.dp)).background(bg).border(1.5.dp, border, RoundedCornerShape(11.dp)).tap(onClick).padding(horizontal = 13.dp, vertical = 9.dp)) {
-        Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = col)
+    Box(Modifier.clip(RoundedCornerShape(rSm)).background(bg).border(1.5.dp, border, RoundedCornerShape(rSm)).tap(onClick).padding(horizontal = 13.dp, vertical = 9.dp)) {
+        Text(label, fontSize = fBody, fontWeight = FontWeight.Bold, color = col)
     }
 }
 
@@ -830,22 +830,22 @@ private fun SourcePickChip(label: String, selected: Boolean, unspec: Boolean, on
 @Composable
 private fun AddSourceSheet(st: StoreState, vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeAddSource) {
-        Text("بالة جديدة", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        Text("بالة جديدة", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 14.dp)) {
             val sel = st.addSrcKind == Kind.BALE
-            Box(Modifier.clip(RoundedCornerShape(11.dp)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(11.dp)).tap { vm.pickKind(Kind.BALE) }.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(Kind.BALE.label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
+            Box(Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.pickKind(Kind.BALE) }.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(Kind.BALE.label, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
             }
         }
         Row(
-            Modifier.fillMaxWidth().card(12.dp).padding(horizontal = 13.dp, vertical = 11.dp),
+            Modifier.fillMaxWidth().card(rMd).padding(horizontal = 13.dp, vertical = 11.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("التكلفة (USD)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cDim)
+            Text("التكلفة (USD)", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDim)
             LabeledStepper("", "$" + fmt(st.newCost), { vm.costStep(-1) }, { vm.costStep(1) }, valueMin = 64.dp, valueSize = 18.sp)
         }
         Spacer(Modifier.height(12.dp))
-        PrimaryButton("أضيفي المصدر ✓", fontSize = 15.sp, radius = 14.dp, vertical = 14.dp) { vm.saveSource() }
+        PrimaryButton("أضيفي المصدر ✓", fontSize = fTitle, radius = rLg, vertical = 14.dp) { vm.saveSource() }
     }
 }
 
@@ -856,11 +856,11 @@ private fun UndoToast(vm: StoreViewModel) {
         SlideUp(Modifier.align(Alignment.BottomCenter), bouncy = true) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 74.dp)
-                .clip(RoundedCornerShape(13.dp)).background(cInk).padding(horizontal = 16.dp, vertical = 13.dp),
+                .clip(RoundedCornerShape(rMd)).background(cInk).padding(horizontal = 16.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("تم التسجيل في الدفتر", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = cCard)
-            Text("↺ تراجع", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = cUndoAccent, modifier = Modifier.tap { vm.undoSale() })
+            Text("تم التسجيل في الدفتر", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cCard)
+            Text("↺ تراجع", fontSize = fTitle, fontWeight = FontWeight.ExtraBold, color = cUndoAccent, modifier = Modifier.tap { vm.undoSale() })
         }
         }
     }
@@ -874,41 +874,41 @@ internal fun Onboarding(st: StoreState, vm: StoreViewModel) {
     Column(Modifier.fillMaxSize().background(cBg).statusBarsPadding().navigationBarsPadding().padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 22.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("دفتر", fontFamily = Amiri, fontWeight = FontWeight.Bold, fontSize = 24.sp, color = cDebt)
-            Text("تخطّي", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.tap { vm.skipOnb() })
+            Text("تخطّي", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.tap { vm.skipOnb() })
         }
         if (!isSetup) {
             val card = ONB[minOf(st.onb, 2)]
             Column(Modifier.weight(1f).fillMaxWidth().riseFade(appearProgress(key = st.onb), riseDp = 16.dp, fromScale = 0.98f), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(card.icon, fontSize = 74.sp, modifier = Modifier.padding(bottom = 22.dp))
-                Text(card.eyebrow, fontSize = 13.sp, letterSpacing = 0.5.sp, fontWeight = FontWeight.Bold, color = cDebt, modifier = Modifier.padding(bottom = 8.dp))
+                Text(card.eyebrow, fontSize = fBody, letterSpacing = 0.5.sp, fontWeight = FontWeight.Bold, color = cDebt, modifier = Modifier.padding(bottom = 8.dp))
                 Text(card.title, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 14.dp))
-                Text(card.body, fontSize = 15.sp, color = cDim, lineHeight = 26.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 280.dp))
+                Text(card.body, fontSize = fTitle, color = cDim, lineHeight = 26.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 280.dp))
             }
         } else {
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Text("🧺", fontSize = 52.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp))
                 Text("جهّزي محلّك", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
-                Text("أضيفي البضاعة الموجودة عندك الآن — تدخل الرف تحت «قبل التطبيق». ما لا تعرفين مصدره يبقى «غير محدد» تحلّينه لاحقاً.", fontSize = 13.5.sp, color = cDim, lineHeight = 21.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().widthIn(max = 290.dp).padding(bottom = 16.dp))
-                Text("اضغطي على الأصناف التي عندك:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 8.dp))
+                Text("أضيفي البضاعة الموجودة عندك الآن — تدخل الرف تحت «قبل التطبيق». ما لا تعرفين مصدره يبقى «غير محدد» تحلّينه لاحقاً.", fontSize = fBody, color = cDim, lineHeight = 21.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().widthIn(max = 290.dp).padding(bottom = 16.dp))
+                Text("اضغطي على الأصناف التي عندك:", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 16.dp)) {
                     SETUP_CHIPS.forEach { c ->
                         val on = st.setupList.any { it.name == c.name }
                         Row(
-                            Modifier.clip(RoundedCornerShape(11.dp)).background(if (on) cAccent else cCard).border(1.5.dp, if (on) cAccent else cLine, RoundedCornerShape(11.dp)).tap { vm.setupAdd(c.name, c.price) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                            Modifier.clip(RoundedCornerShape(rSm)).background(if (on) cAccent else cCard).border(1.5.dp, if (on) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.setupAdd(c.name, c.price) }.padding(horizontal = 13.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
                         ) {
-                            Text(c.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (on) cAink else cInk)
-                            Text(fmt(c.price), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (on) cAink else cInk)
+                            Text(c.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (on) cAink else cInk)
+                            Text(fmt(c.price), fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = if (on) cAink else cInk)
                         }
                     }
                 }
                 if (st.setupList.isNotEmpty()) {
-                    Column(Modifier.fillMaxWidth().card(13.dp).padding(horizontal = 14.dp, vertical = 6.dp)) {
-                        Text("على الرف الآن (${st.setupList.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                    Column(Modifier.fillMaxWidth().card(rMd).padding(horizontal = 14.dp, vertical = 6.dp)) {
+                        Text("على الرف الآن (${st.setupList.size})", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
                         st.setupList.forEach { sPick ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 9.dp).drawTopLine(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Text(sPick.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = cInk)
-                                Text("${fmt(sPick.price)} · ×${sPick.qty}", fontSize = 13.sp, color = cDim)
+                                Text(sPick.name, fontSize = fBodyL, fontWeight = FontWeight.SemiBold, color = cInk)
+                                Text("${fmt(sPick.price)} · ×${sPick.qty}", fontSize = fBody, color = cDim)
                             }
                         }
                     }
@@ -922,12 +922,12 @@ internal fun Onboarding(st: StoreState, vm: StoreViewModel) {
                 (0..3).forEach { i -> Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(if (i == active) cDebt else cLine)) }
             }
             if (isSetup) {
-                PrimaryButton("دخول المحل ✓", fontSize = 16.sp, radius = 14.dp) { vm.enterApp() }
+                PrimaryButton("دخول المحل ✓", fontSize = fHead, radius = rLg) { vm.enterApp() }
             } else {
-                PrimaryButton(if (st.onb < 2) "التالي ‹" else "جهّزي محلّك ‹", fontSize = 16.sp, radius = 14.dp) { vm.onbNext() }
+                PrimaryButton(if (st.onb < 2) "التالي ‹" else "جهّزي محلّك ‹", fontSize = fHead, radius = rLg) { vm.onbNext() }
             }
             Box(Modifier.fillMaxWidth().padding(top = 12.dp).tap { vm.loadSample() }, contentAlignment = Alignment.Center) {
-                Text("أو املئي ببيانات تجريبية ⟲", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = cDebt)
+                Text("أو املئي ببيانات تجريبية ⟲", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDebt)
             }
         }
     }

@@ -565,6 +565,22 @@ internal fun ColumnScope.EntryDetailBody(st: StoreState, vm: StoreViewModel, e: 
             // D71: a voided قيد is kept — offer to bring it back, nothing is destroyed.
             PrimaryButton("استرجاع القيد ↻", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.restoreEntry(e.id) }
             Text("هذا القيد ملغى ولا يُحسب. «استرجاع» يعيده كما كان.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        } else if (e.trialAmount > 0) {
+            // F2: an أمانة ends one of two ways — she kept it (→ بيع بالدَّين) or returned it
+            // (→ للمحل). Show exactly those, mirroring the زبونة card; no generic تعديل/حذف, whose
+            // meaning was ambiguous for a trial and read as a duplicate delete.
+            Text("أمانة — كيف انتهت؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Box(
+                    Modifier.weight(1f).clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAmber, RoundedCornerShape(rMd)).tap { vm.convertTrialEntry(e.id) }.padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text("أبقتها — بيع", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cAmber) }
+                Box(
+                    Modifier.weight(1f).clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rMd)).tap { vm.voidEntry(e.id) }.padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text("أعادتها — للمحل", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cAccent) }
+            }
+            Text("«أبقتها» تحوّلها إلى بيع بالدَّين، و«أعادتها» تعيد القطع إلى المحل — وكلاهما قابل للاسترجاع.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
         } else {
             // supplier payments (D68) are void-and-redo, not editable — hide تعديل for them
             val editable = e.moneyOut == 0L && (soldLines.isNotEmpty() || e.t.startsWith("دفعة") || e.t.startsWith("إرجاع"))

@@ -627,7 +627,7 @@ class StoreViewModel @Inject constructor(
             stockDelta = e.stockDelta, // goods stay out; a future void restores them
             lines = e.lines,
         )
-        s.copy(entries = listOf(conversion) + s.entries.filterNot { it.id == id }, viewedDay = s.today)
+        s.copy(entries = listOf(conversion) + s.entries.filterNot { it.id == id }, viewedDay = s.today, detailEntryId = null)
     }
     fun payThisCustomer(id: String) = set {
         it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = id, detailCustomerId = null)

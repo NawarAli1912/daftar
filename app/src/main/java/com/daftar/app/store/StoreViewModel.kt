@@ -202,6 +202,14 @@ class StoreViewModel @Inject constructor(
     fun setTab(tab: String) = set { it.copy(tab = tab, screen = "home", editingId = null) }
     // Page the day book back/forward; never past today.
     fun dayStep(d: Int) = set { it.copy(viewedDay = minOf(it.today, it.viewedDay + d)) }
+
+    // Re-derive the real day on lifecycle resume — the day book must roll past midnight
+    // without a relaunch (entries already stamp the real day; the view was the stale part).
+    fun refreshToday() = set {
+        val now = today()
+        if (now == it.today) it
+        else it.copy(viewedDay = rollViewedDay(it.today, it.viewedDay, now), today = now)
+    }
     fun setSeg(seg: String) = set { it.copy(accountSeg = seg) }
     fun setFilter(f: String) = set { it.copy(shelfFilter = f) }
 

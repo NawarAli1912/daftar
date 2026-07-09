@@ -115,6 +115,12 @@ fun dayLabel(day: Long, today: Long): String = when (day) {
     }
 }
 
+// Rolling the day book forward when the app resumes after midnight (left open overnight).
+// The viewed page follows only if it sat on the old today — a deliberately flipped-back
+// past page stays put.
+fun rollViewedDay(today: Long, viewedDay: Long, newToday: Long): Long =
+    if (viewedDay == today) newToday else viewedDay
+
 // A named debtor. Balance = openingDebt + Σ(debtDelta of her entries). Positive = she owes.
 // dueEpochDay = when to chase her (FR-1.6: defaults to the 1st of next month; snooze shifts it;
 // cleared once she's paid off).

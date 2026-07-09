@@ -22,6 +22,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,13 +47,23 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.daftar.app.kernel.theme.Amiri
 import com.daftar.app.kernel.theme.Plex
 
 @Composable
 fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     val st by vm.state.collectAsState()
+    // The day book must roll past midnight without a relaunch — she leaves the app open.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val obs = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) vm.refreshToday() }
+        lifecycle.addObserver(obs)
+        onDispose { lifecycle.removeObserver(obs) }
+    }
     // Back closes an open sheet/overlay first, then falls back to اليوم; only اليوم exits.
     val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
         st.custAddOpen || st.detailEntryId != null || st.detailCustomerId != null ||

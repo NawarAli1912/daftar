@@ -276,4 +276,10 @@ class StoreModelTest {
         assertEquals(15_000, view.debt)
         assertEquals(Kind.MARKET, view.kind)
     }
+
+    @Test
+    fun `day book rolls to the new today on resume only when it was viewing the old today`() {
+        assertEquals(101L, rollViewedDay(today = 100, viewedDay = 100, newToday = 101)) // on today → follows
+        assertEquals(98L, rollViewedDay(today = 100, viewedDay = 98, newToday = 101)) // flipped back → stays
+    }
 }

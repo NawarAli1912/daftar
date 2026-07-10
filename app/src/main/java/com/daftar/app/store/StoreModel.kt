@@ -188,6 +188,45 @@ fun customerTrial(c: Customer, entries: List<DayEntry>): Long =
 fun trialRequiresCustomer(pay: String, customerId: String?): Boolean =
     pay == "trial" && customerId == null
 
+// A personal/gift withdrawal (D73) removes pieces from the shop *and* from stock without being a
+// sale — so it decrements `shelved` (and `counted` when tracked), never `sold`, keeping revenue
+// (sold × tasira) and the "still in bale" count untouched. restore=true reverses it (void/undo).
+fun applyWithdraw(shelf: List<Shelf>, stockDelta: String, restore: Boolean): List<Shelf> {
+    val deltas = decodeStock(stockDelta)
+    val f = if (restore) 1 else -1
+    return shelf.map { x ->
+        deltas.find { it.first == x.id }?.let { d ->
+            x.copy(
+                shelved = maxOf(0, x.shelved + f * d.second),
+                counted = x.counted?.let { c -> maxOf(0, c + f * d.second) },
+            )
+        } ?: x
+    }
+}
+
+// الحساب bucket (D73): what left the shop for herself or as gifts — pieces, and their value at
+// asking price (تقريباً). Voided withdrawals don't count; withdrawals never touch sales/profit.
+fun withdrawnPieces(entries: List<DayEntry>): Int =
+    entries.filter { it.cls == "withdraw" && !it.voided }
+        .sumOf { decodeStock(it.stockDelta).sumOf { d -> d.second } }
+
+fun withdrawnValue(entries: List<DayEntry>): Long =
+    entries.filter { it.cls == "withdraw" && !it.voided }
+        .sumOf { decodeLines(it.lines).sumOf { l -> l.price * l.qty } }
+
+// A withdrawal can never take more than the shop holds (D73): cap lines at في المحل, summing
+// across lines of the same item, so the recorded delta equals what actually left — and a later
+// حذف restores exactly that (no phantom stock). Lines capped to nothing are dropped.
+fun capWithdrawLines(shelf: List<Shelf>, lines: List<SaleLine>): List<SaleLine> {
+    val remaining = HashMap<String, Int>()
+    shelf.forEach { remaining[it.id] = maxOf(0, it.onHand) }
+    return lines.mapNotNull { l ->
+        val r = remaining[l.shelfId] ?: 0
+        val q = minOf(l.qty, r)
+        if (q <= 0) null else { remaining[l.shelfId] = r - q; l.copy(qty = q) }
+    }
+}
+
 // Who owes the shop right now, largest first — the المواعيد list and the daily digest.
 data class Debtor(val customer: Customer, val balance: Long)
 

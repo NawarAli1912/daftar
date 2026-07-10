@@ -561,18 +561,21 @@ class StoreViewModel @Inject constructor(
     fun voidEntry(id: String) = set { s ->
         val e = s.entries.find { it.id == id } ?: return@set s
         if (e.voided) return@set s
+        // withdrawals move `shelved` (not `sold`) — reverse via applyWithdraw so pieces come back
+        val shelf = if (e.cls == "withdraw") applyWithdraw(s.shelf, e.stockDelta, restore = true) else applyStock(s.shelf, e.stockDelta, -1)
         s.copy(
             entries = s.entries.map { if (it.id == id) it.copy(voided = true) else it },
-            shelf = applyStock(s.shelf, e.stockDelta, -1), // items back on the shelf
+            shelf = shelf, // items back on the shelf / in the shop
             detailEntryId = null, undo = null,
         )
     }
     fun restoreEntry(id: String) = set { s ->
         val e = s.entries.find { it.id == id } ?: return@set s
         if (!e.voided) return@set s
+        val shelf = if (e.cls == "withdraw") applyWithdraw(s.shelf, e.stockDelta, restore = false) else applyStock(s.shelf, e.stockDelta, 1)
         s.copy(
             entries = s.entries.map { if (it.id == id) it.copy(voided = false) else it },
-            shelf = applyStock(s.shelf, e.stockDelta, 1), // re-apply its stock effect
+            shelf = shelf, // re-apply its stock effect
             detailEntryId = null,
         )
     }
@@ -583,6 +586,7 @@ class StoreViewModel @Inject constructor(
     fun editEntry(id: String) = set {
         val e = it.entries.find { x -> x.id == id } ?: return@set it
         if (e.moneyOut > 0) return@set it // supplier payments are void-and-redo, not editable
+        if (e.cls == "withdraw") return@set it // withdrawals are void-and-redo, not editable (F6)
         val deltas = decodeStock(e.stockDelta)
         val base = it.copy(editingId = id, detailEntryId = null, undo = null, addNewOpen = false)
         when {
@@ -726,10 +730,53 @@ class StoreViewModel @Inject constructor(
     }
     fun undoSale() = set {
         val u = it.undo ?: return@set it
-        it.copy(
-            entries = it.entries.filterNot { e -> e.id == u.id },
-            shelf = it.shelf.map { x -> u.before.find { b -> b.first == x.id }?.let { b -> x.copy(sold = b.second) } ?: x },
-            undo = null,
+        val e = it.entries.find { x -> x.id == u.id }
+        val shelf = if (e != null && e.cls == "withdraw") {
+            applyWithdraw(it.shelf, e.stockDelta, restore = true) // withdrawals move `shelved`, not `sold`
+        } else {
+            it.shelf.map { x -> u.before.find { b -> b.first == x.id }?.let { b -> x.copy(sold = b.second) } ?: x }
+        }
+        it.copy(entries = it.entries.filterNot { x -> x.id == u.id }, shelf = shelf, undo = null)
+    }
+
+    // ── F6/D73: أخذت لنفسي / هدية — goods leave the محل with zero money, their own bucket ──
+    fun openWithdraw() = set { it.copy(screen = "withdraw", lines = emptyList(), addNewOpen = false, saleCustomerId = null, editingId = null) }
+    // withdraw stepper never exceeds في المحل, counting other lines of the same item (F6 fix)
+    fun withdrawQtyStep(i: Int, d: Int) = set {
+        val l = it.lines.getOrNull(i) ?: return@set it
+        val others = it.lines.filterIndexed { j, x -> j != i && x.shelfId == l.shelfId }.sumOf { x -> x.qty }
+        val cap = maxOf(1, (it.shelf.find { x -> x.id == l.shelfId }?.onHand ?: 1) - others)
+        it.copy(lines = it.lines.mapIndexed { j, x -> if (j == i) x.copy(qty = (x.qty + d).coerceIn(1, cap)) else x })
+    }
+    fun saveWithdrawal() {
+        // cap at what the shop holds (D73) — the invariant that keeps حذف an exact round-trip
+        val lines = capWithdrawLines(s.shelf, s.lines)
+        if (lines.isEmpty()) return
+        val names = lines.joinToString(" + ") { it.name }
+        val pieces = lines.sumOf { it.qty }
+        val outMap = HashMap<String, Int>()
+        lines.forEach { l -> outMap[l.shelfId] = (outMap[l.shelfId] ?: 0) + l.qty }
+        val entry = DayEntry(
+            id = "e" + System.currentTimeMillis(),
+            t = "أخذت لنفسي / هدية" + (if (names.isNotEmpty()) " — $names" else ""),
+            d = "الآن · خرجت من المحل بلا مبلغ",
+            amt = "$pieces قطعة",
+            cls = "withdraw",
+            day = today(),
+            // no money at all: not a sale, not debt, not a trial (D73)
+            saleAmount = 0, cashAmount = 0, debtDelta = 0, trialAmount = 0,
+            stockDelta = encodeStock(outMap),
+            lines = encodeLines(lines),
         )
+        val u = Undo(entry.id, s.shelf.map { it.id to it.sold })
+        set {
+            it.copy(
+                screen = "home", lines = emptyList(), entries = listOf(entry) + it.entries,
+                viewedDay = it.today,
+                shelf = applyWithdraw(it.shelf, entry.stockDelta, restore = false), // pieces leave the shop
+                undo = u, editingId = null,
+            )
+        }
+        armUndo(u)
     }
 }

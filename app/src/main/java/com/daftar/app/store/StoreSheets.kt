@@ -62,6 +62,7 @@ internal fun StoreSheets(st: StoreState, vm: StoreViewModel) {
     OverlaySlot(st.screen.takeIf { it == "pay" }) { PaySheet(st, vm) }
     OverlaySlot(st.screen.takeIf { it == "sale" }) { SaleSheet(st, vm) }
     OverlaySlot(st.screen.takeIf { it == "return" }) { ReturnSheet(st, vm) }
+    OverlaySlot(st.screen.takeIf { it == "withdraw" }) { WithdrawSheet(st, vm) }
     OverlaySlot(st.screen.takeIf { it == "additem" }) { AddItemSheet(st, vm) }
     // إدارة بالة / shop are shared-element morphs (open from a source card) — PackageDetailShared
     // and ShopDetailShared in StoreApp.
@@ -469,6 +470,8 @@ private fun Chooser(vm: StoreViewModel) {
         ChooserOption("💵", "دفعة", "مبلغ على الرصيد") { vm.openPay() }
         Spacer(Modifier.height(10.dp))
         ChooserOption("↩️", "إرجاع", "قيمة تُعاد للرصيد") { vm.openReturn() }
+        Spacer(Modifier.height(10.dp))
+        ChooserOption("🎁", "أخذت لنفسي / هدية", "قطع تخرج من المحل بلا مبلغ") { vm.openWithdraw() }
     }
 }
 
@@ -515,7 +518,7 @@ private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
 // collapse animation. Kept as a ColumnScope body so the shared-bounds card supplies the Column.
 @Composable
 internal fun ColumnScope.EntryDetailBody(st: StoreState, vm: StoreViewModel, e: DayEntry) {
-    val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
+    val amtColor = when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; "withdraw" -> cDim; else -> cInk }
     run {
         Text("القيد", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
         Column(Modifier.fillMaxWidth().card(rMd).padding(horizontal = 14.dp, vertical = 12.dp)) {
@@ -581,6 +584,14 @@ internal fun ColumnScope.EntryDetailBody(st: StoreState, vm: StoreViewModel, e: 
                 ) { Text("أعادتها — للمحل", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cAccent) }
             }
             Text("«أبقتها» تحوّلها إلى بيع بالدَّين، و«أعادتها» تعيد القطع إلى المحل — وكلاهما قابل للاسترجاع.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        } else if (e.cls == "withdraw") {
+            // F6: a withdrawal is void-and-redo (there's no money to edit); «حذف» puts the pieces
+            // back in the shop and is reversible.
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cDebt, RoundedCornerShape(rMd)).tap { vm.voidEntry(e.id) }.padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("حذف — تُعاد للمحل ↺", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cDebt) }
+            Text("سحب للاستعمال الشخصي أو هدية. «حذف» يشطبه ويعيد القطع إلى المحل، ويمكن استرجاعه لاحقاً.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
         } else {
             // supplier payments (D68) are void-and-redo, not editable — hide تعديل for them
             val editable = e.moneyOut == 0L && (soldLines.isNotEmpty() || e.t.startsWith("دفعة") || e.t.startsWith("إرجاع"))
@@ -868,6 +879,56 @@ private fun SaleLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
             StepBtn("−", 23.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.qtyStep(i, -1) }
             Text("×${l.qty}", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 20.dp))
             StepBtn("+", 23.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.qtyStep(i, 1) }
+        }
+    }
+}
+
+// F6/D73 — أخذت لنفسي / هدية: reuses the shelf-chip picker, but no price and no pay modes;
+// pieces leave the محل for zero money and land in their own الحساب bucket.
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WithdrawSheet(st: StoreState, vm: StoreViewModel) {
+    PopupEditor("أخذت لنفسي / هدية", onClose = vm::closeSheet, footerLabel = "حفظ ✓", onSave = vm::saveWithdrawal) {
+        run {
+            Text("قطع تخرج من المحل بلا مبلغ — لا تُحسب بيعاً ولا ربحاً.", fontSize = fSmall, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(start = 2.dp, bottom = 11.dp))
+            Text("اضغطي الصنف لإضافته", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 9.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                st.shelf.filter { it.onHand > 0 }.sortedByDescending { it.onHand }.forEach { g ->
+                    Column(
+                        Modifier.widthIn(min = 64.dp).clip(RoundedCornerShape(rSm)).background(cCard).border(1.5.dp, cLine, RoundedCornerShape(rSm)).tap { vm.addLine(g.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(g.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
+                        Text("في المحل ${g.onHand}", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 1.dp))
+                    }
+                }
+            }
+            if (st.lines.isNotEmpty()) {
+                Column(Modifier.fillMaxWidth().padding(top = 15.dp).card().padding(horizontal = 14.dp, vertical = 6.dp)) {
+                    st.lines.forEachIndexed { i, l -> WithdrawLineRow(i, l, vm) }
+                    Spacer(Modifier.height(10.dp))
+                    HorizontalDivider(color = cLine, thickness = 1.dp)
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                        Text("قيمة تقريبية", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDim)
+                        Text("~ ${fmt(st.lines.sumOf { it.price * it.qty })}", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cAmber)
+                    }
+                    Text("بأسعار العرض — للمتابعة فقط، لا تدخل في المال أو الربح.", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun WithdrawLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 11.dp).drawBottomLine(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(l.name, fontSize = fTitle, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Text("الكمية", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
+            StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.withdrawQtyStep(i, -1) }
+            Text("×${l.qty}", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 24.dp))
+            StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.withdrawQtyStep(i, 1) }
         }
     }
 }

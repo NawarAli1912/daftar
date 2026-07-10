@@ -483,4 +483,53 @@ class StoreModelTest {
         assertEquals(false, trialRequiresCustomer("full", null)) // a cash sale needs no customer
         assertEquals(false, trialRequiresCustomer("partial", null)) // debt sale needs no customer
     }
+
+    @Test
+    fun `withdrawal takes pieces out of the shop without counting as revenue`() {
+        val one = listOf(Shelf("a", "فستان", 10_000, shelved = 5, sold = 1, counted = 8, sourceId = "s"))
+        val revBefore = revenueBySource(one)["s"] // 1 × 10,000
+        val delta = encodeStock(mapOf("a" to 2))
+        val after = applyWithdraw(one, delta, restore = false).first()
+        assertEquals(3, after.shelved) // 5 − 2 (left the shop)
+        assertEquals(6, after.counted) // 8 − 2 (gone from stock)
+        assertEquals(2, after.onHand) // 3 − 1 (في المحل dropped)
+        assertEquals(revBefore, revenueBySource(applyWithdraw(one, delta, restore = false))["s"]) // sold untouched
+        val back = applyWithdraw(applyWithdraw(one, delta, restore = false), delta, restore = true).first()
+        assertEquals(5, back.shelved) // void/undo restores exactly
+        assertEquals(8, back.counted)
+    }
+
+    @Test
+    fun `withdrawn pieces and value sum non-voided withdrawals only`() {
+        fun w(id: String, voided: Boolean) = DayEntry(
+            id = id, t = "أخذت لنفسي", d = "", amt = "", cls = "withdraw",
+            stockDelta = encodeStock(mapOf("a" to 2)),
+            lines = encodeLines(listOf(SaleLine("a", "فستان", 10_000, 10_000, 2))),
+            voided = voided,
+        )
+        val entries = listOf(w("w1", false), w("w2", true), DayEntry("s1", "بيع", "", "", "ink", saleAmount = 9_000, cashAmount = 9_000, day = 5))
+        assertEquals(2, withdrawnPieces(entries)) // only w1 (w2 voided; the sale isn't a withdrawal)
+        assertEquals(20_000L, withdrawnValue(entries)) // 2 × 10,000
+        assertEquals(0L, salesForDay(entries, 0)) // day 0 holds only withdrawals — never inflates sales
+        assertEquals(0L, cashForDay(entries, 0)) // nor the cash taken
+        assertEquals(9_000L, salesForDay(entries, 5)) // the real sale on day 5 is unaffected
+    }
+
+    @Test
+    fun `withdrawal is capped at what the shop holds so void restores exactly`() {
+        val one = listOf(Shelf("a", "فستان", 10_000, shelved = 5, sold = 1, counted = 8, sourceId = "s"))
+        // she tries to take 8 across two lines of the same item — في المحل only holds 4
+        val asked = listOf(SaleLine("a", "فستان", 10_000, 10_000, 6), SaleLine("a", "فستان", 10_000, 10_000, 2))
+        val capped = capWithdrawLines(one, asked)
+        assertEquals(4, capped.sumOf { it.qty }) // onHand = shelved − sold = 4, summed across lines
+        val outMap = HashMap<String, Int>()
+        capped.forEach { l -> outMap[l.shelfId] = (outMap[l.shelfId] ?: 0) + l.qty }
+        val delta = encodeStock(outMap)
+        val after = applyWithdraw(one, delta, restore = false).first()
+        assertEquals(1, after.shelved) // 5 − 4 — never below what physically left
+        val back = applyWithdraw(applyWithdraw(one, delta, restore = false), delta, restore = true).first()
+        assertEquals(5, back.shelved) // حذف round-trips exactly — no phantom stock
+        assertEquals(8, back.counted)
+        assertEquals(emptyList<SaleLine>(), capWithdrawLines(one, listOf(SaleLine("zz", "غريب", 1, 1, 1)))) // unknown item is dropped
+    }
 }

@@ -485,7 +485,7 @@ private fun EntryRow(e: DayEntry) {
     // for nothing. Tapping it opens the detail where it can be restored.
     val strike = if (e.voided) TextDecoration.LineThrough else null
     val titleColor = if (e.voided) cDim else cInk
-    val amtColor = if (e.voided) cDim else when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; else -> cInk }
+    val amtColor = if (e.voided) cDim else when (e.cls) { "pos" -> cPaid; "amber" -> cAmber; "neg" -> cDebt; "withdraw" -> cDim; else -> cInk }
     Row(
         Modifier.fillMaxWidth()
             .drawBehind { // the oxblood margin rule — now per-row so it rides the swipe content
@@ -982,6 +982,22 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
             "«تقديري» مبنيّ على هامش أصناف مشابهة — لا يُضاف للربح المؤكَّد ولا يُحسب في المال المقبوض.",
             fontSize = fCaption, color = cDim, lineHeight = 16.sp, modifier = Modifier.padding(top = 9.dp),
         )
+    }
+    // F6/D73 — what left the shop for herself or as gifts: pieces + approx value, its own bucket,
+    // never mixed into sales or profit above. Shown only once she's recorded a withdrawal.
+    val wPieces = withdrawnPieces(st.entries)
+    if (wPieces > 0) {
+        val wValue = withdrawnValue(st.entries)
+        Spacer(Modifier.height(10.dp))
+        Column(Modifier.fillMaxWidth().card().padding(15.dp)) {
+            Text("أخذت لنفسي / هدية", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(bottom = 12.dp))
+            SummaryRow("قطع خرجت من المحل", "$wPieces قطعة", cInk, cInk, line = true)
+            SummaryRow("قيمتها التقريبية", "~ ${fmt(wValue)}", cAmber, cAmber, line = false)
+            Text(
+                "بأسعار العرض — للمتابعة فقط، لا تُحسب في المبيعات ولا الربح.",
+                fontSize = fCaption, color = cDim, lineHeight = 16.sp, modifier = Modifier.padding(top = 9.dp),
+            )
+        }
     }
     // backup — so the ledger is never lost
     SectionLabel("النسخة الاحتياطية")

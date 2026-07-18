@@ -34,6 +34,10 @@ data class StoreState(
     val today: Long = 0,      // epoch-day, refreshed each launch/foreground
     val viewedDay: Long = 0,  // which day the اليوم page is showing (default = today)
     val usdRate: Long = 1500, // editable USD→local rate used for bale cost/profit
+    // maintainer setup (set once via the hidden أدوات نوّار sheet; persisted in meta):
+    val uiScale: Float = 1f,        // overall text + component size (1.0 / 1.1 / 1.2)
+    val moneyStep: Long = 500,      // how much each money − / + button moves (500 / 1000 / 5000)
+    val suggestPrice: Long = 5_000, // default suggested price for a new item
     // sale
     val lines: List<SaleLine> = emptyList(),
     val pay: String = "full",           // full | partial | trial
@@ -138,11 +142,12 @@ class StoreViewModel @Inject constructor(
                         seeded = snap.seeded, usdRate = snap.usdRate, sources = snap.sources, shelf = snap.shelf,
                         entries = snap.entries, customers = normalizeDues(snap.customers, snap.entries, it.today),
                         expenses = snap.expenses,
+                        uiScale = snap.uiScale, moneyStep = snap.moneyStep, suggestPrice = snap.suggestPrice,
                     )
                 }
             }
             state.map {
-                StoreSnapshot(it.seeded, it.usdRate, it.sources, it.shelf, it.entries, it.customers, it.expenses)
+                StoreSnapshot(it.seeded, it.usdRate, it.sources, it.shelf, it.entries, it.customers, it.expenses, it.uiScale, it.moneyStep, it.suggestPrice)
             }.distinctUntilChanged().drop(1).collect { repo.save(it) }
         }
     }
@@ -210,6 +215,11 @@ class StoreViewModel @Inject constructor(
     // The editable "today's rate" — one number that recomputes all bale profit.
     fun setUsdRate(v: Long) = set { it.copy(usdRate = maxOf(0, v)) }
 
+    // maintainer setup (أدوات نوّار): overall size, money-stepper increment, default suggested price
+    fun setUiScale(v: Float) = set { it.copy(uiScale = v.coerceIn(1f, 1.25f)) }
+    fun setMoneyStep(v: Long) = set { it.copy(moneyStep = v.coerceIn(100, 100_000)) }
+    fun setSuggestPrice(v: Long) = set { it.copy(suggestPrice = maxOf(0, v)) }
+
     // Typed money entry (owner 2026-07-18): every money amount can be typed directly, not only
     // nudged ±500 — the steppers remain for small adjustments.
     fun setPayAmount(v: Long) = set { it.copy(payAmount = maxOf(0, v)) }
@@ -247,7 +257,7 @@ class StoreViewModel @Inject constructor(
 
     // ── shelf edits ──
     fun tasiraStep(id: String, d: Int) = set {
-        it.copy(shelf = it.shelf.map { x -> if (x.id == id) x.copy(tasira = maxOf(0, x.tasira + d * 500)) else x })
+        it.copy(shelf = it.shelf.map { x -> if (x.id == id) x.copy(tasira = maxOf(0, x.tasira + d * s.moneyStep)) else x })
     }
     fun onhandStep(id: String, d: Int) = set {
         it.copy(shelf = it.shelf.map { x -> if (x.id == id) x.copy(shelved = maxOf(0, x.shelved + d)) else x })
@@ -308,19 +318,19 @@ class StoreViewModel @Inject constructor(
     // V3: new items default to the merged «بضاعة قديمة» bucket (PRE_ID) — she points it to a bale
     // later if she remembers. شراء من السوق is hidden this release, so market is no longer offered.
     fun openAddItem() = set {
-        it.copy(screen = "additem", aiName = "", aiTasira = 5_000, aiCount = 1, aiSource = PRE_ID, aiBuy = 3_000)
+        it.copy(screen = "additem", aiName = "", aiTasira = it.suggestPrice, aiCount = 1, aiSource = PRE_ID, aiBuy = 3_000)
     }
     // A shop's "+ صنف": the item arrives pre-attributed to that محل.
     fun openAddItemFor(sourceId: String) = set {
-        it.copy(screen = "additem", aiName = "", aiTasira = 5_000, aiCount = 1, aiSource = sourceId, aiBuy = 3_000)
+        it.copy(screen = "additem", aiName = "", aiTasira = it.suggestPrice, aiCount = 1, aiSource = sourceId, aiBuy = 3_000)
     }
     fun closeAddItem() = set { it.copy(screen = "home") }
     fun setAiName(v: String) = set { it.copy(aiName = v) }
-    fun aiTasiraStep(d: Int) = set { it.copy(aiTasira = maxOf(0, it.aiTasira + d * 500)) }
+    fun aiTasiraStep(d: Int) = set { it.copy(aiTasira = maxOf(0, it.aiTasira + d * s.moneyStep)) }
     fun aiCountStep(d: Int) = set { it.copy(aiCount = maxOf(1, it.aiCount + d)) }
     // Typeable bale piece count (ITEM 2) — same as the stepper's floor of 1.
     fun setAiCount(v: Long) = set { it.copy(aiCount = maxOf(1L, v).toInt()) }
-    fun aiBuyStep(d: Int) = set { it.copy(aiBuy = maxOf(0, it.aiBuy + d * 500)) }
+    fun aiBuyStep(d: Int) = set { it.copy(aiBuy = maxOf(0, it.aiBuy + d * s.moneyStep)) }
     fun aiPickSource(sid: String) = set { it.copy(aiSource = sid) }
     fun saveAiItem() = set {
         val nm = it.aiName.trim().ifEmpty { "صنف" }
@@ -347,7 +357,7 @@ class StoreViewModel @Inject constructor(
         it.copy(shelf = it.shelf.map { x -> if (x.id == id) x.copy(shelved = x.cnt) else x })
     }
     fun togglePkgAdd() = set {
-        it.copy(pkgAddOpen = !it.pkgAddOpen, aiName = "", aiTasira = 5_000, aiCount = 5)
+        it.copy(pkgAddOpen = !it.pkgAddOpen, aiName = "", aiTasira = it.suggestPrice, aiCount = 5)
     }
     fun savePkgCount() = set {
         val nm = it.aiName.trim().ifEmpty { "صنف" }
@@ -373,7 +383,7 @@ class StoreViewModel @Inject constructor(
     fun toggleCustNew() = set { it.copy(custNewOpen = !it.custNewOpen, custNewName = "", custNewPhone = "", custNewDebt = 0) }
     fun setCustNewName(v: String) = set { it.copy(custNewName = v) }
     fun setCustNewPhone(v: String) = set { it.copy(custNewPhone = v) }
-    fun custNewDebtStep(d: Int) = set { it.copy(custNewDebt = maxOf(0, it.custNewDebt + d * 500)) }
+    fun custNewDebtStep(d: Int) = set { it.copy(custNewDebt = maxOf(0, it.custNewDebt + d * s.moneyStep)) }
     fun addCustomer() = set {
         val nm = it.custNewName.trim().ifEmpty { "زبونة" }
         val c = Customer("c" + System.currentTimeMillis(), nm, it.custNewPhone.trim().ifEmpty { null }, it.custNewDebt)
@@ -403,7 +413,7 @@ class StoreViewModel @Inject constructor(
     // ── محلات السوق: shops inside the one شراء من السوق card (v2 decision 11) ──
     fun toggleShopAdd() = set { it.copy(shopAddOpen = !it.shopAddOpen, shopName = "", shopDebt = 0) }
     fun setShopName(v: String) = set { it.copy(shopName = v) }
-    fun shopDebtStep(d: Int) = set { it.copy(shopDebt = maxOf(0, it.shopDebt + d * 500)) }
+    fun shopDebtStep(d: Int) = set { it.copy(shopDebt = maxOf(0, it.shopDebt + d * s.moneyStep)) }
     fun addShop() = set {
         val nm = it.shopName.trim().ifEmpty { "محل" }
         it.copy(
@@ -422,7 +432,7 @@ class StoreViewModel @Inject constructor(
     }
     // She paid the shop / took more on credit — one number, hers to adjust.
     fun shopOwedStep(id: String, d: Int) = set { s ->
-        s.copy(sources = s.sources.map { if (it.id == id) it.copy(debt = maxOf(0, it.debt + d * 500)) else it })
+        s.copy(sources = s.sources.map { if (it.id == id) it.copy(debt = maxOf(0, it.debt + d * s.moneyStep)) else it })
     }
 
     // ── shop detail (F2) ──
@@ -432,7 +442,7 @@ class StoreViewModel @Inject constructor(
     fun shopPayStep(d: Int) = set { s ->
         val src = s.sources.find { it.id == s.shopId } ?: return@set s
         val cap = maxOf(0, shopDebtNow(src, s.entries)) // she can't pay more than she owes
-        s.copy(shopPayAmount = (s.shopPayAmount + d * 500).coerceIn(0, cap))
+        s.copy(shopPayAmount = (s.shopPayAmount + d * s.moneyStep).coerceIn(0, cap))
     }
     // D68: «دفعتُ للمحل» is a voidable money-out قيد, not a silent edit. cashAmount stays 0
     // so قبضنا اليوم never counts it; the shop's debt derives down via shopDebtNow.
@@ -456,10 +466,10 @@ class StoreViewModel @Inject constructor(
     }
     fun closeEditItem() = set { it.copy(editItemId = null) }
     fun setEiName(v: String) = set { it.copy(eiName = v) }
-    fun eiTasiraStep(d: Int) = set { it.copy(eiTasira = maxOf(0, it.eiTasira + d * 500)) }
+    fun eiTasiraStep(d: Int) = set { it.copy(eiTasira = maxOf(0, it.eiTasira + d * s.moneyStep)) }
     fun eiOnHandStep(d: Int) = set { it.copy(eiOnHand = maxOf(0, it.eiOnHand + d)) }
     fun setEiOnHand(v: Long) = set { it.copy(eiOnHand = maxOf(0, v.toInt())) }
-    fun eiBuyStep(d: Int) = set { it.copy(eiBuy = maxOf(0, it.eiBuy + d * 500)) }
+    fun eiBuyStep(d: Int) = set { it.copy(eiBuy = maxOf(0, it.eiBuy + d * s.moneyStep)) }
     fun eiPickSource(sid: String?) = set { it.copy(eiSource = sid) }
     fun saveEditItem() = set { s ->
         val id = s.editItemId ?: return@set s
@@ -482,7 +492,7 @@ class StoreViewModel @Inject constructor(
     // F3 picker-first: a دفعة opens on «لمن؟» — نقدي is a deliberate choice, never a
     // forgotten default (the silent-no-op trap: recording a payment without the customer).
     fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTrialId = null, saleCustomerId = null, editingId = null, custPickerOpen = true) }
-    fun payAmountStep(d: Int) = set { it.copy(payAmount = maxOf(0, it.payAmount + d * 500)) }
+    fun payAmountStep(d: Int) = set { it.copy(payAmount = maxOf(0, it.payAmount + d * s.moneyStep)) }
     // Select one of HER outstanding تجريب قيود — «قرّرت تُبقيها»: on save it converts to debt
     // (folded into the payment) before the دفعة lands. Pure toggle; سداد كامل fills the amount.
     fun payPickTrial(id: String) = set { it0 ->
@@ -512,7 +522,7 @@ class StoreViewModel @Inject constructor(
         commitPay()
     }
 
-    fun paperDebtStep(d: Int) = set { it.copy(paperDebtAmount = maxOf(0, it.paperDebtAmount + d * 500)) }
+    fun paperDebtStep(d: Int) = set { it.copy(paperDebtAmount = maxOf(0, it.paperDebtAmount + d * s.moneyStep)) }
     fun closePaperDebt() = set { it.copy(paperDebtPrompt = false) }
     // «نعم»: record her old paper debt as opening debt, THEN apply the payment (lands at 0+).
     fun confirmPaperDebt() {
@@ -570,7 +580,7 @@ class StoreViewModel @Inject constructor(
 
     // ── returns (إرجاع) — value credited back to the customer's balance ──
     fun openReturn() = set { it.copy(screen = "return", returnAmount = 5_000, returnItemId = null, saleCustomerId = null, editingId = null) }
-    fun returnAmountStep(d: Int) = set { it.copy(returnAmount = maxOf(0, it.returnAmount + d * 500)) }
+    fun returnAmountStep(d: Int) = set { it.copy(returnAmount = maxOf(0, it.returnAmount + d * s.moneyStep)) }
     fun returnPickItem(id: String) = set {
         val item = it.shelf.find { x -> x.id == id }
         val already = it.returnItemId == id
@@ -718,14 +728,14 @@ class StoreViewModel @Inject constructor(
     // ── sale ──
     fun openChooser() = set { it.copy(screen = "chooser") }
     fun openSale() = set { it.copy(screen = "sale", lines = emptyList(), pay = "full", partialPaid = 0, addNewOpen = false, saleCustomerId = null, editingId = null) }
-    fun partialStep(d: Int) = set { it.copy(partialPaid = maxOf(0, it.partialPaid + d * 500)) }
+    fun partialStep(d: Int) = set { it.copy(partialPaid = maxOf(0, it.partialPaid + d * s.moneyStep)) }
     fun closeSheet() = set { it.copy(screen = "home", addNewOpen = false, editingId = null) }
     fun addLine(id: String) = set {
         val item = it.shelf.find { x -> x.id == id } ?: return@set it
         it.copy(lines = it.lines + SaleLine(id, item.name, item.tasira, item.tasira, 1))
     }
     fun priceStep(i: Int, d: Int) = set {
-        it.copy(lines = it.lines.mapIndexed { j, l -> if (j == i) l.copy(price = maxOf(0, l.price + d * 500)) else l })
+        it.copy(lines = it.lines.mapIndexed { j, l -> if (j == i) l.copy(price = maxOf(0, l.price + d * s.moneyStep)) else l })
     }
     fun qtyStep(i: Int, d: Int) = set {
         it.copy(lines = it.lines.mapIndexed { j, l -> if (j == i) l.copy(qty = maxOf(1, l.qty + d)) else l })
@@ -735,9 +745,9 @@ class StoreViewModel @Inject constructor(
         // seed a sensible starting amount (half) the first time she picks جزءاً
         it.copy(pay = mode, partialPaid = if (mode == "partial" && it.partialPaid == 0L) total / 2 else it.partialPaid)
     }
-    fun toggleAddNew() = set { it.copy(addNewOpen = !it.addNewOpen, newName = "", newPrice = 5_000) }
+    fun toggleAddNew() = set { it.copy(addNewOpen = !it.addNewOpen, newName = "", newPrice = it.suggestPrice) }
     fun setNewName(v: String) = set { it.copy(newName = v) }
-    fun newPriceStep(d: Int) = set { it.copy(newPrice = maxOf(0, it.newPrice + d * 500)) }
+    fun newPriceStep(d: Int) = set { it.copy(newPrice = maxOf(0, it.newPrice + d * s.moneyStep)) }
     fun addNewItem() = set {
         val nm = it.newName.trim().ifEmpty { "صنف جديد" }
         val id = "n" + System.currentTimeMillis()

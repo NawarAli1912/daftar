@@ -19,6 +19,9 @@ data class StoreSnapshot(
     val entries: List<DayEntry>,
     val customers: List<Customer>,
     val expenses: List<BaleExpense> = emptyList(),
+    val uiScale: Float = 1f,
+    val moneyStep: Long = 500,
+    val suggestPrice: Long = 5_000,
 )
 
 class StoreRepository @Inject constructor(private val dao: StoreDao) {
@@ -28,6 +31,9 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
         return StoreSnapshot(
             seeded = meta.seeded,
             usdRate = meta.usdRate,
+            uiScale = meta.uiScale,
+            moneyStep = meta.moneyStep,
+            suggestPrice = meta.suggestPrice,
             sources = dao.sources().map { Source(it.id, Kind.valueOf(it.kind), it.label, it.costUsd, it.debt, it.countTotal, it.ratePurchase) },
             shelf = dao.shelf().map {
                 Shelf(it.id, it.name, it.tasira, it.shelved, it.sold, it.counted, it.sourceId, it.buy)
@@ -46,7 +52,7 @@ class StoreRepository @Inject constructor(private val dao: StoreDao) {
 
     suspend fun save(s: StoreSnapshot) {
         dao.replaceAll(
-            meta = StoreMetaRow(0, s.seeded, s.usdRate),
+            meta = StoreMetaRow(0, s.seeded, s.usdRate, s.uiScale, s.moneyStep, s.suggestPrice),
             sources = s.sources.mapIndexed { i, x -> SourceRow(x.id, x.kind.name, x.label, x.cost, x.debt, x.countTotal, x.ratePurchase, i) },
             shelf = s.shelf.mapIndexed { i, x ->
                 ShelfRow(x.id, x.name, x.tasira, x.shelved, x.sold, x.counted, x.sourceId, x.buy, i)

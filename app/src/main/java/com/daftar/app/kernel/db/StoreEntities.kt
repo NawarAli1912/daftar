@@ -82,4 +82,8 @@ data class StoreMetaRow(
     @PrimaryKey val id: Int = 0,
     val seeded: Boolean,
     val usdRate: Long = 1500,
+    // maintainer setup (v21): UI scale, money stepper increment, default suggested price
+    val uiScale: Float = 1f,
+    val moneyStep: Long = 500,
+    val suggestPrice: Long = 5_000,
 )

@@ -62,3 +62,14 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
         db.execSQL("CREATE TABLE IF NOT EXISTS bale_expenses (id TEXT NOT NULL PRIMARY KEY, sourceId TEXT NOT NULL, label TEXT NOT NULL, amount INTEGER NOT NULL, seq INTEGER NOT NULL)")
     }
 }
+
+// v20 → v21: maintainer setup lives in store_meta now — UI scale, money-stepper increment, and
+// the default suggested price for a new item. All additive with sensible defaults; her ledger
+// is untouched (existing row keeps scale 1.0, step 500, suggested 5000 until the maintainer sets them).
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE store_meta ADD COLUMN uiScale REAL NOT NULL DEFAULT 1.0")
+        db.execSQL("ALTER TABLE store_meta ADD COLUMN moneyStep INTEGER NOT NULL DEFAULT 500")
+        db.execSQL("ALTER TABLE store_meta ADD COLUMN suggestPrice INTEGER NOT NULL DEFAULT 5000")
+    }
+}

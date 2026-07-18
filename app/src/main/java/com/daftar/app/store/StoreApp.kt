@@ -123,9 +123,14 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
         }
     }
     val sheetOrigin = remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    // Maintainer size setting: override the density so BOTH text (sp) and components (dp) scale
+    // together — one «حجم العرض» knob makes the whole app bigger for an elderly user.
+    val baseDensity = androidx.compose.ui.platform.LocalDensity.current
+    val scaledDensity = androidx.compose.ui.unit.Density(baseDensity.density * st.uiScale, baseDensity.fontScale)
     SharedTransitionLayout(Modifier.fillMaxSize()) {
         val sharedScope = this
         CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalDensity provides scaledDensity,
             LocalTextStyle provides TextStyle(fontFamily = Plex, color = cInk),
             LocalSheetOrigin provides sheetOrigin,
             LocalSharedScope provides sharedScope,
@@ -985,6 +990,37 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
 @Composable
 internal fun MaintContent(vm: StoreViewModel) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val st by vm.state.collectAsState()
+
+    // ── maintainer setup: size, step, suggested price (the son sets these once; mom never sees them) ──
+    Text("العرض والأسعار", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
+    Column(Modifier.fillMaxWidth().card(rMd).padding(13.dp)) {
+        Text("حجم الخط والعناصر", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.padding(bottom = 8.dp))
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(3.dp)) {
+            SegBtn("عادي", st.uiScale < 1.06f, Modifier.weight(1f)) { vm.setUiScale(1f) }
+            SegBtn("كبير", st.uiScale in 1.06f..1.18f, Modifier.weight(1f)) { vm.setUiScale(1.12f) }
+            SegBtn("أكبر", st.uiScale > 1.18f, Modifier.weight(1f)) { vm.setUiScale(1.25f) }
+        }
+        Spacer(Modifier.height(13.dp))
+        Text("قيمة زر الزيادة ( + / − )", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.padding(bottom = 8.dp))
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(3.dp)) {
+            SegBtn("500", st.moneyStep == 500L, Modifier.weight(1f)) { vm.setMoneyStep(500) }
+            SegBtn("1,000", st.moneyStep == 1_000L, Modifier.weight(1f)) { vm.setMoneyStep(1_000) }
+            SegBtn("5,000", st.moneyStep == 5_000L, Modifier.weight(1f)) { vm.setMoneyStep(5_000) }
+        }
+        Spacer(Modifier.height(13.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("السعر المقترح للصنف", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.setSuggestPrice(maxOf(0, st.suggestPrice - st.moneyStep)) }
+                MoneyValue(st.suggestPrice, vm::setSuggestPrice, fBodyL, 64.dp)
+                StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.setSuggestPrice(st.suggestPrice + st.moneyStep) }
+            }
+        }
+        Text("مثال: اجعليه 75,000 ليقارب أسعارك المعتادة.", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 8.dp))
+    }
+    Spacer(Modifier.height(14.dp))
+
     // sync bridge (FR-8.3): optional one-way push to the owner-tools API; never blocks the app
     Text("المزامنة (اختياري)", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
     var syncUrl by remember { mutableStateOf(com.daftar.app.sync.SyncWorker.syncUrl(ctx)) }

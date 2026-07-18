@@ -687,4 +687,98 @@ class StoreModelTest {
         assertEquals(0, baleUnallocated(90, 90))       // fully classified
         assertEquals(-15, baleUnallocated(75, 90))     // named more than counted → negative
     }
+
+    // ── V3 ITEM 6: bale status framing never shows a negative — pre-recovery counts capital left ──
+    @Test
+    fun `bale framing shows capital-to-recover before recovery and profit after`() {
+        // pre-recovery, nothing sold yet: remaining = full cost, «لم يبدأ البيع بعد»
+        val fresh = baleFraming(revenue = 0, costLocal = 100_000, sold = 0)!!
+        assertTrue(!fresh.recovered)
+        assertEquals(100_000L, fresh.remainingToRecover)
+        assertNull(fresh.profit)
+        assertEquals("لم يبدأ البيع بعد", fresh.statusLine)
+
+        // pre-recovery, some sold: remaining = cost − revenue (positive), «في مرحلة استرداد رأس المال»
+        val recovering = baleFraming(revenue = 60_000, costLocal = 100_000, sold = 8)!!
+        assertTrue(!recovering.recovered)
+        assertEquals(40_000L, recovering.remainingToRecover) // never a −40,000
+        assertEquals("في مرحلة استرداد رأس المال", recovering.statusLine)
+
+        // post-recovery: green profit, «ربحت هذه البالة ✓»
+        val profitable = baleFraming(revenue = 150_000, costLocal = 100_000, sold = 20)!!
+        assertTrue(profitable.recovered)
+        assertEquals(50_000L, profitable.profit)
+        assertNull(profitable.remainingToRecover)
+        assertEquals("ربحت هذه البالة ✓", profitable.statusLine)
+
+        // no cost basis → null (caller shows «—»)
+        assertNull(baleFraming(revenue = 10_000, costLocal = null, sold = 3))
+    }
+
+    @Test
+    fun `bale framing at exactly cost is recovered with a plus-zero profit`() {
+        val fr = baleFraming(revenue = 100_000, costLocal = 100_000, sold = 12)!!
+        assertTrue(fr.recovered)      // revenue == cost → recovered (green), not «recovering»
+        assertEquals(0L, fr.profit)   // +0, never a loss
+        assertNull(fr.remainingToRecover)
+        assertEquals("ربحت هذه البالة ✓", fr.statusLine)
+    }
+
+    // ── V3 ITEM 6: the per-piece cost includes the bale's expenses ──
+    @Test
+    fun `per-piece cost includes the bale expenses`() {
+        val bale = Source("s_b", Kind.BALE, "بالة", cost = 100, ratePurchase = 1_000) // 100,000 cost
+        val stock = listOf(Shelf("i", "قطعة", tasira = 10_000, shelved = 10, sold = 4, sourceId = "s_b")) // 10 pieces
+        val expenses = listOf(BaleExpense("x", "s_b", "كوي", 50_000)) // +50,000 → inclusive 150,000
+        val sold = listOf(DayEntry("e", "بيع", "", "", "ink", day = 1, lines = "i|قطعة|9000|4"))
+        val without = itemStats(stock[0], listOf(bale), stock, sold, usdRate = 999)
+        assertEquals(10_000L, without.perPieceCost)                  // 100,000 / 10, no expenses passed
+        val withExp = itemStats(stock[0], listOf(bale), stock, sold, usdRate = 999, expenses = expenses)
+        assertEquals(15_000L, withExp.perPieceCost)                 // (100,000 + 50,000) / 10
+        assertEquals(4 * 9_000L - 4 * 15_000L, withExp.profit)      // profit uses the inclusive share
+    }
+
+    // ── V3 ITEM 5: the merged «بضاعة قديمة» bucket folds null, PRE_ID and legacy MARKET items ──
+    @Test
+    fun `old-stock bucket includes null PRE_ID and legacy market items but not bales`() {
+        val sources = listOf(
+            Source(PRE_ID, Kind.PRE_APP, "بضاعة قديمة"),
+            Source(MKT_ID, Kind.MARKET, "شراء من السوق"),
+            Source("s_shop", Kind.MARKET, "محل أم علي"),
+            Source("s_bale", Kind.BALE, "بالة", cost = 400, ratePurchase = 1_000),
+        )
+        val nullItem = Shelf("n", "أ", tasira = 0, shelved = 1, sold = 0, sourceId = null)
+        val preItem = Shelf("p", "ب", tasira = 0, shelved = 1, sold = 0, sourceId = PRE_ID)
+        val mktItem = Shelf("m", "ج", tasira = 0, shelved = 1, sold = 0, sourceId = MKT_ID)
+        val shopItem = Shelf("s", "د", tasira = 0, shelved = 1, sold = 0, sourceId = "s_shop")
+        val baleItem = Shelf("b", "هـ", tasira = 0, shelved = 1, sold = 0, sourceId = "s_bale")
+        val orphan = Shelf("o", "و", tasira = 0, shelved = 1, sold = 0, sourceId = "gone") // deleted source
+        assertTrue(isOldStockNoSource(nullItem, sources))
+        assertTrue(isOldStockNoSource(preItem, sources))
+        assertTrue(isOldStockNoSource(mktItem, sources))
+        assertTrue(isOldStockNoSource(shopItem, sources))
+        assertTrue(isOldStockNoSource(orphan, sources))     // orphaned sourceId folds in too
+        assertTrue(!isOldStockNoSource(baleItem, sources))  // only bales keep their own group
+    }
+
+    // ── V3 ITEM 4: source pickers list ONLY بالات — no MARKET/shop chip is ever offered ──
+    @Test
+    fun `source pickers expose bales only and never a market chip`() {
+        val sources = sampleSources() // PRE_ID + MKT_ID + two bales
+        val pickable = sources.filter { it.kind == Kind.BALE }
+        assertEquals(listOf("s_dr", "s_pc"), pickable.map { it.id })
+        assertTrue(pickable.none { it.kind == Kind.MARKET })
+        assertTrue(pickable.none { it.id == MKT_ID })
+        // the model still carries MARKET data — hidden from the UI, not deleted
+        assertTrue(sources.any { it.kind == Kind.MARKET })
+    }
+
+    // ── V3 ITEM 3: the calendar jump never lands on a future page ──
+    @Test
+    fun `setViewedDay clamps to today`() {
+        val today = 20_000L
+        assertEquals(today, clampViewedDay(today, today + 5)) // a future pick snaps back to today
+        assertEquals(today, clampViewedDay(today, today))     // today itself is allowed
+        assertEquals(19_990L, clampViewedDay(today, 19_990))  // a past day passes through unchanged
+    }
 }

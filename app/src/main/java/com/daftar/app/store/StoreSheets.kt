@@ -419,7 +419,7 @@ internal fun ColumnScope.ItemEditBody(st: StoreState, vm: StoreViewModel) {
         // cost basis exists) its profit. Derived from the ledger; the edit controls follow.
         val item = st.shelf.find { it.id == rememberLast(st.editItemId) }
         if (item != null) {
-            val stats = itemStats(item, st.sources, st.shelf, st.entries, st.usdRate)
+            val stats = itemStats(item, st.sources, st.shelf, st.entries, st.usdRate, st.expenses)
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 13.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     BaleStat("بيعت", "${stats.soldPieces}", cPaid)
@@ -453,20 +453,27 @@ internal fun ColumnScope.ItemEditBody(st: StoreState, vm: StoreViewModel) {
         CardStepperRow("التسعيرة", fmt(st.eiTasira), { vm.eiTasiraStep(-1) }, { vm.eiTasiraStep(1) }, raw = st.eiTasira, onType = vm::setEiTasira)
         Spacer(Modifier.height(8.dp))
         CardStepperRow("في المحل الآن", "${st.eiOnHand}", { vm.eiOnHandStep(-1) }, { vm.eiOnHandStep(1) })
-        Spacer(Modifier.height(8.dp))
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("سعر الشراء للقطعة", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAmber)
-            LabeledStepper("", fmt(st.eiBuy), { vm.eiBuyStep(-1) }, { vm.eiBuyStep(1) }, borderColor = cAmberBorder, btnColor = cAmber, raw = st.eiBuy, onType = vm::setEiBuy)
+        // ITEM 6: a bale-sourced item shows its share of the bale's inclusive cost (USD×frozen
+        // rate + expenses ÷ counted pieces), read-only — «—» when incomputable. The old editable
+        // «سعر الشراء للقطعة» stepper was market-only and is gone with شراء من السوق.
+        if (item != null && st.sources.find { it.id == item.sourceId }?.kind == Kind.BALE) {
+            val perPiece = itemStats(item, st.sources, st.shelf, st.entries, st.usdRate, st.expenses).perPieceCost
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("سعر الشراء للقطعة تقريباً", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp))
+                Text(perPiece?.let { fmt(it) } ?: "—", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
+            }
         }
-        Text("من أين أتى؟ — وجّهيه لمحله أو بالته الصحيحة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 8.dp))
+        // V3 merge: one «بضاعة قديمة» chip (maps to PRE_ID) + بالات only — شراء من السوق hidden.
+        Text("من أين أتى؟ — وجّهيه لبالته الصحيحة إن عرفتِها", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SourcePickChip("لا أعلم", st.eiSource == null, true) { vm.eiPickSource(null) }
-            st.sources.forEach { srcOpt ->
-                val label = if (srcOpt.kind == Kind.MARKET && srcOpt.id != MKT_ID) "🏪 ${srcOpt.label}" else srcOpt.label
-                SourcePickChip(label, st.eiSource == srcOpt.id, false) { vm.eiPickSource(srcOpt.id) }
+            val oldStockSel = st.eiSource == null || st.eiSource == PRE_ID
+            SourcePickChip("بضاعة قديمة", oldStockSel, false) { vm.eiPickSource(PRE_ID) }
+            st.sources.filter { it.kind == Kind.BALE }.forEach { srcOpt ->
+                SourcePickChip(srcOpt.label, st.eiSource == srcOpt.id, false) { vm.eiPickSource(srcOpt.id) }
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -1011,8 +1018,9 @@ private fun PayModeBtn(label: String, active: Boolean, modifier: Modifier, onCli
 private fun SpecifySheet(st: StoreState, vm: StoreViewModel) {
     BottomSheet(onDismiss = vm::closeSpecify) {
         Text("من أي مصدر؟", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp))
-        Text("توجيه القطع لأي مصدر — حتى المنفَذ — يزيد عدّاداته.", fontSize = fSmall, color = cDim, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
-        st.sources.forEach { srcOpt ->
+        Text("وجّهي القطع إلى بالتها لتزيد عدّاداتها، أو اتركيها «بضاعة قديمة».", fontSize = fSmall, color = cDim, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+        // V3 merge: بالات only + one «بضاعة قديمة» bucket (PRE_ID) — شراء من السوق hidden.
+        st.sources.filter { it.kind == Kind.BALE }.forEach { srcOpt ->
             Row(
                 Modifier.fillMaxWidth().padding(bottom = 8.dp).card(rMd).tap { vm.pickSource(srcOpt.id) }.padding(horizontal = 14.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
@@ -1022,11 +1030,11 @@ private fun SpecifySheet(st: StoreState, vm: StoreViewModel) {
             }
         }
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).dashedBorder(cLine, rMd).tap { vm.pickSource("none") }.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth().card(rMd).tap { vm.pickSource(PRE_ID) }.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(cDebt))
-            Text("لا أعلم — لاحقاً", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cDebt)
+            Text("بضاعة قديمة — بلا مصدر", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
+            Text("بلا كلفة", fontSize = fCaption, color = cDim)
         }
     }
 }
@@ -1074,15 +1082,27 @@ internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
                     }
                 }
             }
-            // stats — the bale's ledger at a glance
+            // stats — the bale's ledger at a glance. V3 framing (ITEM 6): never a red loss —
+            // pre-recovery shows «بقي لاسترداد رأس المال» (positive), post shows the profit.
+            val fr = baleFraming(sv.revenue, sv.costLocal, sv.sold)
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 13.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                FlowRow(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     // slice 3: expenses join the cost as «$275 + 50,000» (USD cost + SYP expenses)
                     if (sv.expensesTotal > 0)
                         BaleStat("التكلفة", "${sv.costFmt} + ${fmt(sv.expensesTotal)}", cInk, valueSize = fBodyL)
                     else BaleStat("التكلفة", sv.costFmt, cInk)
                     BaleStat("الإيراد المنسوب", sv.revFmt, cInk)
-                    BaleStat("الربح تقريباً", sv.profitFmt, if (sv.profit == null) cDim else if (sv.profit >= 0) cPaid else cDebt, bold = true)
+                    when {
+                        fr == null -> BaleStat("الربح تقريباً", "—", cDim, bold = true)
+                        fr.recovered -> BaleStat("الربح تقريباً", "+ " + fmt(fr.profit!!), cPaid, bold = true)
+                        else -> BaleStat("بقي لاسترداد رأس المال", fmt(fr.remainingToRecover!!), cAmber, bold = true, valueSize = fBodyL)
+                    }
+                }
+                fr?.let {
+                    Text(it.statusLine, fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = if (it.recovered) cPaid else cAmber, modifier = Modifier.padding(top = 9.dp))
                 }
                 val pct = recoveryPct(sv.revenue, sv.costLocal)
                 if (pct != null) {
@@ -1107,10 +1127,19 @@ internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
                 sv.ratePurchase?.let { rate ->
                     Text("سعر الصرف المُثبّت: ${fmt(rate)}", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(top = 10.dp))
                 }
-                // slice 3: the one USD summary line — SYP profit at the bale's frozen rate, تقريباً
-                baleUsdProfit(sv.profit, sv.ratePurchase ?: st.usdRate)?.let { usd ->
-                    val sign = if (usd >= 0) "+ " else "− "
-                    Text("الربح بالدولار تقريباً: $sign\$${fmt(kotlin.math.abs(usd))}", fontSize = fCaption, fontWeight = FontWeight.Bold, color = if (usd >= 0) cPaid else cDebt, modifier = Modifier.padding(top = 4.dp))
+                // ITEM 6: the USD line mirrors the SYP framing — pre-recovery «بقي تقريباً: $N»
+                // (positive), post «الربح بالدولار تقريباً: + $N». Never a negative dollar sign.
+                val usdRate = sv.ratePurchase ?: st.usdRate
+                fr?.let { f ->
+                    if (f.recovered) {
+                        baleUsdProfit(f.profit, usdRate)?.let { usd ->
+                            Text("الربح بالدولار تقريباً: + \$${fmt(usd)}", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cPaid, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    } else {
+                        baleUsdProfit(f.remainingToRecover, usdRate)?.let { usd ->
+                            Text("بقي تقريباً: \$${fmt(usd)}", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cAmber, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -1129,8 +1158,8 @@ internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
                         LabeledStepper("", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) }, btnSize = tapSm, valueMin = 56.dp, valueSize = 16.sp, btnFont = 18.sp, raw = st.aiTasira, onType = vm::setAiTasira)
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("العدد المعدود", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
-                        LabeledStepper("", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) }, btnSize = tapSm, valueMin = 32.dp, valueSize = 16.sp, btnFont = 18.sp)
+                        Text("العدد في البالة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
+                        LabeledStepper("", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) }, btnSize = tapSm, valueMin = 32.dp, valueSize = 16.sp, btnFont = 18.sp, raw = st.aiCount.toLong(), onType = vm::setAiCount)
                     }
                     Spacer(Modifier.height(11.dp))
                     PrimaryButton("عدّ (يبقى في البالة) ✓", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.savePkgCount() }
@@ -1293,29 +1322,16 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
             CardStepperRow("التسعيرة", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) }, raw = st.aiTasira, onType = vm::setAiTasira)
             Spacer(Modifier.height(8.dp))
             CardStepperRow("العدد في المحل", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) })
-            Text("من أين؟ («لا أعلم» الافتراضي — تحلّينه لاحقاً)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+            // V3 merge: one «بضاعة قديمة» chip (maps to PRE_ID) + بالات only — شراء من السوق hidden.
+            Text("من أين؟ («بضاعة قديمة» الافتراضي — وجّهيه لبالته إن عرفتِها)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SourcePickChip("لا أعلم", st.aiSource == "none", true) { vm.aiPickSource("none") }
-                st.sources.forEach { srcOpt ->
-                    val sel = st.aiSource == srcOpt.id
-                    val label = if (srcOpt.kind == Kind.MARKET && srcOpt.id != MKT_ID) "🏪 ${srcOpt.label}" else srcOpt.label
-                    SourcePickChip(label, sel, false) { vm.aiPickSource(srcOpt.id) }
+                val oldStockSel = st.aiSource == "none" || st.aiSource == PRE_ID
+                SourcePickChip("بضاعة قديمة", oldStockSel, false) { vm.aiPickSource(PRE_ID) }
+                st.sources.filter { it.kind == Kind.BALE }.forEach { srcOpt ->
+                    SourcePickChip(srcOpt.label, st.aiSource == srcOpt.id, false) { vm.aiPickSource(srcOpt.id) }
                 }
             }
-            // her special price at the shop — also recordable on غير محدد, for when she remembers later
-            val aiKind = st.sources.find { it.id == st.aiSource }?.kind
-            if (aiKind == Kind.MARKET || st.aiSource == "none") {
-                Spacer(Modifier.height(11.dp))
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("سعر الشراء للقطعة", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAmber)
-                    LabeledStepper("", fmt(st.aiBuy), { vm.aiBuyStep(-1) }, { vm.aiBuyStep(1) }, borderColor = cAmberBorder, btnColor = cAmber, raw = st.aiBuy, onType = vm::setAiBuy)
-                }
-                Text("شراء من السوق يُسجَّل لكل قطعة — الكلفة تتجمّع في المصدر.", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 7.dp))
-            }
-            Text("بضاعتك الموجودة الآن؟ اتركيها على «تحديد لاحقاً» — بلا كلفة ولا ربح. ما لا تعرفين مصدره اجعليه «لا أعلم» تحلّينه لاحقاً.", fontSize = fCaption, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
+            Text("بضاعتك القديمة أو ما لا تعرفين مصدره؟ اتركيها على «بضاعة قديمة» — بلا كلفة ولا ربح.", fontSize = fCaption, color = cDim, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
         }
     }
 }

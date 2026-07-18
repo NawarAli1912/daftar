@@ -170,6 +170,10 @@ fun dayLabel(day: Long, today: Long): String = when (day) {
 fun rollViewedDay(today: Long, viewedDay: Long, newToday: Long): Long =
     if (viewedDay == today) newToday else viewedDay
 
+// The day book never shows a future page: a jump (calendar picker) or a step is clamped to
+// ≤ today. There's no lower bound — she can page back as far as her ledger goes.
+fun clampViewedDay(today: Long, day: Long): Long = minOf(today, day)
+
 // A named debtor. Balance = openingDebt + Σ(debtDelta of her entries). Positive = she owes.
 // dueEpochDay = when to chase her (FR-1.6: defaults to the 1st of next month; snooze shifts it;
 // cleared once she's paid off).
@@ -374,7 +378,7 @@ fun fmt(n: Int): String = fmt(n.toLong())
 val USAGE_TIPS = listOf(
     "اضغطي على أي قيد في الدفتر لرؤية تفاصيله أو إلغائه",
     "في البيع، «دفعت جزءاً» تسألك كم دفعت — والباقي يُسجَّل ديناً",
-    "من «البضاعة» أضيفي أصنافك وحدّدي مصدر كل صنف",
+    "من «البضاعة» أضيفي أصنافك — ووجّهي كل صنف لبالته إن عرفتِها",
     "«المواعيد» تذكّرك بالديون المستحقة، ويمكنك تأجيل التذكير بضغطة",
     "«تجريب» بضاعة عند الزبونة لم تُبَع بعد — لا تُحسب ديناً حتى تقرّر",
 )
@@ -464,6 +468,41 @@ fun revenueBySource(shelf: List<Shelf>): Map<String, Long> {
     return m
 }
 
+// V3 merge (owner decision): the two no-source buckets read as ONE «بضاعة قديمة — بلا مصدر».
+// An item belongs to that merged bucket when it has no source (null), sits in the PRE_ID bucket,
+// OR carries a legacy MARKET/shop sourceId (شراء من السوق is hidden this release — its data stays
+// intact but folds into old stock in the UI). Only BALE-sourced items keep their own group.
+fun isOldStockNoSource(item: Shelf, sources: List<Source>): Boolean {
+    if (item.sourceId == null || item.sourceId == PRE_ID) return true
+    return sources.find { it.id == item.sourceId }?.kind != Kind.BALE
+}
+
+// V3 bale framing (owner: negative numbers frustrate). Instead of a «− N» loss, a bale that
+// hasn't earned back its cost shows how much CAPITAL is still to recover, as a positive number;
+// once recovered it shows profit. costLocal is the bale's inclusive cost (USD×frozen rate +
+// expenses). null costLocal ⇒ no cost basis (caller shows «—»). At exactly cost, recovered=true,
+// profit=+0 (green). No surface ever renders a negative sign.
+data class BaleFraming(
+    val recovered: Boolean,           // revenue ≥ inclusive cost
+    val sold: Boolean,                // any pieces sold (drives the pre-recovery status line)
+    val remainingToRecover: Long?,    // pre-recovery: cost − revenue (≥ 0); post: null
+    val profit: Long?,                // post-recovery: revenue − cost (≥ 0); pre: null
+    val statusLine: String,
+)
+
+fun baleFraming(revenue: Long, costLocal: Long?, sold: Int): BaleFraming? {
+    if (costLocal == null) return null
+    return if (revenue >= costLocal) BaleFraming(
+        recovered = true, sold = sold > 0,
+        remainingToRecover = null, profit = revenue - costLocal,
+        statusLine = "ربحت هذه البالة ✓",
+    ) else BaleFraming(
+        recovered = false, sold = sold > 0,
+        remainingToRecover = costLocal - revenue, profit = null,
+        statusLine = if (sold == 0) "لم يبدأ البيع بعد" else "في مرحلة استرداد رأس المال",
+    )
+}
+
 fun remainBySource(shelf: List<Shelf>): Map<String, Int> {
     val m = HashMap<String, Int>()
     for (x in shelf) {
@@ -518,9 +557,10 @@ data class ItemStats(
     val avgSellPrice: Long?,  // revenue ÷ pieces; null until something sells
     val lastSoldDay: Long?,   // epoch-day of the most recent sale containing it
     val profit: Long?,        // null ⇒ no cost basis (قبل التطبيق / غير محدد, no buy)
+    val perPieceCost: Long?,  // the item's share of its bale's inclusive cost (incl. expenses), or its buy
 )
 
-fun itemStats(item: Shelf, sources: List<Source>, shelf: List<Shelf>, entries: List<DayEntry>, usdRate: Long): ItemStats {
+fun itemStats(item: Shelf, sources: List<Source>, shelf: List<Shelf>, entries: List<DayEntry>, usdRate: Long, expenses: List<BaleExpense> = emptyList()): ItemStats {
     var qty = 0
     var rev = 0L
     var last = Long.MIN_VALUE
@@ -534,8 +574,10 @@ fun itemStats(item: Shelf, sources: List<Source>, shelf: List<Shelf>, entries: L
         else -> {
             val src = sources.find { it.id == item.sourceId }
             if (src?.kind == Kind.BALE) {
-                // a bale's cost is frozen to its purchase-day rate; legacy bales use the live rate
-                val baleCost = (src.cost ?: 0L) * (src.ratePurchase ?: usdRate)
+                // a bale's cost is frozen to its purchase-day rate; legacy bales use the live rate.
+                // Bale expenses (كوي، نقل…) are part of the cost basis, so the per-piece share
+                // includes them — same inclusive cost sourceViews folds into costLocal.
+                val baleCost = (src.cost ?: 0L) * (src.ratePurchase ?: usdRate) + baleExpensesTotal(src.id, expenses)
                 val piecesInBale = shelf.filter { it.sourceId == src.id }.sumOf { it.cnt }
                 if (piecesInBale > 0) baleCost / piecesInBale else null // the item's share of the bale
             } else null
@@ -547,6 +589,7 @@ fun itemStats(item: Shelf, sources: List<Source>, shelf: List<Shelf>, entries: L
         avgSellPrice = if (qty > 0) rev / qty else null,
         lastSoldDay = if (qty > 0) last else null,
         profit = perPieceCost?.let { rev - it * qty },
+        perPieceCost = perPieceCost,
     )
 }
 

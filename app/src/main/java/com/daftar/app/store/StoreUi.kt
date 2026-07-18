@@ -25,7 +25,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -141,10 +143,16 @@ internal fun MoneyValue(
 ) {
     // 0 renders as an EMPTY field (dim placeholder) — a literal "0" merges with typed digits
     // (clearing then typing 175 gave «1,750») and forces cursor gymnastics she can't do.
+    // Width is computed from the grouped digit count (× the user's font scale): an unbounded
+    // BasicTextField in a Row starves its siblings (labels wrapped letter-by-letter on ~360dp
+    // phones), and IntrinsicSize.Min CLIPS — text fields don't report text width as intrinsic.
+    val grouped = if (value == 0L) "0" else fmt(value)
+    val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+    val fitWidth = (grouped.length * fontSize.value * 0.62f * fontScale + 12f).dp
     androidx.compose.foundation.text.BasicTextField(
         value = if (value == 0L) "" else value.toString(),
         onValueChange = { s -> onValue(s.filter { it.isDigit() }.take(9).toLongOrNull() ?: 0L) },
-        modifier = Modifier.widthIn(min = minWidth),
+        modifier = Modifier.width(maxOf(minWidth, fitWidth)),
         textStyle = androidx.compose.ui.text.TextStyle(
             fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = fontSize,
             fontWeight = FontWeight.Bold, color = color,

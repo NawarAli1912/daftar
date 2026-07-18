@@ -232,6 +232,8 @@ class StoreViewModel @Inject constructor(
     fun setTab(tab: String) = set { it.copy(tab = tab, screen = "home", editingId = null) }
     // Page the day book back/forward; never past today.
     fun dayStep(d: Int) = set { it.copy(viewedDay = minOf(it.today, it.viewedDay + d)) }
+    // Jump straight to a day from the calendar picker; clamped to ≤ today (never a future page).
+    fun setViewedDay(day: Long) = set { it.copy(viewedDay = clampViewedDay(it.today, day)) }
 
     // Re-derive the real day on lifecycle resume — the day book must roll past midnight
     // without a relaunch (entries already stamp the real day; the view was the stale part).
@@ -303,9 +305,10 @@ class StoreViewModel @Inject constructor(
     fun removeExpense(id: String) = set { it.copy(expenses = it.expenses.filterNot { e -> e.id == id }) }
 
     // ── add item to shelf ──
-    // v2: new items default to غير محدد — she resolves the source later if she remembers.
+    // V3: new items default to the merged «بضاعة قديمة» bucket (PRE_ID) — she points it to a bale
+    // later if she remembers. شراء من السوق is hidden this release, so market is no longer offered.
     fun openAddItem() = set {
-        it.copy(screen = "additem", aiName = "", aiTasira = 5_000, aiCount = 1, aiSource = "none", aiBuy = 3_000)
+        it.copy(screen = "additem", aiName = "", aiTasira = 5_000, aiCount = 1, aiSource = PRE_ID, aiBuy = 3_000)
     }
     // A shop's "+ صنف": the item arrives pre-attributed to that محل.
     fun openAddItemFor(sourceId: String) = set {
@@ -315,6 +318,8 @@ class StoreViewModel @Inject constructor(
     fun setAiName(v: String) = set { it.copy(aiName = v) }
     fun aiTasiraStep(d: Int) = set { it.copy(aiTasira = maxOf(0, it.aiTasira + d * 500)) }
     fun aiCountStep(d: Int) = set { it.copy(aiCount = maxOf(1, it.aiCount + d)) }
+    // Typeable bale piece count (ITEM 2) — same as the stepper's floor of 1.
+    fun setAiCount(v: Long) = set { it.copy(aiCount = maxOf(1L, v).toInt()) }
     fun aiBuyStep(d: Int) = set { it.copy(aiBuy = maxOf(0, it.aiBuy + d * 500)) }
     fun aiPickSource(sid: String) = set { it.copy(aiSource = sid) }
     fun saveAiItem() = set {

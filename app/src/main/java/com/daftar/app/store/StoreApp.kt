@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,9 +49,15 @@ import kotlinx.coroutines.withTimeout
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -353,7 +362,6 @@ private fun AppBar(st: StoreState, vm: StoreViewModel) {
 
 @Composable
 private fun TabBar(st: StoreState, vm: StoreViewModel) {
-    val unspec = st.shelf.count { it.unspecified }
     Column(Modifier.fillMaxWidth().background(cCard)) {
         HorizontalDivider(color = cLine, thickness = 1.dp)
         // المواعيد is not a tab (v2 decision 10): reminders live inside each customer's
@@ -362,9 +370,9 @@ private fun TabBar(st: StoreState, vm: StoreViewModel) {
             TabItem("▤", "اليوم", st.tab == "today", Modifier.weight(1f)) { vm.setTab("today") }
             TabItem("☰", "الزبائن", st.tab == "cust", Modifier.weight(1f)) { vm.setTab("cust") }
             // البضاعة promoted to its own tab (2026-07-18): stock work is a primary surface —
-            // FR-6's fourth slot, freed when المواعيد folded into الزبائن. The red «لا أعلم»
-            // dot rides with it; الحساب keeps only money (المصادر + الملخّص).
-            TabItem("▥", "البضاعة", st.tab == "shelf", Modifier.weight(1f), dot = unspec > 0) { vm.setTab("shelf") }
+            // FR-6's fourth slot, freed when المواعيد folded into الزبائن. V3: the «لا أعلم» red
+            // dot is gone — the two no-source buckets merged into one neutral «بضاعة قديمة».
+            TabItem("▥", "البضاعة", st.tab == "shelf", Modifier.weight(1f)) { vm.setTab("shelf") }
             TabItem("▦", "الحساب", st.tab == "account", Modifier.weight(1f)) { vm.setTab("account") }
         }
     }
@@ -428,7 +436,7 @@ private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
         DayNavArrow("‹", enabled = true) { vm.dayStep(-1) }
-        Text(dayLabel(st.viewedDay, st.today), fontSize = fBody, fontWeight = FontWeight.Bold, color = cInk)
+        DayJumpButton(st, vm)
         DayNavArrow("›", enabled = !isToday) { vm.dayStep(1) }
     }
     PageFlip(st.viewedDay, forward, Modifier.fillMaxWidth()) { day ->
@@ -460,6 +468,45 @@ private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
                     }
                 }
             }
+        }
+    }
+}
+
+// Tapping the date between the ‹ › arrows opens a calendar to jump to any past day (never a
+// future one). The picker follows the app's MaterialTheme; PageFlip still derives its slide
+// direction from the viewedDay comparison, so a jump animates the correct way.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayJumpButton(st: StoreState, vm: StoreViewModel) {
+    val dayMs = 86_400_000L
+    var open by remember { mutableStateOf(false) }
+    Text(
+        dayLabel(st.viewedDay, st.today) + " 📅",
+        fontSize = fBody, fontWeight = FontWeight.Bold, color = cInk,
+        modifier = Modifier.tap { open = true },
+    )
+    if (open) {
+        val todayEpoch = st.today
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = st.viewedDay * dayMs,
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis / dayMs <= todayEpoch
+                override fun isSelectableYear(year: Int) = year <= java.time.LocalDate.ofEpochDay(todayEpoch).year
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { vm.setViewedDay(it / dayMs) }
+                    open = false
+                }) { Text("اذهبي ✓", fontWeight = FontWeight.Bold, color = cAccent) }
+            },
+            dismissButton = {
+                TextButton(onClick = { open = false }) { Text("إلغاء", color = cDim) }
+            },
+        ) {
+            DatePicker(state = pickerState)
         }
     }
 }
@@ -659,14 +706,15 @@ private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
     Spacer(Modifier.height(12.dp))
     val q = query.trim()
     fun match(s: Shelf) = q.isBlank() || s.name.contains(q, true)
-    // غير محدد first (pinned), then each registered source in order — skip empty groups
-    data class Grp(val label: String, val color: Color, val unspec: Boolean, val items: List<Shelf>)
+    // V3 merge: ONE neutral «بضاعة قديمة — بلا مصدر» bucket first (null + PRE_ID + any legacy
+    // market item), then each bale in order — skip empty groups. No red dot anywhere now.
+    data class Grp(val label: String, val dotColor: Color, val textColor: Color, val items: List<Shelf>)
     val groups = buildList {
-        val un = st.shelf.filter { it.unspecified && match(it) }
-        if (un.isNotEmpty()) add(Grp("لا أعلم", cDebt, true, un))
-        st.sources.forEach { src ->
+        val old = st.shelf.filter { isOldStockNoSource(it, st.sources) && match(it) }
+        if (old.isNotEmpty()) add(Grp("بضاعة قديمة — بلا مصدر", cDim, cDim, old))
+        st.sources.filter { it.kind == Kind.BALE }.forEach { src ->
             val items = st.shelf.filter { it.sourceId == src.id && match(it) }
-            if (items.isNotEmpty()) add(Grp(src.label, sourceColor(src.kind), false, items))
+            if (items.isNotEmpty()) add(Grp(src.label, sourceColor(src.kind), cInk, items))
         }
     }
     if (groups.isEmpty()) {
@@ -677,11 +725,11 @@ private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
     } else {
         groups.forEach { g ->
             Row(
-                Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 7.dp).clip(RoundedCornerShape(rSm)).background(g.color.copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 7.dp),
+                Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 7.dp).clip(RoundedCornerShape(rSm)).background(g.dotColor.copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(g.color))
-                Text(g.label, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (g.unspec) cDebt else cInk, modifier = Modifier.weight(1f, fill = false))
+                Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(g.dotColor))
+                Text(g.label, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = g.textColor, modifier = Modifier.weight(1f, fill = false))
                 Text("${g.items.size} " + if (g.items.size == 1) "صنف" else "أصناف", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
             }
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp)) {
@@ -754,23 +802,22 @@ private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
     Spacer(Modifier.height(12.dp))
 
     val views = sourceViews(st.sources, st.shelf, st.usdRate, st.expenses)
-    val pre = views.find { it.id == PRE_ID }
+    // V3 merge: the single «بضاعة قديمة — بلا مصدر» bucket — its في المحل count covers all
+    // no-source stock (null + PRE_ID + any legacy market item). No cost basis → profit «—».
+    val oldRemain = st.shelf.filter { isOldStockNoSource(it, st.sources) }.sumOf { maxOf(0, it.cnt - it.sold) }
 
-    // قبل التطبيق — everything from before the app whose source nobody remembers
     Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).card().padding(horizontal = 15.dp, vertical = 13.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("تحديد لاحقاً", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
+            Text("بضاعة قديمة — بلا مصدر", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.weight(1f, fill = false))
             Box(Modifier.clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                Text("بضاعة قديمة", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cDim)
+                Text("بلا كلفة", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cDim)
             }
         }
         Text(
-            "كل ما كان تحديد لاحقاً ولا نستطيع تذكّر مصدره — بلا كلفة، والربح «—» بصدق. في المحل: ${pre?.remain ?: 0} قطعة",
+            "بضاعتك القديمة وما لا تعرفين مصدره — بلا كلفة، والربح «—» بصدق. في المحل: $oldRemain قطعة",
             fontSize = fCaption, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),
         )
     }
-
-    MarketCard(st, vm, views)
 
     views.filter { it.isBale }.forEach { sv ->
         SharedRow(visible = st.pkgId != sv.id, key = "bale-${sv.id}") { SourceCard(sv, vm) }
@@ -778,78 +825,10 @@ private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
     OutlineButton("+ بالة جديدة", fontSize = fBodyL, radius = rMd, vertical = 13.dp, filledCard = true) { vm.openAddSource() }
 }
 
-// شراء من السوق — the one card: combined economics + the shops living inside it.
-@Composable
-private fun MarketCard(st: StoreState, vm: StoreViewModel, views: List<SourceView>) {
-    val marketViews = views.filter { it.kind == Kind.MARKET }
-    val shopViews = marketViews.filter { it.id != MKT_ID }
-    val cost = marketViews.sumOf { it.costLocal ?: 0 }
-    val revenue = marketViews.sumOf { it.revenue }
-    val profit = revenue - cost
-    // D68: what's still owed derives down through supplier-payment entries
-    val owed = marketViews.sumOf { it.debt - supplierPaid(st.entries, it.id) }
-
-    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).card().padding(horizontal = 15.dp, vertical = 13.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("شراء من السوق", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
-            if (owed > 0) Text("عليكِ للمحلات ${fmt(owed)}", fontSize = fCaption, fontWeight = FontWeight.Bold, color = cDebt)
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 11.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            SourceStat("التكلفة", fmt(cost), cInk)
-            SourceStat("الإيراد المنسوب", fmt(revenue), cInk)
-            SourceStat("الربح تقريباً", (if (profit >= 0) "+ " else "− ") + fmt(kotlin.math.abs(profit)), if (profit >= 0) cPaid else cDebt, bold = true)
-        }
-
-        shopViews.forEach { shop -> SharedRow(visible = st.shopId != shop.id, key = "shop-${shop.id}") { ShopRow(st, vm, shop) } }
-
-        if (st.shopAddOpen) {
-            Column(Modifier.fillMaxWidth().padding(top = 11.dp).drawTopLine().padding(top = 11.dp)) {
-                androidx.compose.foundation.text.BasicTextField(
-                    value = st.shopName, onValueChange = vm::setShopName,
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(rSm)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rSm)).padding(horizontal = 12.dp, vertical = 11.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = fBodyL, color = cInk),
-                    cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
-                    decorationBox = { inner -> Box { if (st.shopName.isEmpty()) Text("اسم المحل — مثال: محل أم علي", fontSize = fBodyL, color = cDim); inner() } },
-                )
-                Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("دين أول (إن أخذتِ بالدَّين)", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.shopDebtStep(-1) }
-                        MoneyValue(st.shopDebt, vm::setShopDebt, fBodyL, 52.dp)
-                        StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.shopDebtStep(1) }
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                PrimaryButton("أضيفي المحل ✓", fontSize = fBody, radius = rSm, vertical = 10.dp) { vm.addShop() }
-            }
-        } else {
-            Box(Modifier.fillMaxWidth().padding(top = 11.dp).clip(RoundedCornerShape(rSm)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rSm)).tap { vm.toggleShopAdd() }.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
-                Text("+ محل جديد", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ShopRow(st: StoreState, vm: StoreViewModel, shop: SourceView) {
-    // F2: one clean tappable line per محل — all management lives in its detail sheet
-    val itemKinds = st.shelf.count { it.sourceId == shop.id }
-    val debtNow = shop.debt - supplierPaid(st.entries, shop.id)
-    Row(
-        Modifier.fillMaxWidth().padding(top = 11.dp).drawTopLine().padding(top = 11.dp).tap { vm.openShop(shop.id) },
-        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("🏪 ${shop.label} ←", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(if (itemKinds == 0) "لا مشتريات" else "$itemKinds أصناف", fontSize = fCaption, color = cDim)
-            Text(
-                if (debtNow > 0) "دينه علينا ${fmt(debtNow)}" else "لا دين له",
-                fontSize = fCaption, fontWeight = FontWeight.Bold,
-                color = if (debtNow > 0) cDebt else cPaid,
-            )
-        }
-    }
-}
+// شراء من السوق (MarketCard/ShopRow) is hidden for this release — its card, the «+ محل جديد» row,
+// and the per-shop rows were removed from المصادر. Kind.MARKET/MKT_ID, shop debt and supplier
+// payments all stay live in the model; the shop-detail overlay (ShopBody) is simply no longer
+// routed. Legacy market items fold into «بضاعة قديمة — بلا مصدر» in البضاعة and المصادر.
 
 // The editable "today's rate" for turning a bale's USD cost into local money.
 @Composable
@@ -858,29 +837,28 @@ private fun UsdRateRow(rate: Long, vm: StoreViewModel) {
         Modifier.fillMaxWidth().card(rMd).padding(horizontal = 13.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column {
+        // the title Column yields (weight fill=false) so the «$1 =» + input cluster keeps its
+        // intrinsic width — on a ~360dp phone the title wraps instead of crushing the rate field
+        Column(Modifier.weight(1f, fill = false).padding(end = 8.dp)) {
             Text("سعر صرف الدولار اليوم", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cInk)
             Text("السعر الافتراضي للبالات الجديدة — كل بالة تثبّت سعرها", fontSize = fCaption, color = cDim)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("$1 =", fontSize = fSmall, color = cDim)
-            androidx.compose.foundation.text.BasicTextField(
-                value = if (rate == 0L) "" else rate.toString(),
-                onValueChange = { s -> vm.setUsdRate(s.filter { it.isDigit() }.take(9).toLongOrNull() ?: 0L) },
-                modifier = Modifier.widthIn(min = 62.dp).clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).padding(horizontal = 10.dp, vertical = 10.dp),
-                textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center),
-                singleLine = true,
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk),
-            )
+            Box(Modifier.clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).padding(horizontal = 10.dp, vertical = 10.dp)) {
+                MoneyValue(rate, vm::setUsdRate, fTitle, 62.dp)
+            }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SourceCard(sv: SourceView, vm: StoreViewModel) {
-    val stripe = if (sv.kindLabel == Kind.PRE_APP.label) cDim
-    else if (sv.profit != null && sv.profit >= 0) cPaid else cDebt
+    // V3 framing: a bale that hasn't earned its cost back shows amber «recovering», never a red
+    // loss; once recovered it's green. The stripe follows the same three-way cue.
+    val fr = baleFraming(sv.revenue, sv.costLocal, sv.sold)
+    val stripe = if (fr == null) cDim else if (fr.recovered) cPaid else cAmber
     Box(
         Modifier.fillMaxWidth().padding(bottom = 10.dp).card()
             // F1: the whole bale card opens its screen — no separate tap target to find
@@ -893,15 +871,26 @@ private fun SourceCard(sv: SourceView, vm: StoreViewModel) {
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 13.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(sv.label, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
+                Text(sv.label, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.weight(1f, fill = false))
                 Box(Modifier.clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).padding(horizontal = 7.dp, vertical = 2.dp)) {
                     Text(sv.kindLabel, fontSize = fCaption, fontWeight = FontWeight.Bold, color = cDim)
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 11.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // stats wrap to a second line on narrow screens instead of crushing (FlowRow)
+            FlowRow(
+                Modifier.fillMaxWidth().padding(top = 11.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 SourceStat("التكلفة", sv.costFmt, cInk)
                 SourceStat("الإيراد المنسوب", sv.revFmt, cInk)
-                SourceStat("الربح تقريباً", sv.profitFmt, if (sv.profit == null) cDim else if (sv.profit >= 0) cPaid else cDebt, bold = true)
+                when {
+                    fr == null -> SourceStat("الربح تقريباً", "—", cDim, bold = true)
+                    fr.recovered -> SourceStat("الربح تقريباً", "+ " + fmt(fr.profit!!), cPaid, bold = true)
+                    else -> SourceStat("بقي لاسترداد رأس المال", fmt(fr.remainingToRecover!!), cAmber, bold = true)
+                }
+            }
+            fr?.let {
+                Text(it.statusLine, fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = if (it.recovered) cPaid else cAmber, modifier = Modifier.padding(top = 8.dp))
             }
             Text("في المحل الآن: ${sv.remain} قطعة", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 9.dp))
             if (sv.isBale) {
@@ -927,7 +916,6 @@ private fun SourceStat(label: String, value: String, color: Color, bold: Boolean
 
 @Composable
 private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
-    val unspec = st.shelf.count { it.unspecified }
     val totalOnHand = st.shelf.sumOf { maxOf(0, it.onHand) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val importer = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -943,8 +931,9 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
     Column(Modifier.fillMaxWidth().card().padding(15.dp)) {
         Text("إجمالي المحل", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(bottom = 12.dp))
         SummaryRow("أصناف في المحل", "$totalOnHand قطعة", cInk, cInk, line = true)
-        SummaryRow("مصادر مسجّلة", "${st.sources.size}", cInk, cInk, line = true)
-        SummaryRow("تحتاج تحديد مصدر", "$unspec", cDebt, cDebt, line = false)
+        // V3: بالات only (شراء من السوق hidden) — and no «تحتاج تحديد مصدر» nag now that the two
+        // no-source buckets merged into one honest «بضاعة قديمة».
+        SummaryRow("بالات مسجّلة", "${st.sources.count { it.kind == Kind.BALE }}", cInk, cInk, line = false)
     }
     // profits — real (from sources with a cost basis) kept strictly apart from the estimate
     // for untracked goods (F4/D70). The estimate is its OWN amber line, never merged in.

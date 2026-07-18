@@ -23,6 +23,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -105,6 +107,24 @@ internal fun Modifier.tapExpand(onClick: () -> Unit): Modifier = this.composed {
     Modifier.onGloballyPositioned { bounds = it.boundsInWindow() }
         .graphicsLayer { scaleX = scale; scaleY = scale }
         .clickable(interactionSource = src, indication = null) { origin.value = bounds; onClick() }
+}
+
+// One search box for the list screens (الزبائن، البضاعة) — replaces two copy-pasted fields.
+@Composable
+internal fun SearchField(value: String, onValueChange: (String) -> Unit, placeholder: String) {
+    androidx.compose.foundation.text.BasicTextField(
+        value = value, onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 13.dp),
+        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = fBodyL, color = cInk),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
+        decorationBox = { inner -> Box { if (value.isEmpty()) Text("🔍 $placeholder", fontSize = fBodyL, color = cDim); inner() } },
+    )
+}
+
+// The one-line page intro under a screen's top — tells her what the page is for, in her words.
+@Composable
+internal fun PageIntro(text: String) {
+    Text(text, fontSize = fSmall, color = cDim, lineHeight = 20.sp, modifier = Modifier.padding(bottom = 10.dp))
 }
 
 // Rounded ± stepper button.

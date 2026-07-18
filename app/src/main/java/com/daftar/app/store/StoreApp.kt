@@ -408,6 +408,7 @@ private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
     var lastDay by remember { mutableStateOf(st.viewedDay) }
     val forward = st.viewedDay >= lastDay
     LaunchedEffect(st.viewedDay) { lastDay = st.viewedDay }
+    PageIntro("دفتر يومك — كل بيع ودفعة تُسجَّل هنا، والأسهم ‹ › تقلّب الأيام الماضية.")
     if (isToday) TipBanner()
     val salesLabel = if (isToday) "مبيعات اليوم" else "المبيعات"
     val cashLabel = if (isToday) "قبضنا اليوم" else "المقبوضات"
@@ -528,6 +529,7 @@ private fun PopText(text: String, fontSize: androidx.compose.ui.unit.TextUnit, c
 @Composable
 private fun CustScreen(st: StoreState, vm: StoreViewModel) {
     var query by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    PageIntro("دفتر زبائنك — الديون والأمانات والدفعات، والأعجل تسديداً أولاً.")
     val totalOwed = st.customers.sumOf { maxOf(0, customerBalance(it, st.entries)) }
     val dueCount = st.customers.count { c ->
         customerBalance(c, st.entries) > 0 && (c.dueEpochDay ?: Long.MAX_VALUE) <= st.today
@@ -556,15 +558,7 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
         }
     } else {
         // search box (restored from the prototype) — filters by name or phone
-        androidx.compose.foundation.text.BasicTextField(
-            value = query, onValueChange = { query = it },
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp),
-            textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = fBody, color = cInk),
-            cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
-            decorationBox = { inner ->
-                Box { if (query.isEmpty()) Text("🔍 بحث عن زبونة…", fontSize = fBody, color = cDim); inner() }
-            },
-        )
+        SearchField(query, { query = it }, "بحث عن زبونة…")
         Spacer(Modifier.height(12.dp))
         // most-urgent-first: chase-worthy (debt or أمانة) by due date then amount, then the rest
         val sorted = st.customers.sortedWith(
@@ -656,14 +650,8 @@ private fun SegBtn(label: String, active: Boolean, modifier: Modifier, onClick: 
 @Composable
 private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
     var query by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
-    Text("محلّك — ما لديك للبيع. البيع يقترح من هنا فقط.", fontSize = fSmall, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 10.dp))
-    androidx.compose.foundation.text.BasicTextField(
-        value = query, onValueChange = { query = it },
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp),
-        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Plex, fontSize = fBody, color = cInk),
-        cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk), singleLine = true,
-        decorationBox = { inner -> Box { if (query.isEmpty()) Text("🔍 بحث عن صنف…", fontSize = fBody, color = cDim); inner() } },
-    )
+    PageIntro("محلّك — ما لديك للبيع. البيع يقترح من هنا فقط.")
+    SearchField(query, { query = it }, "بحث عن صنف…")
     Spacer(Modifier.height(12.dp))
     val q = query.trim()
     fun match(s: Shelf) = q.isBlank() || s.name.contains(q, true)
@@ -757,7 +745,7 @@ private fun ShelfRow(r: Shelf, vm: StoreViewModel) {
 // stand-alone creatable source.
 @Composable
 private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
-    Text("من أين أتت البضاعة وكم كلّفت — لتري أي مصدر ربح.", fontSize = fSmall, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(bottom = 10.dp))
+    PageIntro("من أين أتت البضاعة وكم كلّفت — لتري أي مصدر ربح.")
     UsdRateRow(st.usdRate, vm)
     Spacer(Modifier.height(12.dp))
 
@@ -947,6 +935,7 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
             android.widget.Toast.makeText(ctx, if (ok) "تمت الاستعادة" else "تعذّرت قراءة النسخة", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
+    PageIntro("صورة محلّك كاملة — الأرقام والأرباح والنسخة الاحتياطية.")
     Column(Modifier.fillMaxWidth().card().padding(15.dp)) {
         Text("إجمالي المحل", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.padding(bottom = 12.dp))
         SummaryRow("أصناف في المحل", "$totalOnHand قطعة", cInk, cInk, line = true)
@@ -1029,7 +1018,7 @@ internal fun MaintContent(vm: StoreViewModel) {
         Text("بيانات تجريبية ⟲", fontSize = fBody, fontWeight = FontWeight.Bold, color = cInk)
     }
     Box(Modifier.fillMaxWidth().padding(top = 14.dp).tap { vm.askConfirm("reset") }, contentAlignment = Alignment.Center) {
-        Text("مسح الكل — إظهار البداية", fontSize = fBody, fontWeight = FontWeight.Bold, color = cDebt)
+        Text("مسح الكل — إزالة البيانات التجريبية والبدء من الصفر", fontSize = fBody, fontWeight = FontWeight.Bold, color = cDebt)
     }
 }
 

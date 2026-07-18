@@ -232,18 +232,25 @@ internal fun <T> PageFlip(target: T, forward: Boolean, modifier: Modifier = Modi
 
 // ── design tokens ──
 // One type scale and one radius scale, so the whole app speaks in named steps instead of
-// ad-hoc per-element numbers. Each old value maps to the nearest step (shift ≤ 1px), which
-// removes the un-systematic sizing without meaningfully moving the 1:1 prototype layout.
-// Display sizes (amounts/totals/emoji: 20–74sp) stay as literals — they're intentional.
+// ad-hoc per-element numbers.
+// V3 (elderly-first): the whole scale sits 2–3sp above the V2 prototype — the owner reads at
+// arm's length without glasses, so 16sp is the *floor* for anything she must read, and
+// captions never drop below 13sp. Display sizes (amounts/totals: 24sp+) stay as literals.
 
 // type scale (sp)
-internal val fCaption = 11.sp // was 10.5 / 11 / 11.5 — sub-labels, hints, meta
-internal val fSmall = 12.sp   // was 12 / 12.5 — secondary text, chips
-internal val fBody = 13.sp    // was 13 / 13.5 — body, list sub-rows
-internal val fBodyL = 14.sp   // was 14 / 14.5 — list titles, inputs
-internal val fTitle = 15.sp   // was 15 / 15.5 — row/card titles, CTAs
-internal val fHead = 16.sp    // was 16 / 16.5 / 17 — sheet titles, primary buttons
-internal val fGlyph = 18.sp   // tab/nav glyphs
+internal val fCaption = 13.sp // sub-labels, hints, meta — the smallest text in the app
+internal val fSmall = 14.sp   // secondary text, chips
+internal val fBody = 15.sp    // body, list sub-rows
+internal val fBodyL = 16.sp   // list titles, inputs
+internal val fTitle = 18.sp   // row/card titles, CTAs
+internal val fHead = 20.sp    // sheet titles, primary buttons
+internal val fGlyph = 22.sp   // tab/nav glyphs
+
+// touch-target scale (dp) — nothing she must hit is smaller than tapSm; the money steppers
+// in the sale flow (the 15-second path) use tapMd/tapLg.
+internal val tapSm = 36.dp // subordinate steppers (quantity)
+internal val tapMd = 42.dp // standard steppers (price, counts)
+internal val tapLg = 48.dp // the big money steppers (pay, return)
 
 // radius scale (dp) — Apple-soft: generously rounded, continuous-feeling corners. Bumped
 // from the old tight 8/10/12/14 scale (owner: "more rounded corners like apple design").

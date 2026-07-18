@@ -332,7 +332,7 @@ private fun AppBar(st: StoreState, vm: StoreViewModel) {
             // Hidden maintainer entrance: a deliberate ~2s hold on the wordmark (D-F4).
             // Nothing destructive stays reachable from الملخّص.
             Text(
-                "دفتر", fontFamily = Amiri, fontWeight = FontWeight.Bold, fontSize = 21.sp, color = cDebt,
+                "دفتر", fontFamily = Amiri, fontWeight = FontWeight.Bold, fontSize = 24.sp, color = cDebt,
                 modifier = Modifier.pointerInput(Unit) {
                     detectTapGestures(onPress = {
                         val held = try {
@@ -342,7 +342,7 @@ private fun AppBar(st: StoreState, vm: StoreViewModel) {
                     })
                 },
             )
-            Text(title, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
+            Text(title, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
             Text(aside, fontSize = fSmall, color = cDim, textAlign = TextAlign.End, modifier = Modifier.widthIn(min = 34.dp))
         }
         HorizontalDivider(color = cLine, thickness = 1.dp)
@@ -367,10 +367,10 @@ private fun TabBar(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun TabItem(glyph: String, label: String, active: Boolean, modifier: Modifier, dot: Boolean = false, onClick: () -> Unit) {
     val col = if (active) cDebt else cDim
-    Box(modifier.tap(onClick).padding(top = 9.dp, bottom = 6.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.tap(onClick).padding(top = 10.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(glyph, fontSize = fGlyph, color = col)
-            Text(label, fontSize = fCaption, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, color = col, modifier = Modifier.padding(top = 1.dp))
+            Text(label, fontSize = fSmall, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, color = col, modifier = Modifier.padding(top = 2.dp))
         }
         if (dot) {
             Box(
@@ -460,7 +460,7 @@ private fun TodayScreen(st: StoreState, vm: StoreViewModel) {
 @Composable
 private fun DayNavArrow(sym: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
-        Modifier.size(32.dp).clip(RoundedCornerShape(rXs))
+        Modifier.size(46.dp).clip(RoundedCornerShape(rXs))
             .background(cCard).border(1.dp, cLine, RoundedCornerShape(rXs))
             .then(if (enabled) Modifier.tap(onClick) else Modifier),
         contentAlignment = Alignment.Center,
@@ -503,9 +503,9 @@ private fun EntryRow(e: DayEntry) {
 
 @Composable
 private fun StatCard(label: String, value: String, valueColor: Color, modifier: Modifier) {
-    Column(modifier.card().padding(horizontal = 13.dp, vertical = 12.dp)) {
+    Column(modifier.card().padding(horizontal = 14.dp, vertical = 13.dp)) {
         Text(label, fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
-        PopText(value, 23.sp, valueColor, Modifier.padding(top = 3.dp))
+        PopText(value, 28.sp, valueColor, Modifier.padding(top = 3.dp))
     }
 }
 
@@ -603,7 +603,7 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
 }
 
 @Composable
-private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Color, amtBold: Boolean = true, nameMarker: Color? = null, onClick: (() -> Unit)? = null) {
+private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Color, nameMarker: Color? = null, onClick: (() -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().then(if (onClick != null) Modifier.tapExpand(onClick) else Modifier).padding(vertical = 13.dp).drawBottomLine(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -614,7 +614,7 @@ private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Colo
             Text(name, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = nameMod)
             Text(sub, fontSize = fCaption, color = cDim)
         }
-        Text(amt, fontSize = if (amtBold) 12.5.sp else 13.sp, fontWeight = FontWeight.Bold, color = amtColor)
+        Text(amt, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = amtColor)
     }
 }
 
@@ -822,9 +822,9 @@ private fun MarketCard(st: StoreState, vm: StoreViewModel, views: List<SourceVie
                 Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("دين أول (إن أخذتِ بالدَّين)", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shopDebtStep(-1) }
+                        StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.shopDebtStep(-1) }
                         Text(fmt(st.shopDebt), fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
-                        StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shopDebtStep(1) }
+                        StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.shopDebtStep(1) }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
@@ -875,7 +875,7 @@ private fun UsdRateRow(rate: Long, vm: StoreViewModel) {
             androidx.compose.foundation.text.BasicTextField(
                 value = if (rate == 0L) "" else rate.toString(),
                 onValueChange = { s -> vm.setUsdRate(s.filter { it.isDigit() }.take(9).toLongOrNull() ?: 0L) },
-                modifier = Modifier.widthIn(min = 62.dp).clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).padding(horizontal = 10.dp, vertical = 7.dp),
+                modifier = Modifier.widthIn(min = 62.dp).clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).padding(horizontal = 10.dp, vertical = 10.dp),
                 textStyle = androidx.compose.ui.text.TextStyle(fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center),
                 singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),

@@ -236,9 +236,9 @@ private fun PopupEditor(
                     Modifier.fillMaxWidth().padding(start = 18.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (back != null) Text("‹", fontSize = 22.sp, color = cDim, modifier = Modifier.tap(back)) else Spacer(Modifier.width(1.dp))
+                    if (back != null) Text("‹", fontSize = 24.sp, color = cDim, modifier = Modifier.tap(back).padding(horizontal = 10.dp, vertical = 4.dp)) else Spacer(Modifier.width(1.dp))
                     Text(title, fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk)
-                    Text("✕", fontSize = 20.sp, color = cDim, modifier = Modifier.tap(onClose))
+                    Text("✕", fontSize = 22.sp, color = cDim, modifier = Modifier.tap(onClose).padding(horizontal = 10.dp, vertical = 4.dp))
                 }
                 HorizontalDivider(color = cLine, thickness = 1.dp)
                 Column(
@@ -259,7 +259,7 @@ private fun PopupEditor(
 private fun TextInput(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, bg: Color = cBg, radius: androidx.compose.ui.unit.Dp = rSm, fontSize: androidx.compose.ui.unit.TextUnit = fBodyL) {
     BasicTextField(
         value = value, onValueChange = onValueChange,
-        modifier = modifier.clip(RoundedCornerShape(radius)).background(bg).border(1.dp, cLine, RoundedCornerShape(radius)).padding(horizontal = 12.dp, vertical = 11.dp),
+        modifier = modifier.clip(RoundedCornerShape(radius)).background(bg).border(1.dp, cLine, RoundedCornerShape(radius)).padding(horizontal = 13.dp, vertical = 13.dp),
         textStyle = TextStyle(fontFamily = Plex, fontSize = fontSize, color = cInk),
         cursorBrush = SolidColor(cInk), singleLine = true,
         decorationBox = { inner ->
@@ -275,14 +275,14 @@ private fun TextInput(value: String, onValueChange: (String) -> Unit, placeholde
 @Composable
 private fun LabeledStepper(
     label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit,
-    btnSize: androidx.compose.ui.unit.Dp = 28.dp, valueMin: androidx.compose.ui.unit.Dp = 60.dp,
-    valueSize: androidx.compose.ui.unit.TextUnit = 17.sp, btnFont: androidx.compose.ui.unit.TextUnit = 17.sp,
+    btnSize: androidx.compose.ui.unit.Dp = tapMd, valueMin: androidx.compose.ui.unit.Dp = 60.dp,
+    valueSize: androidx.compose.ui.unit.TextUnit = 19.sp, btnFont: androidx.compose.ui.unit.TextUnit = 20.sp,
     borderColor: Color = cLine, btnColor: Color = cAccent,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-        StepBtn("−", btnSize, 8.dp, 1.5.dp, borderColor, btnColor, btnFont, onMinus)
+        StepBtn("−", btnSize, 10.dp, 1.5.dp, borderColor, btnColor, btnFont, onMinus)
         Text(value, fontSize = valueSize, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = valueMin))
-        StepBtn("+", btnSize, 8.dp, 1.5.dp, borderColor, btnColor, btnFont, onPlus)
+        StepBtn("+", btnSize, 10.dp, 1.5.dp, borderColor, btnColor, btnFont, onPlus)
     }
     label.let {}
 }
@@ -488,9 +488,9 @@ private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
                 Modifier.fillMaxWidth().card(rLg).padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
             ) {
-                StepBtn("−", 42.dp, 12.dp, 1.5.dp, cLine, cAccent, 22.sp) { vm.returnAmountStep(-1) }
+                StepBtn("−", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.returnAmountStep(-1) }
                 Text(fmt(st.returnAmount), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 120.dp))
-                StepBtn("+", 42.dp, 12.dp, 1.5.dp, cLine, cAccent, 22.sp) { vm.returnAmountStep(1) }
+                StepBtn("+", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.returnAmountStep(1) }
             }
             Text("الصنف المُعاد (اختياري) — يعود إلى الرف", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -747,9 +747,9 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
                 Modifier.fillMaxWidth().card(rLg).padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
             ) {
-                StepBtn("−", 42.dp, 12.dp, 1.5.dp, cLine, cAccent, 22.sp) { vm.payAmountStep(-1) }
+                StepBtn("−", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.payAmountStep(-1) }
                 Text(fmt(st.payAmount), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 120.dp))
-                StepBtn("+", 42.dp, 12.dp, 1.5.dp, cLine, cAccent, 22.sp) { vm.payAmountStep(1) }
+                StepBtn("+", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.payAmountStep(1) }
             }
             if (st.saleCustomerId != null) {
                 // نوع attributes an old-debt payment to what she took — meaningful only
@@ -798,7 +798,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 st.shelf.filter { it.onHand > 0 }.sortedByDescending { it.onHand }.forEach { g ->
                     Column(
-                        Modifier.widthIn(min = 64.dp).clip(RoundedCornerShape(rSm)).background(cCard).border(1.5.dp, cLine, RoundedCornerShape(rSm)).tap { vm.addLine(g.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                        Modifier.widthIn(min = 64.dp).clip(RoundedCornerShape(rSm)).background(cCard).border(1.5.dp, cLine, RoundedCornerShape(rSm)).tap { vm.addLine(g.id) }.padding(horizontal = 14.dp, vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(g.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
@@ -816,7 +816,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
                     Spacer(Modifier.height(9.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("السعر", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
-                        LabeledStepper("", fmt(st.newPrice), { vm.newPriceStep(-1) }, { vm.newPriceStep(1) }, btnSize = 28.dp, valueMin = 58.dp)
+                        LabeledStepper("", fmt(st.newPrice), { vm.newPriceStep(-1) }, { vm.newPriceStep(1) }, valueMin = 58.dp)
                     }
                     Text("سيُضاف للمحل كـ«لا أعلم» (نقطة حمراء) تحلّينه لاحقاً", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 9.dp))
                     Spacer(Modifier.height(11.dp))
@@ -833,7 +833,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
                     HorizontalDivider(color = cInk, thickness = 1.dp)
                     Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                         Text("المجموع", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk)
-                        Text(fmt(st.lines.sumOf { it.price * it.qty }), fontSize = 21.sp, fontWeight = FontWeight.Bold, color = cInk)
+                        Text(fmt(st.lines.sumOf { it.price * it.qty }), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = cInk)
                     }
                 }
             }
@@ -869,16 +869,16 @@ private fun SaleLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
                 if (l.haggled) Text(fmt(l.tasira), fontSize = fCaption, color = cDim, textDecoration = TextDecoration.LineThrough, modifier = Modifier.padding(horizontal = 6.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                StepBtn("−", 28.dp, 8.dp, 1.5.dp, cLine, cAccent, 17.sp) { vm.priceStep(i, -1) }
+                StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.priceStep(i, -1) }
                 Text(fmt(l.price), fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
-                StepBtn("+", 28.dp, 8.dp, 1.5.dp, cLine, cAccent, 17.sp) { vm.priceStep(i, 1) }
+                StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.priceStep(i, 1) }
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             Text("الكمية", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
-            StepBtn("−", 23.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.qtyStep(i, -1) }
+            StepBtn("−", tapSm, 9.dp, 1.dp, cLine, cDim, 17.sp) { vm.qtyStep(i, -1) }
             Text("×${l.qty}", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 20.dp))
-            StepBtn("+", 23.dp, 7.dp, 1.dp, cLine, cDim, 14.sp) { vm.qtyStep(i, 1) }
+            StepBtn("+", tapSm, 9.dp, 1.dp, cLine, cDim, 17.sp) { vm.qtyStep(i, 1) }
         }
     }
 }
@@ -895,7 +895,7 @@ private fun WithdrawSheet(st: StoreState, vm: StoreViewModel) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 st.shelf.filter { it.onHand > 0 }.sortedByDescending { it.onHand }.forEach { g ->
                     Column(
-                        Modifier.widthIn(min = 64.dp).clip(RoundedCornerShape(rSm)).background(cCard).border(1.5.dp, cLine, RoundedCornerShape(rSm)).tap { vm.addLine(g.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                        Modifier.widthIn(min = 64.dp).clip(RoundedCornerShape(rSm)).background(cCard).border(1.5.dp, cLine, RoundedCornerShape(rSm)).tap { vm.addLine(g.id) }.padding(horizontal = 14.dp, vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(g.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
@@ -926,9 +926,9 @@ private fun WithdrawLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
         Text(l.name, fontSize = fTitle, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             Text("الكمية", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
-            StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.withdrawQtyStep(i, -1) }
+            StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.withdrawQtyStep(i, -1) }
             Text("×${l.qty}", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 24.dp))
-            StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.withdrawQtyStep(i, 1) }
+            StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.withdrawQtyStep(i, 1) }
         }
     }
 }
@@ -936,7 +936,7 @@ private fun WithdrawLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
 @Composable
 private fun PayModeBtn(label: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.clip(RoundedCornerShape(rMd)).background(if (active) cAccent else cCard).border(1.5.dp, if (active) cAccent else cLine, RoundedCornerShape(rMd)).tap(onClick).padding(vertical = 11.dp, horizontal = 4.dp),
+        modifier.clip(RoundedCornerShape(rMd)).background(if (active) cAccent else cCard).border(1.5.dp, if (active) cAccent else cLine, RoundedCornerShape(rMd)).tap(onClick).padding(vertical = 13.dp, horizontal = 4.dp),
         contentAlignment = Alignment.Center,
     ) { Text(label, fontSize = fBody, fontWeight = FontWeight.Bold, color = if (active) cAink else cDim) }
 }
@@ -1022,11 +1022,11 @@ internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
                     TextInput(st.aiName, vm::setAiName, "اسم الصنف", modifier = Modifier.fillMaxWidth())
                     Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("التسعيرة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
-                        LabeledStepper("", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) }, btnSize = 26.dp, valueMin = 56.dp, valueSize = 15.sp, btnFont = 16.sp)
+                        LabeledStepper("", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) }, btnSize = tapSm, valueMin = 56.dp, valueSize = 16.sp, btnFont = 18.sp)
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("العدد المعدود", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
-                        LabeledStepper("", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) }, btnSize = 26.dp, valueMin = 32.dp, valueSize = 15.sp, btnFont = 16.sp)
+                        LabeledStepper("", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) }, btnSize = tapSm, valueMin = 32.dp, valueSize = 16.sp, btnFont = 18.sp)
                     }
                     Spacer(Modifier.height(11.dp))
                     PrimaryButton("عدّ (يبقى في البالة) ✓", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.savePkgCount() }
@@ -1056,9 +1056,9 @@ private fun PackageItemRow(p: Shelf, vm: StoreViewModel) {
             Text("في البالة: ${p.inPkg}", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAmber)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text("في المحل", fontSize = fCaption, color = cDim)
-                StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shelveStep(p.id, -1) }
+                StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.shelveStep(p.id, -1) }
                 Text("${p.shelved}", fontSize = fTitle, fontWeight = FontWeight.ExtraBold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 28.dp))
-                StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cAccent, 16.sp) { vm.shelveStep(p.id, 1) }
+                StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.shelveStep(p.id, 1) }
             }
         }
         if (p.inPkg > 0) {
@@ -1102,9 +1102,9 @@ internal fun ColumnScope.ShopBody(st: StoreState, vm: StoreViewModel) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(if (debtNow > 0) "دينه علينا" else "لا دين له", fontSize = fBody, fontWeight = FontWeight.Bold, color = if (debtNow > 0) cDebt else cPaid)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        StepBtn("−", 26.dp, 8.dp, 1.5.dp, cLine, cDim, 16.sp) { vm.shopOwedStep(sv.id, -1) }
+                        StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cDim, 20.sp) { vm.shopOwedStep(sv.id, -1) }
                         Text(fmt(debtNow), fontSize = fTitle, fontWeight = FontWeight.ExtraBold, color = if (debtNow > 0) cDebt else cDim, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 64.dp))
-                        StepBtn("+", 26.dp, 8.dp, 1.5.dp, cLine, cDim, 16.sp) { vm.shopOwedStep(sv.id, 1) }
+                        StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cDim, 20.sp) { vm.shopOwedStep(sv.id, 1) }
                     }
                 }
                 if (debtNow > 0) {

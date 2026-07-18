@@ -95,7 +95,7 @@ private fun PaperDebtSheet(st: StoreState, vm: StoreViewModel) {
             Modifier.fillMaxWidth().card(rMd).padding(horizontal = 13.dp, vertical = 11.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("دين قديم من الدفتر الورقي", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDebt)
+            Text("دين قديم من الدفتر الورقي", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDebt, modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp))
             LabeledStepper("", fmt(st.paperDebtAmount), { vm.paperDebtStep(-1) }, { vm.paperDebtStep(1) }, valueMin = 64.dp, valueSize = 18.sp, borderColor = cUnspecBorder, btnColor = cDebt, raw = st.paperDebtAmount, onType = vm::setPaperDebtAmount)
         }
         Spacer(Modifier.height(12.dp))
@@ -361,21 +361,13 @@ private fun CustPicker(st: StoreState, vm: StoreViewModel) {
             ) {
                 Text("+ زبونة جديدة", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cAccent)
             }
-            // a woman she can't name yet (a neighbour taking a تجريب) — a date-stamped placeholder
-            // she selects now and renames later; keeps a nameless عملية from being blocked.
-            Row(
-                Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(rMd)).background(cCard).dashedBorder(cLine, rMd).tap { vm.addPlaceholderCustomer() }.padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("+ زبونة بلا اسم (اسم مؤقّت)", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cDim)
-            }
         } else {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp)) {
                 TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth())
                 Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("دين قديم (اختياري)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
+                    Text("دين قديم (اختياري)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp))
                     LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 60.dp, raw = st.custNewDebt, onType = vm::setCustNewDebt)
                 }
                 Spacer(Modifier.height(11.dp))
@@ -398,7 +390,7 @@ private fun AddCustomerSheet(st: StoreState, vm: StoreViewModel) {
             Modifier.fillMaxWidth().padding(top = 11.dp).card(rMd).padding(horizontal = 13.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
+            Column(Modifier.weight(1f, fill = false).padding(end = 8.dp)) {
                 Text("دين قديم (اختياري)", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk)
                 Text("رصيد سابق من الدفتر الورقي", fontSize = fCaption, color = cDim)
             }
@@ -452,7 +444,7 @@ internal fun ColumnScope.ItemEditBody(st: StoreState, vm: StoreViewModel) {
         Spacer(Modifier.height(9.dp))
         CardStepperRow("التسعيرة", fmt(st.eiTasira), { vm.eiTasiraStep(-1) }, { vm.eiTasiraStep(1) }, raw = st.eiTasira, onType = vm::setEiTasira)
         Spacer(Modifier.height(8.dp))
-        CardStepperRow("في المحل الآن", "${st.eiOnHand}", { vm.eiOnHandStep(-1) }, { vm.eiOnHandStep(1) })
+        CardStepperRow("في المحل الآن", "${st.eiOnHand}", { vm.eiOnHandStep(-1) }, { vm.eiOnHandStep(1) }, raw = st.eiOnHand.toLong(), onType = vm::setEiOnHand)
         // ITEM 6: a bale-sourced item shows its share of the bale's inclusive cost (USD×frozen
         // rate + expenses ÷ counted pieces), read-only — «—» when incomputable. The old editable
         // «سعر الشراء للقطعة» stepper was market-only and is gone with شراء من السوق.
@@ -671,7 +663,7 @@ internal fun ColumnScope.CustomerDetailBody(st: StoreState, vm: StoreViewModel, 
                 Modifier.fillMaxWidth().padding(top = 11.dp).card(rMd).padding(horizontal = 13.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column {
+                Column(Modifier.weight(1f, fill = false).padding(end = 8.dp)) {
                     Text("دين قديم", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk)
                     Text("تعديله يعدّل رصيدها مباشرةً", fontSize = fCaption, color = cDim)
                 }
@@ -844,14 +836,12 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
                     }
                 }
             } else {
-                // نقدي: no balance will change — if this money is for an item, it's a sale; or if
-                // it's a woman she can't name yet, give her a temporary name so the دفعة sticks.
+                // نقدي: no balance will change — if this money is for an item, it's a sale.
                 Column(
                     Modifier.fillMaxWidth().padding(top = 16.dp).clip(RoundedCornerShape(rMd)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp),
                 ) {
                     Text("دفعة نقدي لا تُنقص دين أحد.", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAmber)
                     Text("مبلغ عن صنف؟ سجّليه بيعاً ←", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.openSale() })
-                    Text("زبونة بلا اسم؟ سجّليها باسم مؤقّت ←", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.addPlaceholderCustomer() })
                 }
             }
         }
@@ -937,8 +927,9 @@ private fun SaleLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
     Column(Modifier.fillMaxWidth().padding(vertical = 11.dp).drawBottomLine()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f, fill = false)) {
-                Text(l.name, fontSize = fTitle, fontWeight = FontWeight.SemiBold, color = cInk)
-                if (l.haggled) Text(fmt(l.tasira), fontSize = fCaption, color = cDim, textDecoration = TextDecoration.LineThrough, modifier = Modifier.padding(horizontal = 6.dp))
+                Text(l.name, fontSize = fTitle, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false))
+                // no-wrap so the struck-through original price never stacks vertically on narrow screens
+                if (l.haggled) Text(fmt(l.tasira), fontSize = fCaption, color = cDim, textDecoration = TextDecoration.LineThrough, maxLines = 1, softWrap = false, modifier = Modifier.padding(horizontal = 6.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.priceStep(i, -1) }
@@ -1126,6 +1117,12 @@ internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
                 // slice 2: the rate frozen into this bale (legacy bales have none → live rate, no line)
                 sv.ratePurchase?.let { rate ->
                     Text("سعر الصرف المُثبّت: ${fmt(rate)}", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(top = 10.dp))
+                }
+                // what each piece cost her: the bale's inclusive cost (USD×frozen rate + expenses)
+                // ÷ the counted total — the headline she looks for right after counting + pricing.
+                val cnt = sv.countTotal ?: 0
+                if (cnt > 0 && sv.costLocal != null) {
+                    Text("سعر القطعة تقريباً: ${fmt(sv.costLocal!! / cnt)}", fontSize = fBody, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(top = 8.dp))
                 }
                 // ITEM 6: the USD line mirrors the SYP framing — pre-recovery «بقي تقريباً: $N»
                 // (positive), post «الربح بالدولار تقريباً: + $N». Never a negative dollar sign.
@@ -1321,7 +1318,7 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
             Spacer(Modifier.height(11.dp))
             CardStepperRow("التسعيرة", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) }, raw = st.aiTasira, onType = vm::setAiTasira)
             Spacer(Modifier.height(8.dp))
-            CardStepperRow("العدد في المحل", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) })
+            CardStepperRow("العدد في المحل", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) }, raw = st.aiCount.toLong(), onType = vm::setAiCount)
             // V3 merge: one «بضاعة قديمة» chip (maps to PRE_ID) + بالات only — شراء من السوق hidden.
             Text("من أين؟ («بضاعة قديمة» الافتراضي — وجّهيه لبالته إن عرفتِها)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

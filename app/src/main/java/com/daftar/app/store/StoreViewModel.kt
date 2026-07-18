@@ -379,14 +379,6 @@ class StoreViewModel @Inject constructor(
         val c = Customer("c" + System.currentTimeMillis(), nm, it.custNewPhone.trim().ifEmpty { null }, it.custNewDebt)
         it.copy(customers = it.customers + c, saleCustomerId = c.id, custPickerOpen = false, custNewOpen = false)
     }
-    // A woman she can't name yet — create a date-stamped placeholder («زبونة 18/7») and select her,
-    // staying in whatever sheet is open. Reused by the دفعة no-customer nudge and the تجريب picker;
-    // she's an ordinary customer, renameable later from her detail card.
-    fun addPlaceholderCustomer() = set {
-        val nm = placeholderCustomerName(it.customers.map { c -> c.name }, it.today)
-        val c = Customer("c" + System.currentTimeMillis(), nm)
-        it.copy(customers = it.customers + c, saleCustomerId = c.id, custPickerOpen = false, custNewOpen = false)
-    }
 
     // ── edit a customer (v2: every record editable forever; opening-debt edits re-normalize dues) ──
     fun startEditCustomer(id: String) = set { s ->
@@ -466,6 +458,7 @@ class StoreViewModel @Inject constructor(
     fun setEiName(v: String) = set { it.copy(eiName = v) }
     fun eiTasiraStep(d: Int) = set { it.copy(eiTasira = maxOf(0, it.eiTasira + d * 500)) }
     fun eiOnHandStep(d: Int) = set { it.copy(eiOnHand = maxOf(0, it.eiOnHand + d)) }
+    fun setEiOnHand(v: Long) = set { it.copy(eiOnHand = maxOf(0, v.toInt())) }
     fun eiBuyStep(d: Int) = set { it.copy(eiBuy = maxOf(0, it.eiBuy + d * 500)) }
     fun eiPickSource(sid: String?) = set { it.copy(eiSource = sid) }
     fun saveEditItem() = set { s ->

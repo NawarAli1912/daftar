@@ -604,17 +604,6 @@ class StoreModelTest {
     }
 
     @Test
-    fun `placeholder customer name is date-based western-numeral and unique on collision`() {
-        val jul18 = java.time.LocalDate.of(2026, 7, 18).toEpochDay()
-        assertEquals("زبونة 18/7", placeholderCustomerName(emptyList(), jul18))
-        assertEquals("زبونة 18/7 (2)", placeholderCustomerName(listOf("زبونة 18/7"), jul18))
-        assertEquals("زبونة 18/7 (3)", placeholderCustomerName(listOf("زبونة 18/7", "زبونة 18/7 (2)"), jul18))
-        // a different day gets its own base name
-        val jan5 = java.time.LocalDate.of(2026, 1, 5).toEpochDay()
-        assertEquals("زبونة 5/1", placeholderCustomerName(listOf("زبونة 18/7"), jan5))
-    }
-
-    @Test
     fun `return suggestions are the customer's taken lines newest-first and deduplicated`() {
         // newest-first, as the live ledger prepends new قيود
         val entries = listOf(

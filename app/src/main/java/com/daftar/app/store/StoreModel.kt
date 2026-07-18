@@ -189,18 +189,6 @@ data class Customer(
 fun firstOfNextMonth(today: Long): Long =
     java.time.LocalDate.ofEpochDay(today).plusMonths(1).withDayOfMonth(1).toEpochDay()
 
-// A stand-in name for a neighbourhood woman she can't name yet — «زبونة 18/7» from today's
-// date (Western numerals, like the rest of the app). She can rename it later like any customer.
-// On collision (a second unnamed زبونة the same day) a counter is appended: «(2)», «(3)»…
-fun placeholderCustomerName(existingNames: List<String>, today: Long): String {
-    val d = java.time.LocalDate.ofEpochDay(today)
-    val base = "زبونة ${d.dayOfMonth}/${d.monthValue}"
-    if (base !in existingNames) return base
-    var n = 2
-    while ("$base ($n)" in existingNames) n++
-    return "$base ($n)"
-}
-
 // The Arabic urgency label for المواعيد.
 fun dueStatus(due: Long?, today: Long): String = when {
     due == null -> "بلا موعد"

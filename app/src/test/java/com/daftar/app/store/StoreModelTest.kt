@@ -632,4 +632,59 @@ class StoreModelTest {
         assertTrue(taken.none { it.shelfId == "h4" }) // voided قيد excluded
         assertEquals(emptyList<SoldLine>(), customerTakenLines(null, entries)) // نقدي → falls back to الرف
     }
+
+    // ── slice 2: a بالة freezes its exchange rate at purchase (legacy bales track the live rate) ──
+    @Test
+    fun `a frozen rate drives bale cost while a legacy bale falls back to the live rate`() {
+        val frozen = Source("s_frozen", Kind.BALE, "بالة مُثبّتة", cost = 400, ratePurchase = 100)
+        val legacy = Source("s_legacy", Kind.BALE, "بالة قديمة", cost = 400, ratePurchase = null)
+        val stock = listOf(
+            Shelf("i1", "فستان", tasira = 10_000, shelved = 10, sold = 0, sourceId = "s_frozen"),
+            Shelf("i2", "بنطال", tasira = 10_000, shelved = 10, sold = 0, sourceId = "s_legacy"),
+        )
+        val views = sourceViews(listOf(frozen, legacy), stock, usdRate = 1500)
+        assertEquals(40_000L, views.first { it.id == "s_frozen" }.costLocal)  // 400 × 100, frozen
+        assertEquals(600_000L, views.first { it.id == "s_legacy" }.costLocal) // 400 × 1500, live rate
+        // per-piece bale share (itemStats) uses the same frozen rate
+        val sold = listOf(DayEntry("e", "بيع", "", "", "ink", day = 1, lines = "i1|فستان|10000|4"))
+        val st = itemStats(stock[0], listOf(frozen, legacy), stock, sold, usdRate = 1500)
+        assertEquals(4 * 10_000L - 4 * (40_000L / 10), st.profit) // cost 40,000 over 10 pieces = 4,000 each
+    }
+
+    // ── slice 3: bale expenses are deducted IN FULL from profit and capital recovery ──
+    @Test
+    fun `bale expenses deduct fully from its profit and capital recovery`() {
+        val bale = Source("s_b", Kind.BALE, "بالة", cost = 100, ratePurchase = 1_000) // cost 100,000
+        val stock = listOf(Shelf("i", "قطعة", tasira = 10_000, shelved = 20, sold = 15, sourceId = "s_b")) // rev 150,000
+        val expenses = listOf(BaleExpense("x1", "s_b", "كوي", 30_000), BaleExpense("x2", "s_b", "نقل", 20_000))
+        assertEquals(50_000L, baleExpensesTotal("s_b", expenses))
+        val sv = sourceViews(listOf(bale), stock, usdRate = 999, expenses = expenses).first()
+        assertEquals(150_000L, sv.costLocal)  // 100,000 cost + 50,000 expenses, folded in
+        assertEquals(50_000L, sv.expensesTotal)
+        assertEquals(0L, sv.profit)           // revenue 150,000 − inclusive cost 150,000
+        assertEquals(100, recoveryPct(sv.revenue, sv.costLocal)) // recovery uses the SAME inclusive cost
+    }
+
+    // ── slice 3: the one USD summary line converts at the bale's frozen rate ──
+    @Test
+    fun `the USD profit line converts at the frozen rate`() {
+        assertEquals(5L, baleUsdProfit(66_500, 13_300))   // +66,500 / 13,300 → $5
+        assertEquals(-5L, baleUsdProfit(-66_500, 13_300)) // sign preserved
+        assertNull(baleUsdProfit(null, 13_300))           // no cost basis → no line
+        assertNull(baleUsdProfit(10_000, 0))              // no rate → no line
+    }
+
+    // ── slice 4: allocation against the counted total, remainder may go negative (a warning) ──
+    @Test
+    fun `bale allocation sums item counts and the unallocated remainder can go negative`() {
+        val stock = listOf(
+            Shelf("i1", "فستان", tasira = 0, shelved = 40, sold = 0, counted = 60, sourceId = "s_b"), // cnt 60
+            Shelf("i2", "بنطال", tasira = 0, shelved = 30, sold = 0, sourceId = "s_b"),                // cnt 30
+            Shelf("i3", "أخرى", tasira = 0, shelved = 5, sold = 0, sourceId = "other"),                // other bale
+        )
+        assertEquals(90, baleAllocated("s_b", stock))  // 60 + 30, the other source excluded
+        assertEquals(85, baleUnallocated(175, 90))     // counted 175 − classified 90
+        assertEquals(0, baleUnallocated(90, 90))       // fully classified
+        assertEquals(-15, baleUnallocated(75, 90))     // named more than counted → negative
+    }
 }

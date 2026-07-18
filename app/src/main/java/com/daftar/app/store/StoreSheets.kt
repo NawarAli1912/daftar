@@ -297,7 +297,9 @@ private fun CardStepperRow(label: String, value: String, onMinus: () -> Unit, on
         Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(bg).border(1.dp, if (bg == cCard) cLine else borderColor, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, fontSize = fBody, fontWeight = FontWeight.SemiBold, color = labelColor)
+        // the label yields (wraps) so the stepper cluster always keeps its full size — a long
+        // label was silently squeezing the last StepBtn («+» in RTL) smaller than its twin
+        Text(label, fontSize = fBody, fontWeight = FontWeight.SemiBold, color = labelColor, modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp))
         LabeledStepper("", value, onMinus, onPlus, borderColor = borderColor, btnColor = btnColor, raw = raw, onType = onType)
     }
 }
@@ -1030,9 +1032,10 @@ private fun SpecifySheet(st: StoreState, vm: StoreViewModel) {
 }
 
 // ── the bale screen (F1) — one place to rename, read stats, count, shelve and edit ──
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
-    val sv = sourceViews(st.sources, st.shelf, st.usdRate).find { it.id == rememberLast(st.pkgId) } ?: return
+    val sv = sourceViews(st.sources, st.shelf, st.usdRate, st.expenses).find { it.id == rememberLast(st.pkgId) } ?: return
     val items = st.shelf.filter { it.sourceId == sv.id }
     run {
         Text("📦 ${sv.label}", fontSize = fHead, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp))
@@ -1046,10 +1049,38 @@ internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
                     Text(sv.kindLabel, fontSize = fCaption, color = cDim)
                 }
             }
+            // slice 4: how the counted total splits into named types. The remainder may go negative
+            // (she named more than she counted) — an amber warning, never a block.
+            sv.countTotal?.let { total ->
+                val allocated = baleAllocated(sv.id, st.shelf)
+                val remainder = baleUnallocated(total, allocated)
+                if (remainder < 0) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = 11.dp).clip(RoundedCornerShape(rSm)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(rSm)).padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("مصنّف أكثر من العدّ بـ ${-remainder} — أعيدي العدّ أو صحّحي الأصناف", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cAmber, lineHeight = 18.sp)
+                    }
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = 11.dp).clip(RoundedCornerShape(rSm)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rSm)).padding(horizontal = 12.dp, vertical = 9.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("معدود $total", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cInk)
+                        Text("·", fontSize = fSmall, color = cDim)
+                        Text("مصنّف $allocated", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
+                        Text("·", fontSize = fSmall, color = cDim)
+                        Text("متبقي غير مصنّف $remainder", fontSize = fSmall, fontWeight = FontWeight.Bold, color = if (remainder > 0) cPaid else cDim)
+                    }
+                }
+            }
             // stats — the bale's ledger at a glance
             Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 13.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    BaleStat("التكلفة", sv.costFmt, cInk)
+                    // slice 3: expenses join the cost as «$275 + 50,000» (USD cost + SYP expenses)
+                    if (sv.expensesTotal > 0)
+                        BaleStat("التكلفة", "${sv.costFmt} + ${fmt(sv.expensesTotal)}", cInk, valueSize = fBodyL)
+                    else BaleStat("التكلفة", sv.costFmt, cInk)
                     BaleStat("الإيراد المنسوب", sv.revFmt, cInk)
                     BaleStat("الربح تقريباً", sv.profitFmt, if (sv.profit == null) cDim else if (sv.profit >= 0) cPaid else cDebt, bold = true)
                 }
@@ -1063,13 +1094,23 @@ internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
                     Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(8.dp).clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs))) {
                         Box(Modifier.fillMaxWidth(minOf(pct, 100) / 100f).fillMaxHeight().background(if (done) cPaid else cAmber))
                     }
-                    Text("يتغيّر مع سعر صرف اليوم", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 5.dp))
+                    // frozen-rate bales don't move with today's rate — only legacy bales do
+                    if (sv.ratePurchase == null) Text("يتغيّر مع سعر صرف اليوم", fontSize = fCaption, color = cDim, modifier = Modifier.padding(top = 5.dp))
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     BaleStat("بيعت", "${sv.sold}", cPaid)
                     BaleStat("في المحل", "${sv.remain}", cInk)
                     BaleStat("في البالة", "${sv.inPkg}", cAmber)
                     BaleStat("متوسط سعر البيع", avgSoldPrice(sv.revenue, sv.sold)?.let { fmt(it) } ?: "—", cInk)
+                }
+                // slice 2: the rate frozen into this bale (legacy bales have none → live rate, no line)
+                sv.ratePurchase?.let { rate ->
+                    Text("سعر الصرف المُثبّت: ${fmt(rate)}", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(top = 10.dp))
+                }
+                // slice 3: the one USD summary line — SYP profit at the bale's frozen rate, تقريباً
+                baleUsdProfit(sv.profit, sv.ratePurchase ?: st.usdRate)?.let { usd ->
+                    val sign = if (usd >= 0) "+ " else "− "
+                    Text("الربح بالدولار تقريباً: $sign\$${fmt(kotlin.math.abs(usd))}", fontSize = fCaption, fontWeight = FontWeight.Bold, color = if (usd >= 0) cPaid else cDebt, modifier = Modifier.padding(top = 4.dp))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -1095,15 +1136,53 @@ internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
                     PrimaryButton("عدّ (يبقى في البالة) ✓", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.savePkgCount() }
                 }
             }
+            // ── slice 3: bale expenses — a typed list deducted IN FULL from this bale's profit ──
+            Spacer(Modifier.height(16.dp))
+            Text("مصاريف البالة", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+            Text("مثل الكوي — تُخصم كاملةً من ربح هذه البالة.", fontSize = fSmall, color = cDim, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp))
+            val myExpenses = st.expenses.filter { it.sourceId == sv.id }
+            Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 4.dp)) {
+                myExpenses.forEach { ex ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 11.dp).drawBottomLine(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(ex.label, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(fmt(ex.amount), fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cDebt)
+                            Text("✕", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cDim, modifier = Modifier.tap { vm.removeExpense(ex.id) })
+                        }
+                    }
+                }
+                if (myExpenses.isEmpty()) Text("لا مصاريف بعد", fontSize = fSmall, color = cDim, modifier = Modifier.padding(vertical = 11.dp))
+                // add row — quick-pick her used labels («كوي» always), or type a new one
+                Column(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        expenseLabelChips(st.expenses).forEach { chip ->
+                            val sel = st.expenseLabel.trim() == chip
+                            Box(
+                                Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.setExpenseLabel(chip) }.padding(horizontal = 13.dp, vertical = 8.dp),
+                            ) {
+                                Text(chip, fontSize = fBody, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(9.dp))
+                    TextInput(st.expenseLabel, vm::setExpenseLabel, "اسم المصروف — مثال: نقل", modifier = Modifier.fillMaxWidth(), bg = cBg)
+                    Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("المبلغ", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
+                        LabeledStepper("", fmt(st.expenseAmount), { vm.expenseAmountStep(-1) }, { vm.expenseAmountStep(1) }, valueMin = 70.dp, borderColor = cAmberBorder, btnColor = cAmber, raw = st.expenseAmount, onType = vm::setExpenseAmount)
+                    }
+                    Spacer(Modifier.height(11.dp))
+                    PrimaryButton("أضيفي المصروف ✓", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.addExpense() }
+                }
+            }
         }
     }
 
 
 @Composable
-private fun BaleStat(label: String, value: String, color: Color, bold: Boolean = false) {
+private fun BaleStat(label: String, value: String, color: Color, bold: Boolean = false, valueSize: androidx.compose.ui.unit.TextUnit = fTitle) {
     Column {
         Text(label, fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
-        Text(value, fontSize = fTitle, fontWeight = if (bold) FontWeight.ExtraBold else FontWeight.Bold, color = color, modifier = Modifier.padding(top = 1.dp))
+        Text(value, fontSize = valueSize, fontWeight = if (bold) FontWeight.ExtraBold else FontWeight.Bold, color = color, modifier = Modifier.padding(top = 1.dp))
     }
 }
 
@@ -1135,7 +1214,7 @@ private fun PackageItemRow(p: Shelf, vm: StoreViewModel) {
 // ── the shop screen (F2) — rename, stats, items and the shop's debt with «دفعتُ للمحل» ──
 @Composable
 internal fun ColumnScope.ShopBody(st: StoreState, vm: StoreViewModel) {
-    val sv = sourceViews(st.sources, st.shelf, st.usdRate).find { it.id == rememberLast(st.shopId) } ?: return
+    val sv = sourceViews(st.sources, st.shelf, st.usdRate, st.expenses).find { it.id == rememberLast(st.shopId) } ?: return
     val items = st.shelf.filter { it.sourceId == sv.id }
     val debtNow = maxOf(0, shopDebtNow(st.sources.first { it.id == sv.id }, st.entries))
     run {
@@ -1269,9 +1348,23 @@ private fun AddSourceSheet(st: StoreState, vm: StoreViewModel) {
             Modifier.fillMaxWidth().card(rMd).padding(horizontal = 13.dp, vertical = 11.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("التكلفة (USD)", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDim)
-            LabeledStepper("", "$" + fmt(st.newCost), { vm.costStep(-1) }, { vm.costStep(1) }, valueMin = 64.dp, valueSize = 18.sp)
+            Text("التكلفة (USD)", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp))
+            LabeledStepper("", "$" + fmt(st.newCost), { vm.costStep(-1) }, { vm.costStep(1) }, valueMin = 64.dp, valueSize = 18.sp, raw = st.newCost, onType = vm::setNewCost)
         }
+        Spacer(Modifier.height(8.dp))
+        // slice 2: the pieces she counted at purchase — the remainder («متبقي غير مصنّف») is tracked
+        // against this as she names item types. 0 is fine (she can count later).
+        CardStepperRow("كم قطعة؟ (بعد العدّ)", "${st.newCount}", { vm.newCountStep(-1) }, { vm.newCountStep(1) }, raw = st.newCount.toLong(), onType = vm::setNewCount)
+        Spacer(Modifier.height(8.dp))
+        // slice 2: the rate freezes into THIS bale on save — today's global rate is only its default
+        Row(
+            Modifier.fillMaxWidth().card(rMd).padding(horizontal = 13.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("سعر الصرف لهذه البالة", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDim)
+            MoneyValue(st.newRate, vm::setNewRate, fBodyL, 64.dp)
+        }
+        Text("يُثبَّت سعر الصرف مع البالة — تغييرُ سعر اليوم لاحقاً لا يمسّها.", fontSize = fCaption, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(top = 7.dp, start = 2.dp, end = 2.dp))
         Spacer(Modifier.height(12.dp))
         PrimaryButton("أضيفي المصدر ✓", fontSize = fTitle, radius = rLg, vertical = 14.dp) { vm.saveSource() }
     }

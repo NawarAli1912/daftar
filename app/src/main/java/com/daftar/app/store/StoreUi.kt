@@ -139,8 +139,10 @@ internal fun MoneyValue(
     minWidth: Dp = 60.dp,
     color: Color = cInk,
 ) {
+    // 0 renders as an EMPTY field (dim placeholder) — a literal "0" merges with typed digits
+    // (clearing then typing 175 gave «1,750») and forces cursor gymnastics she can't do.
     androidx.compose.foundation.text.BasicTextField(
-        value = value.toString(),
+        value = if (value == 0L) "" else value.toString(),
         onValueChange = { s -> onValue(s.filter { it.isDigit() }.take(9).toLongOrNull() ?: 0L) },
         modifier = Modifier.widthIn(min = minWidth),
         textStyle = androidx.compose.ui.text.TextStyle(
@@ -152,6 +154,12 @@ internal fun MoneyValue(
         singleLine = true,
         cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk),
         visualTransformation = ThousandsTransformation,
+        decorationBox = { inner ->
+            Box(contentAlignment = Alignment.Center) {
+                if (value == 0L) Text("0", fontSize = fontSize, fontWeight = FontWeight.Bold, color = cDim)
+                inner()
+            }
+        },
     )
 }
 

@@ -753,7 +753,7 @@ private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
     UsdRateRow(st.usdRate, vm)
     Spacer(Modifier.height(12.dp))
 
-    val views = sourceViews(st.sources, st.shelf, st.usdRate)
+    val views = sourceViews(st.sources, st.shelf, st.usdRate, st.expenses)
     val pre = views.find { it.id == PRE_ID }
 
     // قبل التطبيق — everything from before the app whose source nobody remembers
@@ -860,7 +860,7 @@ private fun UsdRateRow(rate: Long, vm: StoreViewModel) {
     ) {
         Column {
             Text("سعر صرف الدولار اليوم", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cInk)
-            Text("لحساب تكلفة البالات", fontSize = fCaption, color = cDim)
+            Text("السعر الافتراضي للبالات الجديدة — كل بالة تثبّت سعرها", fontSize = fCaption, color = cDim)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("$1 =", fontSize = fSmall, color = cDim)
@@ -948,7 +948,7 @@ private fun SummarySeg(st: StoreState, vm: StoreViewModel) {
     }
     // profits — real (from sources with a cost basis) kept strictly apart from the estimate
     // for untracked goods (F4/D70). The estimate is its OWN amber line, never merged in.
-    val views = sourceViews(st.sources, st.shelf, st.usdRate)
+    val views = sourceViews(st.sources, st.shelf, st.usdRate, st.expenses)
     val realProfit = views.mapNotNull { it.profit }.sum()
     val estUntracked = estimatedUntrackedProfit(st.shelf)
     fun signed(v: Long) = (if (v >= 0) "+ " else "− ") + fmt(kotlin.math.abs(v))

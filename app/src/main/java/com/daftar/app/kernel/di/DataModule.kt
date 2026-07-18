@@ -8,6 +8,7 @@ import com.daftar.app.kernel.db.MIGRATION_15_16
 import com.daftar.app.kernel.db.MIGRATION_16_17
 import com.daftar.app.kernel.db.MIGRATION_17_18
 import com.daftar.app.kernel.db.MIGRATION_18_19
+import com.daftar.app.kernel.db.MIGRATION_19_20
 import com.daftar.app.kernel.db.StoreDao
 import dagger.Module
 import dagger.Provides
@@ -24,7 +25,7 @@ object DataModule {
     @Singleton
     fun database(@ApplicationContext context: Context): DaftarDatabase =
         Room.databaseBuilder(context, DaftarDatabase::class.java, "daftar.db")
-            .addMigrations(MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19) // preserve her ledger across updates
+            .addMigrations(MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20) // preserve her ledger across updates
             .fallbackToDestructiveMigration() // only for older/unknown jumps
             .build()
 

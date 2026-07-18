@@ -50,3 +50,15 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
         db.execSQL("UPDATE store_sources SET label = 'تحديد لاحقاً' WHERE id = 'src_pre' AND label = 'قبل التطبيق'")
     }
 }
+
+// v19 → v20: a بالة now freezes its own count + exchange rate at purchase, and owns a typed
+// expense list. store_sources gains countTotal/ratePurchase (both NULL for existing bales — they
+// keep falling back to the live global rate, which is exactly the old behaviour). The new
+// bale_expenses table starts empty. All additive; her ledger is untouched.
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE store_sources ADD COLUMN countTotal INTEGER")
+        db.execSQL("ALTER TABLE store_sources ADD COLUMN ratePurchase INTEGER")
+        db.execSQL("CREATE TABLE IF NOT EXISTS bale_expenses (id TEXT NOT NULL PRIMARY KEY, sourceId TEXT NOT NULL, label TEXT NOT NULL, amount INTEGER NOT NULL, seq INTEGER NOT NULL)")
+    }
+}

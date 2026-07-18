@@ -30,6 +30,7 @@ data class StoreState(
     val shelf: List<Shelf> = emptyList(),
     val entries: List<DayEntry> = emptyList(),
     val customers: List<Customer> = emptyList(),
+    val expenses: List<BaleExpense> = emptyList(), // bale-owned typed expenses (slice 3)
     val today: Long = 0,      // epoch-day, refreshed each launch/foreground
     val viewedDay: Long = 0,  // which day the اليوم page is showing (default = today)
     val usdRate: Long = 1500, // editable USD→local rate used for bale cost/profit
@@ -72,7 +73,12 @@ data class StoreState(
     val specifyId: String? = null,
     val addSrcKind: Kind? = null,
     val newCost: Long = 400,
+    val newCount: Int = 0,   // pieces counted at purchase (slice 2) — 0 allowed, stored as-is
+    val newRate: Long = 1500, // rate frozen into this bale (slice 2); seeded to the global usdRate
     val newSrcName: String = "", // bale name at creation (F1); empty ⇒ auto «بالة N»
+    // bale-expense add-row state (slice 3): the label she picked/typed + the amount
+    val expenseLabel: String = "",
+    val expenseAmount: Long = 0,
     val aiName: String = "",
     val aiTasira: Long = 5_000,
     val aiCount: Int = 1,
@@ -131,11 +137,12 @@ class StoreViewModel @Inject constructor(
                     it.copy(
                         seeded = snap.seeded, usdRate = snap.usdRate, sources = snap.sources, shelf = snap.shelf,
                         entries = snap.entries, customers = normalizeDues(snap.customers, snap.entries, it.today),
+                        expenses = snap.expenses,
                     )
                 }
             }
             state.map {
-                StoreSnapshot(it.seeded, it.usdRate, it.sources, it.shelf, it.entries, it.customers)
+                StoreSnapshot(it.seeded, it.usdRate, it.sources, it.shelf, it.entries, it.customers, it.expenses)
             }.distinctUntilChanged().drop(1).collect { repo.save(it) }
         }
     }
@@ -186,13 +193,13 @@ class StoreViewModel @Inject constructor(
     }
 
     // ── backup: export/restore the whole ledger as JSON (the persist collector saves imports) ──
-    fun exportJson(): String = s.let { snapshotToJson(StoreSnapshot(it.seeded, it.usdRate, it.sources, it.shelf, it.entries, it.customers)) }
+    fun exportJson(): String = s.let { snapshotToJson(StoreSnapshot(it.seeded, it.usdRate, it.sources, it.shelf, it.entries, it.customers, it.expenses)) }
     fun importJson(json: String): Boolean = try {
         val snap = snapshotFromJson(json)
         set {
             it.copy(
                 seeded = true, usdRate = snap.usdRate, sources = snap.sources, shelf = snap.shelf,
-                entries = snap.entries, customers = snap.customers, screen = "home", tab = "today", viewedDay = it.today,
+                entries = snap.entries, customers = snap.customers, expenses = snap.expenses, screen = "home", tab = "today", viewedDay = it.today,
             )
         }
         true
@@ -256,10 +263,15 @@ class StoreViewModel @Inject constructor(
     }
 
     // ── add source ──
-    fun openAddSource() = set { it.copy(screen = "addsrc", addSrcKind = Kind.BALE, newCost = 400, newSrcName = "") }
+    // The bale's rate defaults to today's global rate but freezes into the bale on save (slice 2).
+    fun openAddSource() = set { it.copy(screen = "addsrc", addSrcKind = Kind.BALE, newCost = 400, newCount = 0, newRate = it.usdRate, newSrcName = "") }
     fun closeAddSource() = set { it.copy(screen = "home", addSrcKind = null) }
     fun pickKind(k: Kind) = set { it.copy(addSrcKind = k) }
     fun costStep(d: Int) = set { it.copy(newCost = maxOf(0, it.newCost + d * 50)) }
+    fun setNewCost(v: Long) = set { it.copy(newCost = maxOf(0, v)) }
+    fun newCountStep(d: Int) = set { it.copy(newCount = maxOf(0, it.newCount + d)) }
+    fun setNewCount(v: Long) = set { it.copy(newCount = maxOf(0L, v).toInt()) }
+    fun setNewRate(v: Long) = set { it.copy(newRate = maxOf(0, v)) }
     fun setNewSrcName(v: String) = set { it.copy(newSrcName = v) }
     fun saveSource() = set {
         val k = it.addSrcKind ?: Kind.BALE
@@ -267,11 +279,28 @@ class StoreViewModel @Inject constructor(
         val id = "s" + System.currentTimeMillis()
         // F1: her name if she gave one, the running «بالة N» otherwise
         val label = it.newSrcName.trim().ifEmpty { k.label + " " + n }
+        // slice 2: freeze the piece count and the exchange rate into the bale at creation
         it.copy(
-            sources = it.sources + Source(id, k, label, it.newCost),
+            sources = it.sources + Source(id, k, label, it.newCost, countTotal = it.newCount, ratePurchase = it.newRate),
             screen = "home", addSrcKind = null, newSrcName = "", accountSeg = "sources", tab = "account",
         )
     }
+
+    // ── bale expenses (slice 3): a bale-owned typed list, deducted in full from its profit ──
+    fun setExpenseLabel(v: String) = set { it.copy(expenseLabel = v) }
+    fun expenseAmountStep(d: Int) = set { it.copy(expenseAmount = maxOf(0, it.expenseAmount + d * 1_000)) }
+    fun setExpenseAmount(v: Long) = set { it.copy(expenseAmount = maxOf(0, v)) }
+    fun addExpense() = set {
+        val sid = it.pkgId ?: return@set it // only ever added from a bale's page
+        val label = it.expenseLabel.trim().ifEmpty { "مصروف" }
+        if (it.expenseAmount <= 0) return@set it // an expense of nothing isn't recorded
+        it.copy(
+            expenses = it.expenses + BaleExpense("x" + System.currentTimeMillis(), sid, label, it.expenseAmount),
+            expenseLabel = "", expenseAmount = 0,
+        )
+    }
+    // Bale-owned and editable, so removal is confirm-free (it never touches the ledger).
+    fun removeExpense(id: String) = set { it.copy(expenses = it.expenses.filterNot { e -> e.id == id }) }
 
     // ── add item to shelf ──
     // v2: new items default to غير محدد — she resolves the source later if she remembers.

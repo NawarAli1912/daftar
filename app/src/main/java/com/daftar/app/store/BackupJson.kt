@@ -12,7 +12,12 @@ fun snapshotToJson(s: StoreSnapshot): String {
     root.put("usdRate", s.usdRate)
     root.put("sources", JSONArray().apply {
         s.sources.forEach {
-            put(JSONObject().put("id", it.id).put("kind", it.kind.name).put("label", it.label).put("cost", it.cost ?: JSONObject.NULL).put("debt", it.debt))
+            put(
+                JSONObject().put("id", it.id).put("kind", it.kind.name).put("label", it.label)
+                    .put("cost", it.cost ?: JSONObject.NULL).put("debt", it.debt)
+                    .put("countTotal", it.countTotal ?: JSONObject.NULL)
+                    .put("ratePurchase", it.ratePurchase ?: JSONObject.NULL),
+            )
         }
     })
     root.put("shelf", JSONArray().apply {
@@ -29,6 +34,11 @@ fun snapshotToJson(s: StoreSnapshot): String {
     root.put("customers", JSONArray().apply {
         s.customers.forEach {
             put(JSONObject().put("id", it.id).put("name", it.name).put("phone", it.phone ?: JSONObject.NULL).put("openingDebt", it.openingDebt).put("dueEpochDay", it.dueEpochDay ?: JSONObject.NULL))
+        }
+    })
+    root.put("expenses", JSONArray().apply {
+        s.expenses.forEach {
+            put(JSONObject().put("id", it.id).put("sourceId", it.sourceId).put("label", it.label).put("amount", it.amount))
         }
     })
     root.put("entries", JSONArray().apply {
@@ -57,8 +67,12 @@ fun snapshotFromJson(json: String): StoreSnapshot {
         seeded = true,
         usdRate = if (root.has("usdRate")) root.getLong("usdRate") else 1500,
         sources = root.getJSONArray("sources").map {
-            Source(it.getString("id"), Kind.valueOf(it.getString("kind")), it.getString("label"), it.optLongN("cost"), if (it.has("debt")) it.getLong("debt") else 0L)
+            // countTotal/ratePurchase added at v20 — older backups omit them (legacy bale semantics)
+            Source(it.getString("id"), Kind.valueOf(it.getString("kind")), it.getString("label"), it.optLongN("cost"), if (it.has("debt")) it.getLong("debt") else 0L, it.optIntN("countTotal"), it.optLongN("ratePurchase"))
         },
+        expenses = if (root.has("expenses")) root.getJSONArray("expenses").map {
+            BaleExpense(it.getString("id"), it.getString("sourceId"), it.getString("label"), it.getLong("amount"))
+        } else emptyList(),
         shelf = root.getJSONArray("shelf").map {
             Shelf(
                 it.getString("id"), it.getString("name"), it.getLong("tasira"), it.getInt("shelved"), it.getInt("sold"),

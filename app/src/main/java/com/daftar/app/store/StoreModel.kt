@@ -25,7 +25,47 @@ data class Source(
     // MARKET shops only (v2 decision 11): what SHE owes this shop — they sell her on
     // credit; one editable number she adjusts when she pays or takes more.
     val debt: Long = 0,
+    // BALE only: the TOTAL pieces she counted at purchase (e.g. 175) — naming item types
+    // allocates against it, the remainder stays visible. null for buckets/shops and legacy bales.
+    val countTotal: Int? = null,
+    // BALE only: the USD→local rate FROZEN at purchase. A bale's cost is locked to the rate the
+    // day she bought it; the global «سعر صرف اليوم» is only the default for new bales. null for
+    // buckets/shops and legacy bales — those fall back to the live global rate (migration backfill
+    // semantics: no data write, the code default IS the old behaviour).
+    val ratePurchase: Long? = null,
 )
+
+// A bale-owned expense (كوي, نقل، …): a label + SYP amount deducted FULLY from that bale's
+// profit. Bale-owned and freely editable (add/remove without a confirm), so it never touches
+// the ledger's undo/void machinery.
+data class BaleExpense(
+    val id: String,
+    val sourceId: String,
+    val label: String,
+    val amount: Long,
+)
+
+// Everything spent on a bale — deducted in full from its profit (D-bale-expenses).
+fun baleExpensesTotal(sourceId: String, expenses: List<BaleExpense>): Long =
+    expenses.filter { it.sourceId == sourceId }.sumOf { it.amount }
+
+// The quick-pick labels the expense add-row offers: «كوي» always, plus every distinct label
+// she has already used on ANY bale (so her own vocabulary comes back).
+fun expenseLabelChips(expenses: List<BaleExpense>): List<String> =
+    (listOf("كوي") + expenses.map { it.label }).distinct()
+
+// SLICE 4 allocation: a bale stores a TOTAL counted piece count; naming item types allocates
+// against it. Allocated = Σ cnt of its shelf items; the remainder («متبقي غير مصنّف») may go
+// negative when she names more than she counted (a warning, never a block).
+fun baleAllocated(sourceId: String, shelf: List<Shelf>): Int =
+    shelf.filter { it.sourceId == sourceId }.sumOf { it.cnt }
+
+fun baleUnallocated(countTotal: Int, allocated: Int): Int = countTotal - allocated
+
+// The bale page's one USD summary line: SYP profit converted at the bale's FROZEN rate (the
+// live global rate for legacy bales). Rounded to whole dollars; null with no cost basis or rate.
+fun baleUsdProfit(profit: Long?, rate: Long): Long? =
+    if (profit == null || rate <= 0L) null else Math.round(profit.toDouble() / rate)
 
 // محلات السوق: the shops living inside the one شراء من السوق card (never the system row).
 fun marketShops(sources: List<Source>): List<Source> =
@@ -408,6 +448,11 @@ data class SourceView(
     val costLocal: Long?,
     val revenue: Long,
     val debt: Long,
+    // BALE only (slice 2/3/4): the frozen rate, counted total, and expenses folded into cost.
+    val cost: Long?,          // raw USD cost, so the bale page can render «$275 + expenses»
+    val ratePurchase: Long?,  // the frozen rate (null ⇒ legacy bale on the live rate)
+    val countTotal: Int?,     // pieces counted at purchase (null ⇒ legacy/non-bale)
+    val expensesTotal: Long,  // Σ this bale's expenses, already inside costLocal
 )
 
 fun revenueBySource(shelf: List<Shelf>): Map<String, Long> {
@@ -489,7 +534,8 @@ fun itemStats(item: Shelf, sources: List<Source>, shelf: List<Shelf>, entries: L
         else -> {
             val src = sources.find { it.id == item.sourceId }
             if (src?.kind == Kind.BALE) {
-                val baleCost = (src.cost ?: 0L) * usdRate
+                // a bale's cost is frozen to its purchase-day rate; legacy bales use the live rate
+                val baleCost = (src.cost ?: 0L) * (src.ratePurchase ?: usdRate)
                 val piecesInBale = shelf.filter { it.sourceId == src.id }.sumOf { it.cnt }
                 if (piecesInBale > 0) baleCost / piecesInBale else null // the item's share of the bale
             } else null
@@ -522,7 +568,7 @@ fun recoveryPct(revenue: Long, costLocal: Long?): Int? =
 // Average fetched per sold piece; null until something sells.
 fun avgSoldPrice(revenue: Long, sold: Int): Long? = if (sold <= 0) null else revenue / sold
 
-fun sourceViews(sources: List<Source>, shelf: List<Shelf>, usdRate: Long): List<SourceView> {
+fun sourceViews(sources: List<Source>, shelf: List<Shelf>, usdRate: Long, expenses: List<BaleExpense> = emptyList()): List<SourceView> {
     val rev = revenueBySource(shelf)
     val rem = remainBySource(shelf)
     val sold = soldBySource(shelf)
@@ -531,8 +577,12 @@ fun sourceViews(sources: List<Source>, shelf: List<Shelf>, usdRate: Long): List<
         val mkt = if (s.kind == Kind.MARKET)
             shelf.filter { it.sourceId == s.id && it.buy != null }
                 .sumOf { (it.buy ?: 0L) * it.shelved } else null
+        val exp = baleExpensesTotal(s.id, expenses)
+        // A bale's cost is frozen to the rate the day she bought it (ratePurchase); legacy bales
+        // fall back to the live global rate. Bale expenses are deducted IN FULL — folded into the
+        // local cost so profit and capital-recovery both count them.
         val costLocal: Long? = when (s.kind) {
-            Kind.BALE -> (s.cost ?: 0L) * usdRate
+            Kind.BALE -> (s.cost ?: 0L) * (s.ratePurchase ?: usdRate) + exp
             Kind.MARKET -> mkt
             Kind.PRE_APP -> null
         }
@@ -559,6 +609,10 @@ fun sourceViews(sources: List<Source>, shelf: List<Shelf>, usdRate: Long): List<
             costLocal = costLocal,
             revenue = r,
             debt = s.debt,
+            cost = s.cost,
+            ratePurchase = s.ratePurchase,
+            countTotal = s.countTotal,
+            expensesTotal = exp,
         )
     }
 }

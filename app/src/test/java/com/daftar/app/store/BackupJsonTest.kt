@@ -1,6 +1,7 @@
 package com.daftar.app.store
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 // Backup is the only durability guarantee (no cloud), so a JSON round-trip must be lossless —
@@ -58,5 +59,40 @@ class BackupJsonTest {
         val e = restored.entries.single()
         assertEquals(null, e.sourceId)
         assertEquals(0L, e.moneyOut)
+    }
+
+    @Test
+    fun `a bale's frozen rate and count plus its expenses survive a JSON round-trip`() {
+        val snap = StoreSnapshot(
+            seeded = true, usdRate = 1_500,
+            sources = listOf(Source("s_b", Kind.BALE, "بالة شتوية", cost = 275, ratePurchase = 13_300, countTotal = 175)),
+            shelf = emptyList(),
+            entries = emptyList(),
+            customers = emptyList(),
+            expenses = listOf(
+                BaleExpense("x1", "s_b", "كوي", 30_000),
+                BaleExpense("x2", "s_b", "نقل", 20_000),
+            ),
+        )
+        val restored = snapshotFromJson(snapshotToJson(snap))
+        assertEquals(snap.sources, restored.sources)   // countTotal + ratePurchase preserved
+        assertEquals(snap.expenses, restored.expenses) // the bale-owned expense list preserved
+        val b = restored.sources.single()
+        assertEquals(13_300L, b.ratePurchase)
+        assertEquals(175, b.countTotal)
+    }
+
+    @Test
+    fun `a pre-v20 backup without bale count, rate, or expenses still loads with defaults`() {
+        val legacy = """
+            {"seeded":true,"usdRate":1500,
+             "sources":[{"id":"s_b","kind":"BALE","label":"بالة","cost":400,"debt":0}],
+             "shelf":[],"customers":[],"entries":[]}
+        """.trimIndent()
+        val restored = snapshotFromJson(legacy)
+        val b = restored.sources.single()
+        assertEquals(null, b.countTotal)   // legacy bale → live-rate fallback semantics
+        assertEquals(null, b.ratePurchase)
+        assertTrue(restored.expenses.isEmpty())
     }
 }

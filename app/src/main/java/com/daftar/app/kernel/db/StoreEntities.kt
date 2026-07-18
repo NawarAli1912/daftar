@@ -13,6 +13,20 @@ data class SourceRow(
     val label: String,
     val costUsd: Long?,
     val debt: Long = 0, // supplier credit — MARKET shops only
+    // BALE only (v20): the piece count entered at purchase and the exchange rate frozen that day.
+    // null on buckets/shops and legacy bales (which keep using the live global rate).
+    val countTotal: Int? = null,
+    val ratePurchase: Long? = null,
+    val seq: Int,
+)
+
+// Bale-owned expenses (v20): label + SYP amount, one per row, `seq` preserves list order.
+@Entity(tableName = "bale_expenses")
+data class BaleExpenseRow(
+    @PrimaryKey val id: String,
+    val sourceId: String,
+    val label: String,
+    val amount: Long,
     val seq: Int,
 )
 

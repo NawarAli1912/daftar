@@ -27,7 +27,7 @@ object DaftarColors {
     val Hairline = Color(0xFFE0DACE) // ledger rules, dividers
     val TextPrimary = Color(0xFF211E1A) // ink
     val TextSecondary = Color(0xFF6E675C) // dim — V3: darkened from #8C857A (3.1:1, failed WCAG AA) to ≥4.5:1 on card
-    val Teal = Color(0xFF211E1A) // primary action — the prototype's ink buttons/FABs
+    val Teal = Color(0xFF5D4732) // primary action — V3 warm leather brown (owner 2026-07-18: disliked the black fills); keeps oxblood=debt, green=paid, amber=trial untouched
     val OnTeal = Color(0xFFF7F4EC) // light ink on the dark action
     val Oxblood = Color(0xFFB23124) // brand: wordmark, the margin rule, debt
     val Red = Color(0xFFB23124) // debt / negative

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -107,6 +108,51 @@ internal fun Modifier.tapExpand(onClick: () -> Unit): Modifier = this.composed {
     Modifier.onGloballyPositioned { bounds = it.boundsInWindow() }
         .graphicsLayer { scaleX = scale; scaleY = scale }
         .clickable(interactionSource = src, indication = null) { origin.value = bounds; onClick() }
+}
+
+// Grouped-digits display for a money field being typed: "12345" renders "12,345" with a
+// correct cursor mapping, so the value reads like everywhere else in the ledger.
+private object ThousandsTransformation : androidx.compose.ui.text.input.VisualTransformation {
+    override fun filter(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.input.TransformedText {
+        val raw = text.text
+        val grouped = raw.reversed().chunked(3).joinToString(",").reversed()
+        val o2t = IntArray(raw.length + 1)
+        var ri = 0
+        grouped.forEachIndexed { ti, ch -> if (ch != ',') { o2t[ri] = ti; ri++ } }
+        o2t[raw.length] = grouped.length
+        val mapping = object : androidx.compose.ui.text.input.OffsetMapping {
+            override fun originalToTransformed(offset: Int) = o2t[offset.coerceIn(0, raw.length)]
+            override fun transformedToOriginal(offset: Int) = grouped.take(offset.coerceIn(0, grouped.length)).count { it != ',' }
+        }
+        return androidx.compose.ui.text.input.TransformedText(androidx.compose.ui.text.AnnotatedString(grouped), mapping)
+    }
+}
+
+// A money amount she can EDIT DIRECTLY: looks like the bold ledger number, but a tap puts the
+// cursor in it and opens the numeric keyboard (owner 2026-07-18: steppers alone — ±500 — were
+// the only way to change an amount). Steppers stay beside it for quick nudges.
+@Composable
+internal fun MoneyValue(
+    value: Long,
+    onValue: (Long) -> Unit,
+    fontSize: TextUnit,
+    minWidth: Dp = 60.dp,
+    color: Color = cInk,
+) {
+    androidx.compose.foundation.text.BasicTextField(
+        value = value.toString(),
+        onValueChange = { s -> onValue(s.filter { it.isDigit() }.take(9).toLongOrNull() ?: 0L) },
+        modifier = Modifier.widthIn(min = minWidth),
+        textStyle = androidx.compose.ui.text.TextStyle(
+            fontFamily = com.daftar.app.kernel.theme.Plex, fontSize = fontSize,
+            fontWeight = FontWeight.Bold, color = color,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        ),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        singleLine = true,
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(cInk),
+        visualTransformation = ThousandsTransformation,
+    )
 }
 
 // One search box for the list screens (الزبائن، البضاعة) — replaces two copy-pasted fields.

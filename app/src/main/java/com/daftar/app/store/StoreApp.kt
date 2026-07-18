@@ -814,7 +814,7 @@ private fun MarketCard(st: StoreState, vm: StoreViewModel, views: List<SourceVie
                     Text("دين أول (إن أخذتِ بالدَّين)", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.shopDebtStep(-1) }
-                        Text(fmt(st.shopDebt), fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
+                        MoneyValue(st.shopDebt, vm::setShopDebt, fBodyL, 52.dp)
                         StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.shopDebtStep(1) }
                     }
                 }

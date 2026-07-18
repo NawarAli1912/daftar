@@ -96,7 +96,7 @@ private fun PaperDebtSheet(st: StoreState, vm: StoreViewModel) {
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("دين قديم من الدفتر الورقي", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cDebt)
-            LabeledStepper("", fmt(st.paperDebtAmount), { vm.paperDebtStep(-1) }, { vm.paperDebtStep(1) }, valueMin = 64.dp, valueSize = 18.sp, borderColor = cUnspecBorder, btnColor = cDebt)
+            LabeledStepper("", fmt(st.paperDebtAmount), { vm.paperDebtStep(-1) }, { vm.paperDebtStep(1) }, valueMin = 64.dp, valueSize = 18.sp, borderColor = cUnspecBorder, btnColor = cDebt, raw = st.paperDebtAmount, onType = vm::setPaperDebtAmount)
         }
         Spacer(Modifier.height(12.dp))
         PrimaryButton("سجّلي الدين القديم ثم الدفعة ✓", fontSize = fBodyL, radius = rMd, vertical = 13.dp) { vm.confirmPaperDebt() }
@@ -272,29 +272,33 @@ private fun TextInput(value: String, onValueChange: (String) -> Unit, placeholde
 }
 
 // A stepper block: label on the start, [− value +] on the end (used in many sheets).
+// Pass raw + onType for MONEY values: the number itself becomes typeable (numeric keyboard),
+// with the steppers kept for quick ±500 nudges. Counts stay display-only.
 @Composable
 private fun LabeledStepper(
     label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit,
     btnSize: androidx.compose.ui.unit.Dp = tapMd, valueMin: androidx.compose.ui.unit.Dp = 60.dp,
     valueSize: androidx.compose.ui.unit.TextUnit = 19.sp, btnFont: androidx.compose.ui.unit.TextUnit = 20.sp,
     borderColor: Color = cLine, btnColor: Color = cAccent,
+    raw: Long? = null, onType: ((Long) -> Unit)? = null,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
         StepBtn("−", btnSize, 10.dp, 1.5.dp, borderColor, btnColor, btnFont, onMinus)
-        Text(value, fontSize = valueSize, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = valueMin))
+        if (raw != null && onType != null) MoneyValue(raw, onType, valueSize, valueMin)
+        else Text(value, fontSize = valueSize, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = valueMin))
         StepBtn("+", btnSize, 10.dp, 1.5.dp, borderColor, btnColor, btnFont, onPlus)
     }
     label.let {}
 }
 
 @Composable
-private fun CardStepperRow(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit, borderColor: Color = cLine, btnColor: Color = cAccent, labelColor: Color = cDim, bg: Color = cCard) {
+private fun CardStepperRow(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit, borderColor: Color = cLine, btnColor: Color = cAccent, labelColor: Color = cDim, bg: Color = cCard, raw: Long? = null, onType: ((Long) -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(bg).border(1.dp, if (bg == cCard) cLine else borderColor, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, fontSize = fBody, fontWeight = FontWeight.SemiBold, color = labelColor)
-        LabeledStepper("", value, onMinus, onPlus, borderColor = borderColor, btnColor = btnColor)
+        LabeledStepper("", value, onMinus, onPlus, borderColor = borderColor, btnColor = btnColor, raw = raw, onType = onType)
     }
 }
 
@@ -362,7 +366,7 @@ private fun CustPicker(st: StoreState, vm: StoreViewModel) {
                 TextInput(st.custNewPhone, vm::setCustNewPhone, "الهاتف (اختياري)", modifier = Modifier.fillMaxWidth())
                 Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("دين قديم (اختياري)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
-                    LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, btnSize = 28.dp, valueMin = 60.dp)
+                    LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 60.dp, raw = st.custNewDebt, onType = vm::setCustNewDebt)
                 }
                 Spacer(Modifier.height(11.dp))
                 PrimaryButton("أضيفي الزبونة ✓", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.addCustomer() }
@@ -388,7 +392,7 @@ private fun AddCustomerSheet(st: StoreState, vm: StoreViewModel) {
                 Text("دين قديم (اختياري)", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk)
                 Text("رصيد سابق من الدفتر الورقي", fontSize = fCaption, color = cDim)
             }
-            LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 64.dp)
+            LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 64.dp, raw = st.custNewDebt, onType = vm::setCustNewDebt)
         }
         Spacer(Modifier.height(14.dp))
         PrimaryButton("أضيفي الزبونة ✓", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.saveNewCustomer() }
@@ -436,7 +440,7 @@ internal fun ColumnScope.ItemEditBody(st: StoreState, vm: StoreViewModel) {
         }
         TextInput(st.eiName, vm::setEiName, "اسم الصنف", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
         Spacer(Modifier.height(9.dp))
-        CardStepperRow("التسعيرة", fmt(st.eiTasira), { vm.eiTasiraStep(-1) }, { vm.eiTasiraStep(1) })
+        CardStepperRow("التسعيرة", fmt(st.eiTasira), { vm.eiTasiraStep(-1) }, { vm.eiTasiraStep(1) }, raw = st.eiTasira, onType = vm::setEiTasira)
         Spacer(Modifier.height(8.dp))
         CardStepperRow("في المحل الآن", "${st.eiOnHand}", { vm.eiOnHandStep(-1) }, { vm.eiOnHandStep(1) })
         Spacer(Modifier.height(8.dp))
@@ -445,7 +449,7 @@ internal fun ColumnScope.ItemEditBody(st: StoreState, vm: StoreViewModel) {
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("سعر الشراء للقطعة", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAmber)
-            LabeledStepper("", fmt(st.eiBuy), { vm.eiBuyStep(-1) }, { vm.eiBuyStep(1) }, borderColor = cAmberBorder, btnColor = cAmber)
+            LabeledStepper("", fmt(st.eiBuy), { vm.eiBuyStep(-1) }, { vm.eiBuyStep(1) }, borderColor = cAmberBorder, btnColor = cAmber, raw = st.eiBuy, onType = vm::setEiBuy)
         }
         Text("من أين أتى؟ — وجّهيه لمحله أو بالته الصحيحة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -489,7 +493,7 @@ private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
             ) {
                 StepBtn("−", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.returnAmountStep(-1) }
-                Text(fmt(st.returnAmount), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 120.dp))
+                MoneyValue(st.returnAmount, vm::setReturnAmount, 30.sp, 120.dp)
                 StepBtn("+", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.returnAmountStep(1) }
             }
             Text("الصنف المُعاد (اختياري) — يعود إلى الرف", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
@@ -631,7 +635,7 @@ internal fun ColumnScope.CustomerDetailBody(st: StoreState, vm: StoreViewModel, 
                     Text("دين قديم", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk)
                     Text("تعديله يعدّل رصيدها مباشرةً", fontSize = fCaption, color = cDim)
                 }
-                LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 64.dp)
+                LabeledStepper("", fmt(st.custNewDebt), { vm.custNewDebtStep(-1) }, { vm.custNewDebtStep(1) }, valueMin = 64.dp, raw = st.custNewDebt, onType = vm::setCustNewDebt)
             }
             Spacer(Modifier.height(14.dp))
             PrimaryButton("حفظ التعديل ✓", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.saveEditCustomer() }
@@ -748,7 +752,7 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
             ) {
                 StepBtn("−", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.payAmountStep(-1) }
-                Text(fmt(st.payAmount), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 120.dp))
+                MoneyValue(st.payAmount, vm::setPayAmount, 30.sp, 120.dp)
                 StepBtn("+", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.payAmountStep(1) }
             }
             if (st.saleCustomerId != null) {
@@ -816,7 +820,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
                     Spacer(Modifier.height(9.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("السعر", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
-                        LabeledStepper("", fmt(st.newPrice), { vm.newPriceStep(-1) }, { vm.newPriceStep(1) }, valueMin = 58.dp)
+                        LabeledStepper("", fmt(st.newPrice), { vm.newPriceStep(-1) }, { vm.newPriceStep(1) }, valueMin = 58.dp, raw = st.newPrice, onType = vm::setNewPrice)
                     }
                     Text("سيُضاف للمحل كـ«لا أعلم» (نقطة حمراء) تحلّينه لاحقاً", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 9.dp))
                     Spacer(Modifier.height(11.dp))
@@ -850,7 +854,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
                 Column(Modifier.fillMaxWidth().card(rMd).padding(horizontal = 13.dp, vertical = 12.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("كم دفعت الآن؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
-                        LabeledStepper("", fmt(st.partialPaid), { vm.partialStep(-1) }, { vm.partialStep(1) }, valueMin = 70.dp)
+                        LabeledStepper("", fmt(st.partialPaid), { vm.partialStep(-1) }, { vm.partialStep(1) }, valueMin = 70.dp, raw = st.partialPaid, onType = vm::setPartialPaid)
                     }
                     Text("الباقي ديناً: ${fmt(total - paid)}", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cDebt, modifier = Modifier.padding(top = 8.dp))
                 }
@@ -870,7 +874,7 @@ private fun SaleLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.priceStep(i, -1) }
-                Text(fmt(l.price), fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 52.dp))
+                MoneyValue(l.price, { v -> vm.setLinePrice(i, v) }, fTitle, 52.dp)
                 StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.priceStep(i, 1) }
             }
         }
@@ -1022,7 +1026,7 @@ internal fun ColumnScope.PackageBody(st: StoreState, vm: StoreViewModel) {
                     TextInput(st.aiName, vm::setAiName, "اسم الصنف", modifier = Modifier.fillMaxWidth())
                     Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("التسعيرة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
-                        LabeledStepper("", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) }, btnSize = tapSm, valueMin = 56.dp, valueSize = 16.sp, btnFont = 18.sp)
+                        LabeledStepper("", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) }, btnSize = tapSm, valueMin = 56.dp, valueSize = 16.sp, btnFont = 18.sp, raw = st.aiTasira, onType = vm::setAiTasira)
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("العدد المعدود", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
@@ -1112,7 +1116,7 @@ internal fun ColumnScope.ShopBody(st: StoreState, vm: StoreViewModel) {
                     if (st.shopPayOpen) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("كم دفعتِ الآن؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim)
-                            LabeledStepper("", fmt(st.shopPayAmount), { vm.shopPayStep(-1) }, { vm.shopPayStep(1) }, valueMin = 64.dp, valueSize = 17.sp)
+                            LabeledStepper("", fmt(st.shopPayAmount), { vm.shopPayStep(-1) }, { vm.shopPayStep(1) }, valueMin = 64.dp, valueSize = 17.sp, raw = st.shopPayAmount, onType = vm::setShopPayAmount)
                         }
                         Spacer(Modifier.height(10.dp))
                         PrimaryButton("سجّلي الدفعة للمحل ✓", fontSize = fBodyL, radius = rSm, vertical = 11.dp) { vm.saveShopPay() }
@@ -1148,7 +1152,7 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
             Text("الصنف", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
             TextInput(st.aiName, vm::setAiName, "مثال: فستان", modifier = Modifier.fillMaxWidth(), bg = cCard, radius = rMd, fontSize = fTitle)
             Spacer(Modifier.height(11.dp))
-            CardStepperRow("التسعيرة", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) })
+            CardStepperRow("التسعيرة", fmt(st.aiTasira), { vm.aiTasiraStep(-1) }, { vm.aiTasiraStep(1) }, raw = st.aiTasira, onType = vm::setAiTasira)
             Spacer(Modifier.height(8.dp))
             CardStepperRow("العدد في المحل", "${st.aiCount}", { vm.aiCountStep(-1) }, { vm.aiCountStep(1) })
             Text("من أين؟ («لا أعلم» الافتراضي — تحلّينه لاحقاً)", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
@@ -1169,7 +1173,7 @@ private fun AddItemSheet(st: StoreState, vm: StoreViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("سعر الشراء للقطعة", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAmber)
-                    LabeledStepper("", fmt(st.aiBuy), { vm.aiBuyStep(-1) }, { vm.aiBuyStep(1) }, borderColor = cAmberBorder, btnColor = cAmber)
+                    LabeledStepper("", fmt(st.aiBuy), { vm.aiBuyStep(-1) }, { vm.aiBuyStep(1) }, borderColor = cAmberBorder, btnColor = cAmber, raw = st.aiBuy, onType = vm::setAiBuy)
                 }
                 Text("شراء من السوق يُسجَّل لكل قطعة — الكلفة تتجمّع في المصدر.", fontSize = fCaption, color = cAmber, modifier = Modifier.padding(top = 7.dp))
             }

@@ -201,6 +201,24 @@ class StoreViewModel @Inject constructor(
     // The editable "today's rate" — one number that recomputes all bale profit.
     fun setUsdRate(v: Long) = set { it.copy(usdRate = maxOf(0, v)) }
 
+    // Typed money entry (owner 2026-07-18): every money amount can be typed directly, not only
+    // nudged ±500 — the steppers remain for small adjustments.
+    fun setPayAmount(v: Long) = set { it.copy(payAmount = maxOf(0, v)) }
+    fun setReturnAmount(v: Long) = set { it.copy(returnAmount = maxOf(0, v)) }
+    fun setPartialPaid(v: Long) = set { it.copy(partialPaid = maxOf(0, v)) }
+    fun setPaperDebtAmount(v: Long) = set { it.copy(paperDebtAmount = maxOf(0, v)) }
+    fun setCustNewDebt(v: Long) = set { it.copy(custNewDebt = maxOf(0, v)) }
+    fun setNewPrice(v: Long) = set { it.copy(newPrice = maxOf(0, v)) }
+    fun setAiTasira(v: Long) = set { it.copy(aiTasira = maxOf(0, v)) }
+    fun setAiBuy(v: Long) = set { it.copy(aiBuy = maxOf(0, v)) }
+    fun setEiTasira(v: Long) = set { it.copy(eiTasira = maxOf(0, v)) }
+    fun setEiBuy(v: Long) = set { it.copy(eiBuy = maxOf(0, v)) }
+    fun setShopPayAmount(v: Long) = set { it.copy(shopPayAmount = maxOf(0, v)) }
+    fun setShopDebt(v: Long) = set { it.copy(shopDebt = maxOf(0, v)) }
+    fun setLinePrice(i: Int, v: Long) = set { st ->
+        st.copy(lines = st.lines.mapIndexed { j, l -> if (j == i) l.copy(price = maxOf(0, v)) else l })
+    }
+
     // ── nav ──
     fun setTab(tab: String) = set { it.copy(tab = tab, screen = "home", editingId = null) }
     // Page the day book back/forward; never past today.

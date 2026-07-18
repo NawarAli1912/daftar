@@ -924,24 +924,29 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
 
 @Composable
 private fun SaleLineRow(i: Int, l: SaleLine, vm: StoreViewModel) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 11.dp).drawBottomLine()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f, fill = false)) {
-                Text(l.name, fontSize = fTitle, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false))
-                // no-wrap so the struck-through original price never stacks vertically on narrow screens
-                if (l.haggled) Text(fmt(l.tasira), fontSize = fCaption, color = cDim, textDecoration = TextDecoration.LineThrough, maxLines = 1, softWrap = false, modifier = Modifier.padding(horizontal = 6.dp))
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+    // Each line stacks vertically: the item NAME gets its own full-width row (so a long name —
+    // «بنطال قماش نسواني» — never competes with the price stepper and stacks letter-by-letter),
+    // then السعر on its own row, then الكمية. Robust at any width / font scale.
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp).drawBottomLine()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(l.name, fontSize = fTitle, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f))
+            if (l.haggled) Text(fmt(l.tasira), fontSize = fCaption, color = cDim, textDecoration = TextDecoration.LineThrough, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("السعر", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StepBtn("−", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.priceStep(i, -1) }
-                MoneyValue(l.price, { v -> vm.setLinePrice(i, v) }, fTitle, 52.dp)
+                MoneyValue(l.price, { v -> vm.setLinePrice(i, v) }, fTitle, 60.dp)
                 StepBtn("+", tapMd, 10.dp, 1.5.dp, cLine, cAccent, 20.sp) { vm.priceStep(i, 1) }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("الكمية", fontSize = fCaption, fontWeight = FontWeight.SemiBold, color = cDim)
-            StepBtn("−", tapSm, 9.dp, 1.dp, cLine, cDim, 17.sp) { vm.qtyStep(i, -1) }
-            Text("×${l.qty}", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 20.dp))
-            StepBtn("+", tapSm, 9.dp, 1.dp, cLine, cDim, 17.sp) { vm.qtyStep(i, 1) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StepBtn("−", tapSm, 9.dp, 1.dp, cLine, cDim, 17.sp) { vm.qtyStep(i, -1) }
+                Text("×${l.qty}", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cInk, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 26.dp))
+                StepBtn("+", tapSm, 9.dp, 1.dp, cLine, cDim, 17.sp) { vm.qtyStep(i, 1) }
+            }
         }
     }
 }

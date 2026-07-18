@@ -23,7 +23,7 @@ data class Undo(val id: String, val before: List<Pair<String, Int>>)
 data class StoreState(
     val seeded: Boolean = false,
     val tab: String = "today",          // today | cust | appts | account
-    val accountSeg: String = "shelf",   // shelf | sources | sum
+    val accountSeg: String = "sources", // sources | sum (البضاعة is its own tab since 2026-07-18)
     val shelfFilter: String = "all",    // all | unspec
     val screen: String = "home",        // home | chooser | sale | pay | addsrc | additem | package
     val sources: List<Source> = initialSources(),
@@ -277,7 +277,7 @@ class StoreViewModel @Inject constructor(
             sold = 0, sourceId = if (src == "none") null else src,
             buy = if (src == MKT_ID) it.aiBuy else null,
         )
-        it.copy(shelf = it.shelf + item, screen = "home", accountSeg = "shelf", tab = "account")
+        it.copy(shelf = it.shelf + item, screen = "home", tab = "shelf")
     }
 
     // ── package (count & shelve) ──

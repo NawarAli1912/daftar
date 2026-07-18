@@ -133,6 +133,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                         when (tab) {
                             "today" -> TodayScreen(st, vm)
                             "cust" -> CustScreen(st, vm)
+                            "shelf" -> ShelfSeg(st, vm)
                             "account" -> AccountScreen(st, vm)
                         }
                     }
@@ -320,7 +321,7 @@ private fun UndoBar(vm: StoreViewModel) {
 @Composable
 private fun AppBar(st: StoreState, vm: StoreViewModel) {
     val title = when (st.tab) {
-        "today" -> "دفتر اليوم"; "cust" -> "الزبائن"; else -> "الحساب"
+        "today" -> "دفتر اليوم"; "cust" -> "الزبائن"; "shelf" -> "البضاعة"; else -> "الحساب"
     }
     val aside = if (st.tab == "today") dayLabel(st.viewedDay, st.today) else ""
     Column(Modifier.fillMaxWidth().background(cBg).statusBarsPadding()) {
@@ -359,7 +360,11 @@ private fun TabBar(st: StoreState, vm: StoreViewModel) {
         Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 6.dp)) {
             TabItem("▤", "اليوم", st.tab == "today", Modifier.weight(1f)) { vm.setTab("today") }
             TabItem("☰", "الزبائن", st.tab == "cust", Modifier.weight(1f)) { vm.setTab("cust") }
-            TabItem("▦", "الحساب", st.tab == "account", Modifier.weight(1f), dot = unspec > 0) { vm.setTab("account") }
+            // البضاعة promoted to its own tab (2026-07-18): stock work is a primary surface —
+            // FR-6's fourth slot, freed when المواعيد folded into الزبائن. The red «لا أعلم»
+            // dot rides with it; الحساب keeps only money (المصادر + الملخّص).
+            TabItem("▥", "البضاعة", st.tab == "shelf", Modifier.weight(1f), dot = unspec > 0) { vm.setTab("shelf") }
+            TabItem("▦", "الحساب", st.tab == "account", Modifier.weight(1f)) { vm.setTab("account") }
         }
     }
 }
@@ -615,9 +620,8 @@ private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Colo
 // ── الحساب ──
 @Composable
 private fun AccountScreen(st: StoreState, vm: StoreViewModel) {
-    // segment switcher
+    // segment switcher — البضاعة moved out to its own tab; الحساب keeps money views only
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(3.dp)) {
-        SegBtn("البضاعة", st.accountSeg == "shelf", Modifier.weight(1f)) { vm.setSeg("shelf") }
         SegBtn("المصادر", st.accountSeg == "sources", Modifier.weight(1f)) { vm.setSeg("sources") }
         SegBtn("الملخّص", st.accountSeg == "sum", Modifier.weight(1f)) { vm.setSeg("sum") }
     }
@@ -625,7 +629,6 @@ private fun AccountScreen(st: StoreState, vm: StoreViewModel) {
     Swap(st.accountSeg, Modifier.fillMaxWidth()) { seg ->
         Column(Modifier.fillMaxWidth()) {
             when (seg) {
-                "shelf" -> ShelfSeg(st, vm)
                 "sources" -> SourcesSeg(st, vm)
                 else -> SummarySeg(st, vm)
             }

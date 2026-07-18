@@ -534,7 +534,7 @@ private fun PopText(text: String, fontSize: androidx.compose.ui.unit.TextUnit, c
 @Composable
 private fun CustScreen(st: StoreState, vm: StoreViewModel) {
     var query by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
-    PageIntro("دفتر زبائنك — الديون والأمانات والدفعات، والأعجل تسديداً أولاً.")
+    PageIntro("دفتر زبائنك — الديون والتجارب والدفعات، والأعجل تسديداً أولاً.")
     val totalOwed = st.customers.sumOf { maxOf(0, customerBalance(it, st.entries)) }
     val dueCount = st.customers.count { c ->
         customerBalance(c, st.entries) > 0 && (c.dueEpochDay ?: Long.MAX_VALUE) <= st.today
@@ -583,8 +583,8 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
                     val trial = customerTrial(c, st.entries)
                     val amt = if (bal > 0) fmt(bal) else if (bal == 0L) "لا شيء" else "لها ${fmt(-bal)}"
                     val sub = when {
-                        bal > 0 -> "التسديد: " + dueStatus(c.dueEpochDay, st.today) + (if (trial > 0) " · أمانة ${fmt(trial)}" else "")
-                        trial > 0 -> "أمانة ${fmt(trial)} — قد تُعاد"
+                        bal > 0 -> "التسديد: " + dueStatus(c.dueEpochDay, st.today) + (if (trial > 0) " · تجريب ${fmt(trial)}" else "")
+                        trial > 0 -> "تجريب ${fmt(trial)} — قد يُعاد"
                         else -> c.phone ?: "زبونة"
                     }
                     // F6: mark the name like a paper daftar — oxblood if she owes, amber if

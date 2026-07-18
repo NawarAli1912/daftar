@@ -359,6 +359,14 @@ private fun CustPicker(st: StoreState, vm: StoreViewModel) {
             ) {
                 Text("+ زبونة جديدة", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cAccent)
             }
+            // a woman she can't name yet (a neighbour taking a تجريب) — a date-stamped placeholder
+            // she selects now and renames later; keeps a nameless عملية from being blocked.
+            Row(
+                Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(rMd)).background(cCard).dashedBorder(cLine, rMd).tap { vm.addPlaceholderCustomer() }.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("+ زبونة بلا اسم (اسم مؤقّت)", fontSize = fBodyL, fontWeight = FontWeight.Bold, color = cDim)
+            }
         } else {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp)) {
                 TextInput(st.custNewName, vm::setCustNewName, "الاسم", modifier = Modifier.fillMaxWidth())
@@ -496,16 +504,35 @@ private fun ReturnSheet(st: StoreState, vm: StoreViewModel) {
                 MoneyValue(st.returnAmount, vm::setReturnAmount, 30.sp, 120.dp)
                 StepBtn("+", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.returnAmountStep(1) }
             }
-            Text("الصنف المُعاد (اختياري) — يعود إلى الرف", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+            // suggest what SHE actually took (from her own قيود) when a customer is picked; fall
+            // back to الرف for a nameless إرجاع. Picking pre-fills the price she was recorded at.
+            val taken = customerTakenLines(st.saleCustomerId, st.entries)
+            Text(
+                if (taken.isNotEmpty()) "الصنف المُعاد (اختياري) — ممّا أخذته، يعود إلى الرف" else "الصنف المُعاد (اختياري) — يعود إلى الرف",
+                fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp),
+            )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                st.shelf.take(10).forEach { x ->
-                    val sel = st.returnItemId == x.id
-                    Column(
-                        Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.returnPickItem(x.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(x.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
-                        Text(fmt(x.tasira), fontSize = fCaption, color = if (sel) cAink else cDim)
+                if (taken.isNotEmpty()) {
+                    taken.forEach { l ->
+                        val sel = st.returnItemId == l.shelfId
+                        Column(
+                            Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.returnPickTaken(l.shelfId, l.price) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(l.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
+                            Text(fmt(l.price), fontSize = fCaption, color = if (sel) cAink else cDim)
+                        }
+                    }
+                } else {
+                    st.shelf.take(10).forEach { x ->
+                        val sel = st.returnItemId == x.id
+                        Column(
+                            Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.returnPickItem(x.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(x.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
+                            Text(fmt(x.tasira), fontSize = fCaption, color = if (sel) cAink else cDim)
+                        }
                     }
                 }
             }
@@ -572,11 +599,11 @@ internal fun ColumnScope.EntryDetailBody(st: StoreState, vm: StoreViewModel, e: 
             // D71: a voided قيد is kept — offer to bring it back, nothing is destroyed.
             PrimaryButton("استرجاع القيد ↻", fontSize = fTitle, radius = rMd, vertical = 14.dp) { vm.restoreEntry(e.id) }
             Text("هذا القيد ملغى ولا يُحسب. «استرجاع» يعيده كما كان.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
-        } else if (e.trialAmount > 0) {
-            // F2: an أمانة ends one of two ways — she kept it (→ بيع بالدَّين) or returned it
+        } else if (e.trialAmount > 0 && openTrialEntries(e.customerId, st.entries).any { it.id == e.id }) {
+            // F2: a تجريب ends one of two ways — she kept it (→ بيع بالدَّين) or returned it
             // (→ للمحل). Show exactly those, mirroring the زبونة card; no generic تعديل/حذف, whose
             // meaning was ambiguous for a trial and read as a duplicate delete.
-            Text("أمانة — كيف انتهت؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+            Text("تجريب — كيف انتهى؟", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Box(
                     Modifier.weight(1f).clip(RoundedCornerShape(rMd)).background(cCard).border(1.5.dp, cAmber, RoundedCornerShape(rMd)).tap { vm.convertTrialEntry(e.id) }.padding(vertical = 14.dp),
@@ -588,6 +615,10 @@ internal fun ColumnScope.EntryDetailBody(st: StoreState, vm: StoreViewModel, e: 
                 ) { Text("أعادتها — للمحل", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cAccent) }
             }
             Text("«أبقتها» تحوّلها إلى بيع بالدَّين، و«أعادتها» تعيد القطع إلى المحل — وكلاهما قابل للاسترجاع.", fontSize = fCaption, color = cDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        } else if (e.trialAmount > 0) {
+            // already resolved by a keep-&-pay قيد (it nets this تجريب) — read-only, so it isn't
+            // kept or returned twice. To undo, she deletes the «تحويل تجريب ودفعة» قيد.
+            Text("هذا التجريب حُسم بدفعة وأصبح بيعاً. لإلغائه احذفي قيد «تحويل تجريب ودفعة».", fontSize = fBody, color = cDim, lineHeight = 20.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp))
         } else if (e.cls == "withdraw") {
             // F6: a withdrawal is void-and-redo (there's no money to edit); «حذف» puts the pieces
             // back in the shop and is reversible.
@@ -658,16 +689,17 @@ internal fun ColumnScope.CustomerDetailBody(st: StoreState, vm: StoreViewModel, 
                 fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (bal > 0) cDebt else cPaid,
             )
         }
-        // أمانة معها — each trial قيد resolves on its own (v2): kept → sale, or back to the shelf.
-        val trialEntries = history.filter { it.trialAmount > 0 }
+        // تجريب معها — each open trial قيد resolves on its own (v2): kept → sale, or back to the
+        // shelf. A trial she already kept via a دفعة is netted out and no longer listed here.
+        val trialEntries = openTrialEntries(c.id, st.entries)
         if (trialEntries.isNotEmpty()) {
-            Text("أمانة معها (قد تُعاد): ${fmt(trial)}", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+            Text("تجريب معها (قد يُعاد): ${fmt(trial)}", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cAmber, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(rSm)).background(cCard).border(1.dp, cAmber, RoundedCornerShape(rSm)).padding(horizontal = 13.dp, vertical = 4.dp)) {
                 trialEntries.forEach { e ->
                     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                decodeLines(e.lines).joinToString(" + ") { "${it.name} ×${it.qty}" }.ifEmpty { "أمانة" },
+                                decodeLines(e.lines).joinToString(" + ") { "${it.name} ×${it.qty}" }.ifEmpty { "تجريب" },
                                 fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.weight(1f, fill = false),
                             )
                             Text(fmt(e.trialAmount), fontSize = fBody, fontWeight = FontWeight.Bold, color = cAmber)
@@ -755,35 +787,62 @@ private fun PaySheet(st: StoreState, vm: StoreViewModel) {
                 MoneyValue(st.payAmount, vm::setPayAmount, 30.sp, 120.dp)
                 StepBtn("+", tapLg, 14.dp, 1.5.dp, cLine, cAccent, 24.sp) { vm.payAmountStep(1) }
             }
-            if (st.saleCustomerId != null) {
-                // نوع attributes an old-debt payment to what she took — meaningful only
-                // with a customer (F3): anonymous item-money is a بيع, not a دفعة.
-                Text("نوع (اختياري) — يُسند المبلغ لمصدره", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    st.shelf.filter { it.onHand > 0 }.take(8).forEach { x ->
-                        val sel = st.payTypeId == x.id
-                        Column(
-                            Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAccent else cCard).border(1.5.dp, if (sel) cAccent else cLine, RoundedCornerShape(rSm)).tap { vm.payPickType(x.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(x.name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
-                            Text(fmt(x.tasira), fontSize = fCaption, color = if (sel) cAink else cDim)
+            val cust = st.saleCustomerId?.let { id -> st.customers.find { it.id == id } }
+            if (cust != null) {
+                // her live balance INCLUDING the تجريب she just decided to keep — the same number
+                // «سداد كامل» fills and the context line reads.
+                val owed = payOwedWithKept(cust, st.entries, st.payTrialId)
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 13.dp).clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        when {
+                            owed > 0 -> "عليها الآن: ${fmt(owed)}"
+                            owed == 0L -> "لا دين عليها"
+                            else -> "لها ${fmt(-owed)}"
+                        },
+                        fontSize = fBody, fontWeight = FontWeight.Bold, color = if (owed > 0) cDebt else cPaid,
+                    )
+                    if (owed > 0) {
+                        Box(
+                            Modifier.clip(RoundedCornerShape(rXs)).background(cCard).border(1.5.dp, cAccent, RoundedCornerShape(rXs)).tap { vm.payFillOwed() }.padding(horizontal = 12.dp, vertical = 7.dp),
+                        ) { Text("سداد كامل", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent) }
+                    }
+                }
+                // her outstanding تجريب — «قرّرت تُبقيها»: selecting one folds its conversion to
+                // debt into this payment. Only HER open trials; no الرف here (a دفعة never touches stock).
+                val openTrials = openTrialEntries(st.saleCustomerId, st.entries)
+                if (openTrials.isNotEmpty()) {
+                    Text("قرّرت تُبقي تجريباً؟ اضغطيه — يصبح بيعاً ثم تُخصم منه الدفعة", fontSize = fSmall, fontWeight = FontWeight.SemiBold, color = cDim, modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        openTrials.forEach { e ->
+                            val sel = st.payTrialId == e.id
+                            val name = decodeLines(e.lines).joinToString(" + ") { it.name }.ifEmpty { "تجريب" }
+                            Column(
+                                Modifier.clip(RoundedCornerShape(rSm)).background(if (sel) cAmber else cCard).border(1.5.dp, if (sel) cAmber else cAmberBorder, RoundedCornerShape(rSm)).tap { vm.payPickTrial(e.id) }.padding(horizontal = 13.dp, vertical = 9.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(name, fontSize = fBodyL, fontWeight = FontWeight.Bold, color = if (sel) cAink else cInk)
+                                Text(fmt(e.trialAmount), fontSize = fCaption, color = if (sel) cAink else cAmber)
+                            }
+                        }
+                    }
+                    if (st.payTrialId != null) {
+                        Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(rMd)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                            Text("يتحوّل التجريب إلى بيع على حسابها، ثم تُخصم الدفعة من رصيدها. لا يُنقص من المحل شيء.", fontSize = fSmall, color = cPaid, lineHeight = 18.sp)
                         }
                     }
                 }
-                if (st.payTypeId != null) {
-                    val name = st.shelf.find { it.id == st.payTypeId }?.name ?: ""
-                    Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(rMd)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp)) {
-                        Text("مبلغ $name يُحسب إيراداً لمصدر الصنف — ويُنقص قطعة من الرف.", fontSize = fSmall, color = cPaid, lineHeight = 18.sp)
-                    }
-                }
             } else {
-                // نقدي: no balance will change — if this money is for an item, it's a sale
+                // نقدي: no balance will change — if this money is for an item, it's a sale; or if
+                // it's a woman she can't name yet, give her a temporary name so the دفعة sticks.
                 Column(
                     Modifier.fillMaxWidth().padding(top = 16.dp).clip(RoundedCornerShape(rMd)).background(cAmberBg).border(1.dp, cAmberBorder, RoundedCornerShape(rMd)).padding(horizontal = 12.dp, vertical = 10.dp),
                 ) {
                     Text("دفعة نقدي لا تُنقص دين أحد.", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAmber)
                     Text("مبلغ عن صنف؟ سجّليه بيعاً ←", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.openSale() })
+                    Text("زبونة بلا اسم؟ سجّليها باسم مؤقّت ←", fontSize = fBody, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 7.dp).tap { vm.addPlaceholderCustomer() })
                 }
             }
         }
@@ -845,7 +904,7 @@ private fun SaleSheet(st: StoreState, vm: StoreViewModel) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 PayModeBtn("دفعت الكل", st.pay == "full", Modifier.weight(1f)) { vm.setPay("full") }
                 PayModeBtn("دفعت جزءاً", st.pay == "partial", Modifier.weight(1f)) { vm.setPay("partial") }
-                PayModeBtn("أمانة", st.pay == "trial", Modifier.weight(1f)) { vm.setPay("trial") }
+                PayModeBtn("تجريب", st.pay == "trial", Modifier.weight(1f)) { vm.setPay("trial") }
             }
             if (st.pay == "partial") {
                 val total = st.lines.sumOf { it.price * it.qty }

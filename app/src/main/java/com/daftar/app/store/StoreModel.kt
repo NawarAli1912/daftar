@@ -145,6 +145,18 @@ data class Customer(
 fun firstOfNextMonth(today: Long): Long =
     java.time.LocalDate.ofEpochDay(today).plusMonths(1).withDayOfMonth(1).toEpochDay()
 
+// A stand-in name for a neighbourhood woman she can't name yet — «زبونة 18/7» from today's
+// date (Western numerals, like the rest of the app). She can rename it later like any customer.
+// On collision (a second unnamed زبونة the same day) a counter is appended: «(2)», «(3)»…
+fun placeholderCustomerName(existingNames: List<String>, today: Long): String {
+    val d = java.time.LocalDate.ofEpochDay(today)
+    val base = "زبونة ${d.dayOfMonth}/${d.monthValue}"
+    if (base !in existingNames) return base
+    var n = 2
+    while ("$base ($n)" in existingNames) n++
+    return "$base ($n)"
+}
+
 // The Arabic urgency label for المواعيد.
 fun dueStatus(due: Long?, today: Long): String = when {
     due == null -> "بلا موعد"
@@ -171,6 +183,17 @@ fun normalizeDues(customers: List<Customer>, entries: List<DayEntry>, today: Lon
 fun customerBalance(c: Customer, entries: List<DayEntry>): Long =
     c.openingDebt + entries.filter { it.customerId == c.id && !it.voided }.sumOf { it.debtDelta }
 
+// What she'd owe the instant a دفعة is saved WITH the selected تجريب kept: her live balance plus
+// the value of the trial she decided to keep (kept → becomes debt just before the payment reduces
+// it). Drives the دفعة context line and the «سداد كامل» quick-fill, and the paper-debt catch is
+// measured against this (so keeping a 10,000 تجريب and paying 10,000 doesn't falsely fire).
+fun payOwedWithKept(cust: Customer, entries: List<DayEntry>, keptTrialId: String?): Long {
+    val kept = keptTrialId
+        ?.let { id -> entries.find { it.id == id } }
+        ?.takeIf { it.trialAmount > 0 && !it.voided }?.trialAmount ?: 0L
+    return customerBalance(cust, entries) + kept
+}
+
 // F3 paper-debt catch. A new دفعة larger than her recorded balance would flip it negative
 // (لها — the shop owing her), which in the first trial days almost always means her paper-era
 // debt was never entered. This returns the opening debt to record so the payment lands her at
@@ -179,9 +202,43 @@ fun customerBalance(c: Customer, entries: List<DayEntry>): Long =
 fun paperDebtShortfall(balanceBefore: Long, payment: Long): Long? =
     if (payment > balanceBefore) payment - balanceBefore else null
 
-// أمانة still out with her (goods on trust, not yet firm debt).
+// أمانة still out with her (goods on trust, not yet firm debt). The net is the source of
+// truth for totals — a keep-&-pay قيد nets a kept trial with a matching −trialAmount, so this
+// already excludes what she decided to keep.
 fun customerTrial(c: Customer, entries: List<DayEntry>): Long =
     entries.filter { it.customerId == c.id && !it.voided }.sumOf { it.trialAmount }
+
+// The trials STILL open with a customer — her un-voided +trial قيود minus those a keep-&-pay
+// settlement already netted (each settlement carries −trialAmount of the kept قيد). Drives the
+// per-trial resolve UI (أبقتها/أعادتها) and the دفعة chips, so a trial she already kept no longer
+// offers to be resolved again. `entries` is newest-first; settlements pool by value and cover the
+// matching positive trials exactly (a settlement always zeroes a whole trial).
+fun openTrialEntries(customerId: String?, entries: List<DayEntry>): List<DayEntry> {
+    if (customerId == null) return emptyList()
+    val mine = entries.filter { it.customerId == customerId && !it.voided && it.trialAmount != 0L }
+    var settled = mine.filter { it.trialAmount < 0 }.sumOf { -it.trialAmount }
+    val open = ArrayList<DayEntry>()
+    for (e in mine.filter { it.trialAmount > 0 }) {
+        if (settled >= e.trialAmount) settled -= e.trialAmount else open.add(e)
+    }
+    return open
+}
+
+// إرجاع suggests what SHE actually took: the lines across her un-voided قيود (sales and تجريب),
+// newest قيد first, one chip per shelf item (deduplicated), capped. Each keeps the price she was
+// recorded at so a return pre-fills that value. With no customer the caller falls back to الرف.
+fun customerTakenLines(customerId: String?, entries: List<DayEntry>, max: Int = 10): List<SoldLine> {
+    if (customerId == null) return emptyList()
+    val seen = HashSet<String>()
+    val out = ArrayList<SoldLine>()
+    for (e in entries.filter { it.customerId == customerId && !it.voided }) {
+        for (l in decodeLines(e.lines)) {
+            if (seen.add(l.shelfId)) out.add(l)
+            if (out.size >= max) return out
+        }
+    }
+    return out
+}
 
 // An أمانة is goods lent to a *specific* customer to try — it is never نقدي (D11/FR-5).
 // A trial with no customer must be blocked at capture and the picker nudged open.
@@ -279,7 +336,7 @@ val USAGE_TIPS = listOf(
     "في البيع، «دفعت جزءاً» تسألك كم دفعت — والباقي يُسجَّل ديناً",
     "من «البضاعة» أضيفي أصنافك وحدّدي مصدر كل صنف",
     "«المواعيد» تذكّرك بالديون المستحقة، ويمكنك تأجيل التذكير بضغطة",
-    "«أمانة» بضاعة عند الزبونة لم تُبَع بعد — لا تُحسب ديناً حتى تقرّر",
+    "«تجريب» بضاعة عند الزبونة لم تُبَع بعد — لا تُحسب ديناً حتى تقرّر",
 )
 
 // الزبائن / المواعيد are unchanged from v1 — the prototype shows them as static samples.
@@ -290,7 +347,7 @@ val CUST_ROWS = listOf(
 )
 val APPT_ROWS = listOf(
     StaticRow("أم محمد", "مستحق اليوم", "تذكير", ""),
-    StaticRow("خالدة", "أمانة — 3 قطع", "أمانة", ""),
+    StaticRow("خالدة", "تجريب — 3 قطع", "تجريب", ""),
     StaticRow("فاطمة", "متأخر 3 أيام", "متأخر", ""),
 )
 

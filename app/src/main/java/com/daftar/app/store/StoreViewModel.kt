@@ -81,7 +81,9 @@ data class StoreState(
     val pkgId: String? = null,
     val pkgAddOpen: Boolean = false,
     val payAmount: Long = 5_000,
-    val payTypeId: String? = null,
+    // the selected outstanding تجريب قيد (id) the customer decided to keep — its conversion to
+    // debt is folded into the payment on save. null ⇒ a plain balance payment.
+    val payTrialId: String? = null,
     // returns
     val returnAmount: Long = 5_000,
     val returnItemId: String? = null,
@@ -340,6 +342,14 @@ class StoreViewModel @Inject constructor(
         val c = Customer("c" + System.currentTimeMillis(), nm, it.custNewPhone.trim().ifEmpty { null }, it.custNewDebt)
         it.copy(customers = it.customers + c, saleCustomerId = c.id, custPickerOpen = false, custNewOpen = false)
     }
+    // A woman she can't name yet — create a date-stamped placeholder («زبونة 18/7») and select her,
+    // staying in whatever sheet is open. Reused by the دفعة no-customer nudge and the تجريب picker;
+    // she's an ordinary customer, renameable later from her detail card.
+    fun addPlaceholderCustomer() = set {
+        val nm = placeholderCustomerName(it.customers.map { c -> c.name }, it.today)
+        val c = Customer("c" + System.currentTimeMillis(), nm)
+        it.copy(customers = it.customers + c, saleCustomerId = c.id, custPickerOpen = false, custNewOpen = false)
+    }
 
     // ── edit a customer (v2: every record editable forever; opening-debt edits re-normalize dues) ──
     fun startEditCustomer(id: String) = set { s ->
@@ -441,16 +451,18 @@ class StoreViewModel @Inject constructor(
     // ── payment (D37) ──
     // F3 picker-first: a دفعة opens on «لمن؟» — نقدي is a deliberate choice, never a
     // forgotten default (the silent-no-op trap: recording a payment without the customer).
-    fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = null, editingId = null, custPickerOpen = true) }
+    fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTrialId = null, saleCustomerId = null, editingId = null, custPickerOpen = true) }
     fun payAmountStep(d: Int) = set { it.copy(payAmount = maxOf(0, it.payAmount + d * 500)) }
-    fun payPickType(id: String) = set {
-        val it0 = it
-        val item = it0.shelf.find { x -> x.id == id }
-        val already = it0.payTypeId == id
-        it0.copy(
-            payTypeId = if (already) null else id,
-            payAmount = if (already) it0.payAmount else (item?.tasira ?: it0.payAmount),
-        )
+    // Select one of HER outstanding تجريب قيود — «قرّرت تُبقيها»: on save it converts to debt
+    // (folded into the payment) before the دفعة lands. Pure toggle; سداد كامل fills the amount.
+    fun payPickTrial(id: String) = set { it0 ->
+        it0.copy(payTrialId = if (it0.payTrialId == id) null else id)
+    }
+    // «سداد كامل» — fill the amount with everything she'd owe once the selected تجريب is kept.
+    fun payFillOwed() = set { it0 ->
+        val cust = it0.saleCustomerId?.let { id -> it0.customers.find { it.id == id } } ?: return@set it0
+        val owed = payOwedWithKept(cust, it0.entries, it0.payTrialId)
+        if (owed > 0) it0.copy(payAmount = owed) else it0
     }
     fun savePay() {
         val amt = s.payAmount
@@ -459,7 +471,9 @@ class StoreViewModel @Inject constructor(
         // paper-era debt was never entered. Catch it and offer to record the old debt first.
         val cust0 = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
         if (s.editingId == null && cust0 != null) {
-            val short = paperDebtShortfall(customerBalance(cust0, s.entries), amt)
+            // measured AFTER the selected تجريب is kept — the kept trial adds to what she owes,
+            // so paying exactly (balance + kept) must not trip the paper-debt prompt.
+            val short = paperDebtShortfall(payOwedWithKept(cust0, s.entries, s.payTrialId), amt)
             if (short != null) {
                 set { it.copy(paperDebtPrompt = true, paperDebtAmount = short) }
                 return
@@ -491,27 +505,33 @@ class StoreViewModel @Inject constructor(
     private fun commitPay() {
         val amt = s.payAmount
         if (amt <= 0) return
-        val tid = s.payTypeId
-        val item = tid?.let { id -> s.shelf.find { it.id == id } }
         val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
+        // the تجريب she decided to keep (if any), still open and un-voided
+        val trial = s.payTrialId
+            ?.let { id -> s.entries.find { it.id == id } }
+            ?.takeIf { it.trialAmount > 0 && !it.voided }
+        val k = trial?.trialAmount ?: 0L
+        // One combined قيد expresses keep-then-pay: it nets the kept تجريب (trialAmount = −k) and
+        // folds the conversion (+k debt, a real sale) with the payment (−amt). NO stock is touched
+        // anywhere — the original تجريب قيد still carries the goods' stock effect, so voiding THIS
+        // قيد restores both the balance and the outstanding تجريب exactly (net trial back to +k).
         val entry = DayEntry(
             id = "e" + System.currentTimeMillis(),
-            t = "دفعة" + (item?.let { " — " + it.name } ?: "") + " — " + (cust?.name ?: "نقدي"),
-            d = "الآن" + (item?.let { " · نوع: " + it.name + " · يُسند لمصدره" } ?: " · على الرصيد"),
+            t = if (trial != null) "تحويل تجريب ودفعة — " + (cust?.name ?: "زبونة")
+                else "دفعة — " + (cust?.name ?: "نقدي"),
+            d = if (trial != null) "الآن · أبقتها ودفعت " + fmt(amt) else "الآن · على الرصيد",
             amt = "+ " + fmt(amt), cls = "pos",
             customerId = s.saleCustomerId,
-            debtDelta = -amt, // a payment reduces the customer's debt
-            day = today(), saleAmount = 0, cashAmount = amt,
-            stockDelta = if (tid != null) encodeStock(mapOf(tid to 1)) else "",
+            debtDelta = k - amt,               // kept → +k owed, then the payment −amt
+            trialAmount = -k,                  // zero the outstanding تجريب (net with the original)
+            day = today(), saleAmount = k, cashAmount = amt, // the kept trial becomes a real sale
         )
         val editingId = s.editingId
-        val before = if (tid != null) listOf(tid to (s.shelf.find { it.id == tid }?.sold ?: 0)) else emptyList()
-        val u = if (editingId == null) Undo(entry.id, before) else null
+        val u = if (editingId == null) Undo(entry.id, emptyList()) else null
         set {
             val r = if (editingId != null) reversed(it, editingId) else it
             r.copy(
                 screen = "home", entries = listOf(entry) + r.entries, viewedDay = it.today,
-                shelf = if (tid != null) r.shelf.map { x -> if (x.id == tid) x.copy(sold = x.sold + 1) else x } else r.shelf,
                 undo = u, editingId = null,
             )
         }
@@ -525,6 +545,12 @@ class StoreViewModel @Inject constructor(
         val item = it.shelf.find { x -> x.id == id }
         val already = it.returnItemId == id
         it.copy(returnItemId = if (already) null else id, returnAmount = if (already) it.returnAmount else (item?.tasira ?: it.returnAmount))
+    }
+    // Picking one of HER taken lines (a إرجاع chip built from her own قيود): restock by shelfId as
+    // usual, but pre-fill the price she was actually recorded at, not the current تسعيرة.
+    fun returnPickTaken(shelfId: String, price: Long) = set {
+        val already = it.returnItemId == shelfId
+        it.copy(returnItemId = if (already) null else shelfId, returnAmount = if (already) it.returnAmount else price)
     }
     fun saveReturn() {
         val amt = s.returnAmount
@@ -618,7 +644,7 @@ class StoreViewModel @Inject constructor(
             )
             e.t.startsWith("دفعة") -> base.copy(
                 screen = "pay", payAmount = e.cashAmount,
-                payTypeId = deltas.firstOrNull()?.first, saleCustomerId = e.customerId,
+                payTrialId = null, saleCustomerId = e.customerId,
             )
             e.t.startsWith("إرجاع") -> base.copy(
                 screen = "return", returnAmount = -e.debtDelta,
@@ -640,7 +666,7 @@ class StoreViewModel @Inject constructor(
         val cust = s.customers.find { it.id == e.customerId }
         val conversion = DayEntry(
             id = "e" + System.currentTimeMillis(),
-            t = "تحويل أمانة إلى بيع — " + (cust?.name ?: "زبونة"),
+            t = "تحويل تجريب إلى بيع — " + (cust?.name ?: "زبونة"),
             d = "الآن · أصبحت ديناً على الزبونة",
             amt = fmt(e.trialAmount), cls = "ink",
             customerId = e.customerId,
@@ -652,7 +678,7 @@ class StoreViewModel @Inject constructor(
         s.copy(entries = listOf(conversion) + s.entries.filterNot { it.id == id }, viewedDay = s.today, detailEntryId = null)
     }
     fun payThisCustomer(id: String) = set {
-        it.copy(screen = "pay", payAmount = 5_000, payTypeId = null, saleCustomerId = id, detailCustomerId = null)
+        it.copy(screen = "pay", payAmount = 5_000, payTrialId = null, saleCustomerId = id, detailCustomerId = null)
     }
     // FR-3.2: one tap pushes her reminder out (from today); the digest reschedules naturally.
     fun snooze(id: String, days: Int) = set {
@@ -708,7 +734,7 @@ class StoreViewModel @Inject constructor(
         }
         val names = s.lines.joinToString(" + ") { it.name }
         val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
-        val prefix = if (isTrial) "أمانة" else "بيع"
+        val prefix = if (isTrial) "تجريب" else "بيع"
         val who = cust?.name ?: "نقدي"
         val soldMap = HashMap<String, Int>()
         s.lines.forEach { l -> soldMap[l.shelfId] = (soldMap[l.shelfId] ?: 0) + l.qty }
@@ -717,10 +743,10 @@ class StoreViewModel @Inject constructor(
             t = (if (cust != null) "$prefix — $who" else "$prefix نقدي") + (if (names.isNotEmpty()) " — $names" else ""),
             d = "الآن · " + when {
                 s.pay == "full" -> "مدفوع كامل"
-                isTrial -> "أمانة — قد تُعاد"
+                isTrial -> "تجريب — قد يُعاد"
                 else -> "دفعت " + fmt(paid) + " والباقي دين"
             },
-            amt = if (isTrial) "أمانة " + fmt(total) else fmt(total),
+            amt = if (isTrial) "تجريب " + fmt(total) else fmt(total),
             cls = if (isTrial) "amber" else "ink",
             customerId = s.saleCustomerId,
             // أمانة is not a firm sale/debt yet — it's tracked as trial, not debt.

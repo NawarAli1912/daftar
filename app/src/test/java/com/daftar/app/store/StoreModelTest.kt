@@ -532,4 +532,104 @@ class StoreModelTest {
         assertEquals(8, back.counted)
         assertEquals(emptyList<SaleLine>(), capWithdrawLines(one, listOf(SaleLine("zz", "غريب", 1, 1, 1)))) // unknown item is dropped
     }
+
+    // ── V3 دفعة redesign: keep-a-تجريب-then-pay, no stock, placeholder names, إرجاع from her قيود ──
+
+    // Mirrors commitPay: one combined قيد that nets the kept تجريب (−k), converts it to a sale
+    // (+k debt, saleAmount k) and applies the payment (−pay), leaving the original trial in place.
+    private fun keepAndPay(customerId: String, k: Long, pay: Long, day: Long = 1) = DayEntry(
+        "e_settle", "تحويل تجريب ودفعة — زبونة", "الآن", "+ " + fmt(pay), "pos", customerId,
+        debtDelta = k - pay, day = day, saleAmount = k, cashAmount = pay, trialAmount = -k,
+    )
+
+    @Test
+    fun `paying a kept تجريب converts it to debt then applies the payment`() {
+        val c = Customer("c1", "سميرة", openingDebt = 0)
+        val trial = DayEntry("t1", "تجريب — سميرة", "", "تجريب 10,000", "amber", "c1", day = 1, trialAmount = 10_000, lines = "h1|فستان|10000|1")
+        val settle = keepAndPay("c1", k = 10_000, pay = 6_000)
+        val entries = listOf(settle, trial) // newest-first, as the live ledger prepends
+        assertEquals(4_000L, customerBalance(c, entries)) // 10,000 kept − 6,000 paid
+        assertEquals(0L, customerTrial(c, entries))       // outstanding تجريب zeroed by the −k
+        assertEquals(10_000L, salesForDay(entries, 1))    // the kept trial is now a real sale
+        assertEquals(6_000L, cashForDay(entries, 1))      // the payment is the day's cash
+        assertTrue(openTrialEntries("c1", entries).isEmpty()) // no longer offered to be resolved
+    }
+
+    @Test
+    fun `the دفعة flow records no stock movement`() {
+        // The double-counting bug this redesign fixes: a دفعة used to decrement the shelf. Now
+        // both a plain balance payment and a kept-تجريب settlement carry an empty stockDelta, so
+        // البضاعة (sold counts, revenue) is never touched by a دفعة.
+        val plain = DayEntry("p1", "دفعة — سميرة", "", "+ 6,000", "pos", "c1", debtDelta = -6_000, day = 1, cashAmount = 6_000)
+        val settle = keepAndPay("c1", k = 10_000, pay = 6_000)
+        assertTrue(decodeStock(plain.stockDelta).isEmpty())
+        assertTrue(decodeStock(settle.stockDelta).isEmpty())
+    }
+
+    @Test
+    fun `voiding a kept-تجريب payment restores the balance and the outstanding تجريب exactly`() {
+        val c = Customer("c1", "سميرة")
+        val trial = DayEntry("t1", "تجريب — سميرة", "", "", "amber", "c1", day = 1, trialAmount = 10_000)
+        val settle = keepAndPay("c1", k = 10_000, pay = 10_000)
+        val entries = listOf(settle, trial)
+        assertEquals(0L, customerBalance(c, entries))   // kept 10,000 fully paid → owes nothing
+        assertEquals(0L, customerTrial(c, entries))     // outstanding trial netted to zero
+        // void the settlement قيد → the original trial stands alone again
+        val voided = entries.map { if (it.id == "e_settle") it.copy(voided = true) else it }
+        assertEquals(0L, customerBalance(c, voided))        // back to pre-save balance
+        assertEquals(10_000L, customerTrial(c, voided))     // outstanding تجريب restored exactly
+        assertTrue(openTrialEntries("c1", voided).any { it.id == "t1" }) // resolvable again
+    }
+
+    @Test
+    fun `no paper-debt prompt when the payment equals balance plus the kept تجريب`() {
+        val c = Customer("c1", "سميرة", openingDebt = 2_000)
+        val entries = listOf(DayEntry("t1", "تجريب", "", "", "amber", "c1", day = 1, trialAmount = 10_000))
+        val owed = payOwedWithKept(c, entries, "t1")
+        assertEquals(12_000L, owed) // 2,000 balance + 10,000 she decided to keep
+        assertNull(paperDebtShortfall(owed, 12_000)) // paying exactly must NOT trip the catch
+        assertEquals(1_000L, paperDebtShortfall(owed, 13_000)) // a real overshoot still surfaces
+        // without keeping the trial, the same 12,000 overshoots her 2,000 balance
+        assertEquals(10_000L, paperDebtShortfall(payOwedWithKept(c, entries, null), 12_000))
+    }
+
+    @Test
+    fun `open trials exclude only the kept one when a customer holds several`() {
+        val t1 = DayEntry("t1", "تجريب", "", "", "amber", "c1", day = 1, trialAmount = 10_000)
+        val t2 = DayEntry("t2", "تجريب", "", "", "amber", "c1", day = 2, trialAmount = 5_000)
+        val settle = DayEntry("s2", "تحويل تجريب ودفعة", "", "", "pos", "c1", debtDelta = 0, day = 3, saleAmount = 5_000, cashAmount = 5_000, trialAmount = -5_000)
+        val entries = listOf(settle, t2, t1)
+        assertEquals(listOf("t1"), openTrialEntries("c1", entries).map { it.id }) // 5,000 settled, 10,000 stays
+        assertEquals(10_000L, customerTrial(Customer("c1", "س"), entries))        // net outstanding is the 10,000
+    }
+
+    @Test
+    fun `placeholder customer name is date-based western-numeral and unique on collision`() {
+        val jul18 = java.time.LocalDate.of(2026, 7, 18).toEpochDay()
+        assertEquals("زبونة 18/7", placeholderCustomerName(emptyList(), jul18))
+        assertEquals("زبونة 18/7 (2)", placeholderCustomerName(listOf("زبونة 18/7"), jul18))
+        assertEquals("زبونة 18/7 (3)", placeholderCustomerName(listOf("زبونة 18/7", "زبونة 18/7 (2)"), jul18))
+        // a different day gets its own base name
+        val jan5 = java.time.LocalDate.of(2026, 1, 5).toEpochDay()
+        assertEquals("زبونة 5/1", placeholderCustomerName(listOf("زبونة 18/7"), jan5))
+    }
+
+    @Test
+    fun `return suggestions are the customer's taken lines newest-first and deduplicated`() {
+        // newest-first, as the live ledger prepends new قيود
+        val entries = listOf(
+            DayEntry("e3", "بيع — سميرة", "", "", "ink", "c1", day = 3, lines = "h2|بنطال|7000|1"),
+            DayEntry("e2", "تجريب — سميرة", "", "", "amber", "c1", day = 2, trialAmount = 5_000, lines = "h1|فستان|9000|1"),
+            DayEntry("e1", "بيع — سميرة", "", "", "ink", "c1", day = 1, lines = "h1|فستان|10000|1;h9|حقيبة|9000|1"),
+            DayEntry("x", "بيع — أخرى", "", "", "ink", "c2", day = 1, lines = "h5|جاكيت|12000|1"),
+            DayEntry("v", "بيع — سميرة", "", "", "ink", "c1", day = 1, lines = "h4|قميص|5000|1", voided = true),
+        )
+        val taken = customerTakenLines("c1", entries)
+        assertEquals(listOf("h2", "h1", "h9"), taken.map { it.shelfId }) // deduped by shelfId, newest first
+        assertEquals(7_000L, taken.first { it.shelfId == "h2" }.price)
+        assertEquals(9_000L, taken.first { it.shelfId == "h1" }.price)   // e2 (newer) price, not e1's 10,000
+        assertTrue(taken.none { it.shelfId == "h5" }) // another customer's line excluded
+        assertTrue(taken.none { it.shelfId == "h4" }) // voided قيد excluded
+        assertEquals(emptyList<SoldLine>(), customerTakenLines(null, entries)) // نقدي → falls back to الرف
+    }
 }

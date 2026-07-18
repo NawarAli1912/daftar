@@ -95,7 +95,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
     val overlayOpen = st.screen != "home" || st.specifyId != null || st.custPickerOpen ||
         st.custAddOpen || st.detailEntryId != null || st.detailCustomerId != null ||
         st.confirm != null || st.editItemId != null || st.maintOpen || st.shopId != null ||
-        st.paperDebtPrompt
+        st.pkgId != null || st.paperDebtPrompt
     androidx.activity.compose.BackHandler(enabled = overlayOpen || st.tab != "today") {
         when {
             st.confirm != null -> vm.dismissConfirm()
@@ -107,6 +107,7 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
             st.detailEntryId != null -> vm.closeEntry()
             st.detailCustomerId != null -> vm.closeCustomer()
             st.shopId != null -> vm.closeShop()
+            st.pkgId != null -> vm.closePackage()
             st.specifyId != null -> vm.closeSpecify()
             st.screen != "home" -> vm.closeSheet()
             else -> vm.setTab("today")

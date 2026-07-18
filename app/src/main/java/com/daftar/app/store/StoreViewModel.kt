@@ -302,7 +302,10 @@ class StoreViewModel @Inject constructor(
 
     // ── package (count & shelve) ──
     fun openPackage(id: String) = set { it.copy(screen = "package", pkgId = id, pkgAddOpen = false) }
-    fun closePackage() = set { it.copy(screen = "home", pkgAddOpen = false) }
+    // pkgId must be nulled here: the bale overlay's visibility keys on it (shared-element
+    // container transform), so leaving it set made the page undismissable — scrim taps and
+    // back both no-oped and she was stuck until force-close.
+    fun closePackage() = set { it.copy(screen = "home", pkgId = null, pkgAddOpen = false) }
     fun shelveStep(id: String, d: Int) = set {
         it.copy(shelf = it.shelf.map { x -> if (x.id == id) x.copy(shelved = maxOf(0, minOf(x.cnt, x.shelved + d))) else x })
     }

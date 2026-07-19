@@ -23,13 +23,14 @@ data class Undo(val id: String, val before: List<Pair<String, Int>>)
 data class StoreState(
     val seeded: Boolean = false,
     val tab: String = "today",          // today | cust | appts | account
-    val accountSeg: String = "sources", // sources | sum (البضاعة is its own tab since 2026-07-18)
+    val accountSeg: String = "sources", // (legacy) الحساب is money-only now; kept for reset compat
+    val shelfSeg: String = "items", // items | sources — البضاعة pairs its أصناف with their مصادر (2026-07-18)
     val shelfFilter: String = "all",    // all | unspec
     val screen: String = "home",        // home | chooser | sale | pay | addsrc | additem | package
     val sources: List<Source> = initialSources(),
     val shelf: List<Shelf> = emptyList(),
     val entries: List<DayEntry> = emptyList(),
-    val customers: List<Customer> = emptyList(),
+    val customers: List<Customer> = listOf(genericCustomer()),
     val expenses: List<BaleExpense> = emptyList(), // bale-owned typed expenses (slice 3)
     val today: Long = 0,      // epoch-day, refreshed each launch/foreground
     val viewedDay: Long = 0,  // which day the اليوم page is showing (default = today)
@@ -49,6 +50,7 @@ data class StoreState(
     val custNewOpen: Boolean = false,
     // standalone "add a customer" sheet (from the الزبائن directory, not a sale picker)
     val custAddOpen: Boolean = false,
+    val oldStockOpen: Boolean = false, // the «بضاعة قديمة — بلا مصدر» review/edit popup (2026-07-19)
     // editing an existing customer (v2: every record editable forever) — reuses custNew* fields
     val custEditId: String? = null,
     // محلات السوق management inside the one شراء من السوق card
@@ -123,12 +125,7 @@ class StoreViewModel @Inject constructor(
     val state: StateFlow<StoreState> = _state.asStateFlow()
 
     private val s get() = _state.value
-    // Every state change re-normalizes due dates (idempotent + cheap) so a new debt gets a
-    // due date and a paid-off customer loses hers, no matter which handler ran.
-    private fun set(f: (StoreState) -> StoreState) = _state.update { s0 ->
-        val s1 = f(s0)
-        s1.copy(customers = normalizeDues(s1.customers, s1.entries, s1.today))
-    }
+    private fun set(f: (StoreState) -> StoreState) = _state.update(f)
 
     init {
         // Start on the real current day, then load the persisted ledger and keep the DB in
@@ -140,7 +137,7 @@ class StoreViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         seeded = snap.seeded, usdRate = snap.usdRate, sources = snap.sources, shelf = snap.shelf,
-                        entries = snap.entries, customers = normalizeDues(snap.customers, snap.entries, it.today),
+                        entries = snap.entries, customers = ensureGeneric(snap.customers),
                         expenses = snap.expenses,
                         uiScale = snap.uiScale, moneyStep = snap.moneyStep, suggestPrice = snap.suggestPrice,
                     )
@@ -186,7 +183,7 @@ class StoreViewModel @Inject constructor(
         val d = today()
         it.copy(
             seeded = true, sources = sampleSources(), shelf = sampleShelf(),
-            entries = sampleEntries(d), customers = sampleCustomers(),
+            entries = sampleEntries(d), customers = ensureGeneric(sampleCustomers()),
             today = d, viewedDay = d, tab = "today", screen = "home", confirm = null,
         )
     }
@@ -204,7 +201,7 @@ class StoreViewModel @Inject constructor(
         set {
             it.copy(
                 seeded = true, usdRate = snap.usdRate, sources = snap.sources, shelf = snap.shelf,
-                entries = snap.entries, customers = snap.customers, expenses = snap.expenses, screen = "home", tab = "today", viewedDay = it.today,
+                entries = snap.entries, customers = ensureGeneric(snap.customers), expenses = snap.expenses, screen = "home", tab = "today", viewedDay = it.today,
             )
         }
         true
@@ -216,13 +213,19 @@ class StoreViewModel @Inject constructor(
     fun setUsdRate(v: Long) = set { it.copy(usdRate = maxOf(0, v)) }
 
     // maintainer setup (أدوات نوّار): overall size, money-stepper increment, default suggested price
-    fun setUiScale(v: Float) = set { it.copy(uiScale = v.coerceIn(1f, 1.25f)) }
+    fun setUiScale(v: Float) = set { it.copy(uiScale = v.coerceIn(0.85f, 1.25f)) }
     fun setMoneyStep(v: Long) = set { it.copy(moneyStep = v.coerceIn(100, 100_000)) }
     fun setSuggestPrice(v: Long) = set { it.copy(suggestPrice = maxOf(0, v)) }
 
     // Typed money entry (owner 2026-07-18): every money amount can be typed directly, not only
     // nudged ±500 — the steppers remain for small adjustments.
-    fun setPayAmount(v: Long) = set { it.copy(payAmount = maxOf(0, v)) }
+    // a دفعة can never exceed her outstanding balance — the field caps here so «لها» is impossible
+    // (owner 2026-07-19). No real customer picked yet → no cap (save still requires one; saveEntry).
+    private fun payMax(st: StoreState): Long {
+        val cust = st.saleCustomerId?.takeIf { it != GENERIC_ID }?.let { id -> st.customers.find { it.id == id } }
+        return if (cust != null) maxOf(0, customerBalance(cust, st.entries)) else Long.MAX_VALUE
+    }
+    fun setPayAmount(v: Long) = set { it.copy(payAmount = v.coerceIn(0, payMax(it))) }
     fun setReturnAmount(v: Long) = set { it.copy(returnAmount = maxOf(0, v)) }
     fun setPartialPaid(v: Long) = set { it.copy(partialPaid = maxOf(0, v)) }
     fun setPaperDebtAmount(v: Long) = set { it.copy(paperDebtAmount = maxOf(0, v)) }
@@ -253,6 +256,7 @@ class StoreViewModel @Inject constructor(
         else it.copy(viewedDay = rollViewedDay(it.today, it.viewedDay, now), today = now)
     }
     fun setSeg(seg: String) = set { it.copy(accountSeg = seg) }
+    fun setShelfSeg(seg: String) = set { it.copy(shelfSeg = seg) }
     fun setFilter(f: String) = set { it.copy(shelfFilter = f) }
 
     // ── shelf edits ──
@@ -379,7 +383,12 @@ class StoreViewModel @Inject constructor(
         it.copy(customers = it.customers + c, custAddOpen = false)
     }
     fun closeCustPicker() = set { it.copy(custPickerOpen = false, custNewOpen = false) }
-    fun pickCustomer(id: String?) = set { it.copy(saleCustomerId = id, custPickerOpen = false, custNewOpen = false) }
+    fun pickCustomer(id: String?) = set {
+        // re-cap the payment to the newly-picked customer's balance (she may have typed an amount
+        // before choosing who it's for) — keeps «لها» impossible.
+        val next = it.copy(saleCustomerId = id, custPickerOpen = false, custNewOpen = false)
+        next.copy(payAmount = next.payAmount.coerceIn(0, payMax(next)))
+    }
     fun toggleCustNew() = set { it.copy(custNewOpen = !it.custNewOpen, custNewName = "", custNewPhone = "", custNewDebt = 0) }
     fun setCustNewName(v: String) = set { it.copy(custNewName = v) }
     fun setCustNewPhone(v: String) = set { it.copy(custNewPhone = v) }
@@ -460,6 +469,8 @@ class StoreViewModel @Inject constructor(
     }
 
     // ── one-sheet item editing: tap an item, control everything incl. re-pointing its source ──
+    fun openOldStock() = set { it.copy(oldStockOpen = true) }
+    fun closeOldStock() = set { it.copy(oldStockOpen = false) }
     fun openEditItem(id: String) = set { s ->
         val x = s.shelf.find { it.id == id } ?: return@set s
         s.copy(editItemId = id, eiName = x.name, eiTasira = x.tasira, eiOnHand = x.onHand, eiBuy = x.buy ?: 0, eiSource = x.sourceId)
@@ -469,6 +480,8 @@ class StoreViewModel @Inject constructor(
     fun eiTasiraStep(d: Int) = set { it.copy(eiTasira = maxOf(0, it.eiTasira + d * s.moneyStep)) }
     fun eiOnHandStep(d: Int) = set { it.copy(eiOnHand = maxOf(0, it.eiOnHand + d)) }
     fun setEiOnHand(v: Long) = set { it.copy(eiOnHand = maxOf(0, v.toInt())) }
+    // «خلصت» — retire an item from sale suggestions (independent of its count), or bring it back.
+    fun setItemFinished(id: String, v: Boolean) = set { it.copy(shelf = it.shelf.map { x -> if (x.id == id) x.copy(finished = v) else x }) }
     fun eiBuyStep(d: Int) = set { it.copy(eiBuy = maxOf(0, it.eiBuy + d * s.moneyStep)) }
     fun eiPickSource(sid: String?) = set { it.copy(eiSource = sid) }
     fun saveEditItem() = set { s ->
@@ -492,7 +505,7 @@ class StoreViewModel @Inject constructor(
     // F3 picker-first: a دفعة opens on «لمن؟» — نقدي is a deliberate choice, never a
     // forgotten default (the silent-no-op trap: recording a payment without the customer).
     fun openPay() = set { it.copy(screen = "pay", payAmount = 5_000, payTrialId = null, saleCustomerId = null, editingId = null, custPickerOpen = true) }
-    fun payAmountStep(d: Int) = set { it.copy(payAmount = maxOf(0, it.payAmount + d * s.moneyStep)) }
+    fun payAmountStep(d: Int) = set { it.copy(payAmount = (it.payAmount + d * s.moneyStep).coerceIn(0, payMax(it))) }
     // Select one of HER outstanding تجريب قيود — «قرّرت تُبقيها»: on save it converts to debt
     // (folded into the payment) before the دفعة lands. Pure toggle; سداد كامل fills the amount.
     fun payPickTrial(id: String) = set { it0 ->
@@ -510,7 +523,7 @@ class StoreViewModel @Inject constructor(
         // F3: a NEW payment that overshoots her balance would flip it to لها — usually her
         // paper-era debt was never entered. Catch it and offer to record the old debt first.
         val cust0 = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
-        if (s.editingId == null && cust0 != null) {
+        if (s.editingId == null && cust0 != null && cust0.id != GENERIC_ID) {
             // measured AFTER the selected تجريب is kept — the kept trial adds to what she owes,
             // so paying exactly (balance + kept) must not trip the paper-debt prompt.
             val short = paperDebtShortfall(payOwedWithKept(cust0, s.entries, s.payTrialId), amt)
@@ -721,13 +734,22 @@ class StoreViewModel @Inject constructor(
         it.copy(screen = "pay", payAmount = 5_000, payTrialId = null, saleCustomerId = id, detailCustomerId = null)
     }
     // FR-3.2: one tap pushes her reminder out (from today); the digest reschedules naturally.
-    fun snooze(id: String, days: Int) = set {
-        it.copy(customers = it.customers.map { c -> if (c.id == id) c.copy(dueEpochDay = it.today + days) else c })
-    }
 
     // ── sale ──
     fun openChooser() = set { it.copy(screen = "chooser") }
-    fun openSale() = set { it.copy(screen = "sale", lines = emptyList(), pay = "full", partialPaid = 0, addNewOpen = false, saleCustomerId = null, editingId = null) }
+    fun openSale() = set { it.copy(screen = "sale", lines = emptyList(), pay = "full", partialPaid = 0, payAmount = 0, addNewOpen = false, saleCustomerId = GENERIC_ID, editingId = null) }
+    // adaptive قيد (2026-07-18): an empty basket is a دفعة on her balance; items make it a بيع.
+    fun saveEntry() {
+        if (s.lines.isEmpty()) {
+            // a دفعة is a CUSTOMER concept — it must land on a real, named customer's balance,
+            // never «زبونة غير محددة» (owner 2026-07-19). Nudge the picker instead of a silent no-op.
+            if (s.saleCustomerId == null || s.saleCustomerId == GENERIC_ID) {
+                set { it.copy(custPickerOpen = true) }
+                return
+            }
+            savePay()
+        } else saveSale()
+    }
     fun partialStep(d: Int) = set { it.copy(partialPaid = maxOf(0, it.partialPaid + d * s.moneyStep)) }
     fun closeSheet() = set { it.copy(screen = "home", addNewOpen = false, editingId = null) }
     fun addLine(id: String) = set {
@@ -740,6 +762,8 @@ class StoreViewModel @Inject constructor(
     fun qtyStep(i: Int, d: Int) = set {
         it.copy(lines = it.lines.mapIndexed { j, l -> if (j == i) l.copy(qty = maxOf(1, l.qty + d)) else l })
     }
+    // cart management (2026-07-18): remove a line outright — the ✕ on each cart row.
+    fun removeLine(i: Int) = set { it.copy(lines = it.lines.filterIndexed { j, _ -> j != i }) }
     fun setPay(mode: String) = set {
         val total = it.lines.sumOf { l -> l.price * l.qty }
         // seed a sensible starting amount (half) the first time she picks جزءاً
@@ -761,8 +785,8 @@ class StoreViewModel @Inject constructor(
         if (s.lines.isEmpty()) return // tighten: a sale needs at least one item
         // F1/D11: an أمانة is lent to a specific customer — never نقدي. Block the save and
         // nudge the picker open («لمن الأمانة؟») instead of silently recording an ownerless trial.
-        if (trialRequiresCustomer(s.pay, s.saleCustomerId)) {
-            set { it.copy(custPickerOpen = true) }
+        if (trialRequiresCustomer(s.pay, s.saleCustomerId?.takeIf { it != GENERIC_ID })) {
+            set { it.copy(custPickerOpen = true) } // أمانة needs a real, named person (D11) — not «غير محددة»
             return
         }
         val total = total()
@@ -773,7 +797,9 @@ class StoreViewModel @Inject constructor(
             else -> minOf(s.partialPaid, total) // exactly what she paid (never more than the total)
         }
         val names = s.lines.joinToString(" + ") { it.name }
-        val cust = s.saleCustomerId?.let { id -> s.customers.find { it.id == id } }
+        // «غير محددة» reads as نقدي in the day book (the entry still files under GENERIC_ID for
+        // attribution/reassignment — only the label treats it as unspecified).
+        val cust = s.saleCustomerId?.takeIf { it != GENERIC_ID }?.let { id -> s.customers.find { it.id == id } }
         val prefix = if (isTrial) "تجريب" else "بيع"
         val who = cust?.name ?: "نقدي"
         val soldMap = HashMap<String, Int>()

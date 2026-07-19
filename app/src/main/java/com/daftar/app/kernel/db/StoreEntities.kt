@@ -40,6 +40,7 @@ data class ShelfRow(
     val counted: Int?,
     val sourceId: String?,
     val buy: Long?,
+    val finished: Boolean = false,
     val seq: Int,
 )
 

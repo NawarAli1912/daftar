@@ -27,13 +27,14 @@ fun snapshotToJson(s: StoreSnapshot): String {
                     .put("shelved", it.shelved).put("sold", it.sold)
                     .put("counted", it.counted ?: JSONObject.NULL)
                     .put("sourceId", it.sourceId ?: JSONObject.NULL)
-                    .put("buy", it.buy ?: JSONObject.NULL),
+                    .put("buy", it.buy ?: JSONObject.NULL)
+                    .put("finished", it.finished),
             )
         }
     })
     root.put("customers", JSONArray().apply {
         s.customers.forEach {
-            put(JSONObject().put("id", it.id).put("name", it.name).put("phone", it.phone ?: JSONObject.NULL).put("openingDebt", it.openingDebt).put("dueEpochDay", it.dueEpochDay ?: JSONObject.NULL))
+            put(JSONObject().put("id", it.id).put("name", it.name).put("phone", it.phone ?: JSONObject.NULL).put("openingDebt", it.openingDebt))
         }
     })
     root.put("expenses", JSONArray().apply {
@@ -76,11 +77,11 @@ fun snapshotFromJson(json: String): StoreSnapshot {
         shelf = root.getJSONArray("shelf").map {
             Shelf(
                 it.getString("id"), it.getString("name"), it.getLong("tasira"), it.getInt("shelved"), it.getInt("sold"),
-                it.optIntN("counted"), it.optStr("sourceId"), it.optLongN("buy"),
+                it.optIntN("counted"), it.optStr("sourceId"), it.optLongN("buy"), it.optBoolean("finished", false),
             )
         },
         customers = root.getJSONArray("customers").map {
-            Customer(it.getString("id"), it.getString("name"), it.optStr("phone"), it.getLong("openingDebt"), it.optLongN("dueEpochDay"))
+            Customer(it.getString("id"), it.getString("name"), it.optStr("phone"), it.getLong("openingDebt"))
         },
         entries = root.getJSONArray("entries").map {
             DayEntry(

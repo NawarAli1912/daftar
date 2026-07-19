@@ -29,7 +29,7 @@ class BackupJsonTest {
                 DayEntry("e3", "أمانة — سميرة", "الآن", "أمانة", "amber", "c_sam", day = 100, trialAmount = 8_000),
             ),
             customers = listOf(
-                Customer("c_sam", "سميرة", phone = "0999", openingDebt = 3_000, dueEpochDay = 20_200),
+                Customer("c_sam", "سميرة", phone = "0999", openingDebt = 3_000),
             ),
         )
 

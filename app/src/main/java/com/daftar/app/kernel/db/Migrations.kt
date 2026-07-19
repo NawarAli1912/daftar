@@ -73,3 +73,11 @@ val MIGRATION_20_21 = object : Migration(20, 21) {
         db.execSQL("ALTER TABLE store_meta ADD COLUMN suggestPrice INTEGER NOT NULL DEFAULT 5000")
     }
 }
+
+// v21 → v22: an item can be «خلصت» — retired from sale suggestions independent of its onHand count
+// (2026-07-19). Additive, default 0 (not finished); her stock and counts are untouched.
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE store_shelf ADD COLUMN finished INTEGER NOT NULL DEFAULT 0")
+    }
+}

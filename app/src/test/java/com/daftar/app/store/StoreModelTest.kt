@@ -124,14 +124,6 @@ class StoreModelTest {
     }
 
     @Test
-    fun `digest copy names each debtor with her balance and the total`() {
-        val ds = debtors(sampleCustomers(), sampleEntries(0))
-        val (title, body) = digestTitleAndBody(ds)
-        assertEquals("2 زبائن عليهن ديون — إجمالي 41,500", title)
-        assertEquals("فاطمة (35,000)، أم محمد (6,500)", body)
-    }
-
-    @Test
     fun `the day book scopes entries and totals to the viewed day`() {
         val today = 20_100L
         val entries = listOf(
@@ -190,41 +182,6 @@ class StoreModelTest {
         val fs = followUps(cs, entries)
         assertEquals(listOf("أمانة-فقط", "مدينة", "كلاهما"), fs.map { it.customer.name }) // by debt+trial desc
         assertTrue(fs.none { it.customer.name == "صفر" })
-    }
-
-    @Test
-    fun `a new debt defaults due to the 1st of next month and clears when paid off`() {
-        val today = java.time.LocalDate.of(2026, 7, 6).toEpochDay()
-        val firstAug = java.time.LocalDate.of(2026, 8, 1).toEpochDay()
-        assertEquals(firstAug, firstOfNextMonth(today))
-        // owes → gets a due date
-        val owing = normalizeDues(listOf(Customer("c", "زبونة", null, 5_000)), emptyList(), today)
-        assertEquals(firstAug, owing.first().dueEpochDay)
-        // paid off → due date cleared
-        val paid = normalizeDues(listOf(Customer("c", "زبونة", null, 0, dueEpochDay = firstAug)), emptyList(), today)
-        assertNull(paid.first().dueEpochDay)
-    }
-
-    @Test
-    fun `due status reads overdue, due-today, tomorrow, then in-N-days`() {
-        val t = 20_000L
-        assertEquals("متأخّرة 3 يوم", dueStatus(t - 3, t))
-        assertEquals("مستحقة اليوم", dueStatus(t, t))
-        assertEquals("غداً", dueStatus(t + 1, t))
-        assertEquals("بعد 10 يوم", dueStatus(t + 10, t))
-    }
-
-    @Test
-    fun `the digest chases only debts due or overdue today, so a snooze drops out`() {
-        val t = 20_000L
-        val cs = listOf(
-            Customer("a", "متأخرة", null, 5_000, dueEpochDay = t - 2), // overdue → included
-            Customer("b", "اليوم", null, 3_000, dueEpochDay = t),      // due today → included
-            Customer("c", "مؤجّلة", null, 4_000, dueEpochDay = t + 7), // snoozed → excluded
-        )
-        val due = dueDebtors(cs, emptyList(), t)
-        assertEquals(listOf("متأخرة", "اليوم"), due.map { it.customer.name }) // debtors: largest balance first
-        assertTrue(due.none { it.customer.name == "مؤجّلة" })
     }
 
     @Test
@@ -760,6 +717,34 @@ class StoreModelTest {
         assertTrue(pickable.none { it.id == MKT_ID })
         // the model still carries MARKET data — hidden from the UI, not deleted
         assertTrue(sources.any { it.kind == Kind.MARKET })
+    }
+
+    // ── new-entry picker: recently-sold first, never-sold by stock, cold tail folded ──
+    @Test
+    fun `picker orders by most recent sale then never-sold by stock, excluding gone items`() {
+        val shelf = listOf(
+            Shelf("a", "a", 0, shelved = 5, sold = 1),  // sold on day 10
+            Shelf("b", "b", 0, shelved = 5, sold = 1),  // sold on day 30 (most recent)
+            Shelf("c", "c", 0, shelved = 9, sold = 0),  // never sold, most stock
+            Shelf("d", "d", 0, shelved = 2, sold = 0),  // never sold, less stock
+            Shelf("z", "z", 0, shelved = 5, sold = 5),  // out of stock → excluded
+            Shelf("f", "f", 0, shelved = 5, sold = 0, finished = true), // خلصت → excluded
+        )
+        val entries = listOf(
+            DayEntry("e1", "بيع", "", "", "ink", day = 10, lines = encodeLines(listOf(SaleLine("a", "a", 0, 0, 1)))),
+            DayEntry("e2", "بيع", "", "", "ink", day = 30, lines = encodeLines(listOf(SaleLine("b", "b", 0, 0, 1)))),
+        )
+        assertEquals(listOf("b", "a", "c", "d"), pickerItems(shelf, entries).map { it.id })
+    }
+
+    @Test
+    fun `lastSoldByItem takes the newest day an item appears in a sale`() {
+        val entries = listOf(
+            DayEntry("e1", "بيع", "", "", "ink", day = 10, lines = encodeLines(listOf(SaleLine("a", "a", 0, 0, 1)))),
+            DayEntry("e2", "بيع", "", "", "ink", day = 25, lines = encodeLines(listOf(SaleLine("a", "a", 0, 0, 1)))),
+        )
+        assertEquals(25L, lastSoldByItem(entries)["a"])
+        assertNull(lastSoldByItem(entries)["b"])
     }
 
     // ── V3 ITEM 3: the calendar jump never lands on a future page ──

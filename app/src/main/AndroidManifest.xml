@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Reminders post a daily digest notification (NFR-5); Android 13+ requires a runtime grant. -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Sync bridge only (FR-8.3): pushes the backup to the owner-tools API when online.
          Nothing in the app ever BLOCKS on the network (NFR-4). -->
     <uses-permission android:name="android.permission.INTERNET" />

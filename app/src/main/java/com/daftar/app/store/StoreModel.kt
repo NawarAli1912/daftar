@@ -83,6 +83,7 @@ data class Shelf(
     val counted: Int? = null,  // two-tier: counted into the package (null ⇒ == shelved)
     val sourceId: String? = null, // null ⇒ غير محدد (the red dot)
     val buy: Long? = null,     // MARKET per-unit buy price (local)
+    val finished: Boolean = false, // «خلصت» — retired from sale suggestions, independent of onHand (2026-07-19)
 ) {
     val onHand: Int get() = shelved - sold
     val cnt: Int get() = counted ?: shelved
@@ -175,42 +176,23 @@ fun rollViewedDay(today: Long, viewedDay: Long, newToday: Long): Long =
 fun clampViewedDay(today: Long, day: Long): Long = minOf(today, day)
 
 // A named debtor. Balance = openingDebt + Σ(debtDelta of her entries). Positive = she owes.
-// dueEpochDay = when to chase her (FR-1.6: defaults to the 1st of next month; snooze shifts it;
-// cleared once she's paid off).
 data class Customer(
     val id: String,
     val name: String,
     val phone: String? = null,
     val openingDebt: Long = 0,
-    val dueEpochDay: Long? = null,
 )
 
-// FR-1.6: a new debt is due on the 1st of next month by default.
-fun firstOfNextMonth(today: Long): Long =
-    java.time.LocalDate.ofEpochDay(today).plusMonths(1).withDayOfMonth(1).toEpochDay()
+// The standing catch-all customer: an entry with no named customer files under her (replaces the
+// old نقدي = null phantom — 2026-07-18 domain redesign). A real customer with a fixed id so
+// balance/attribution work uniformly, and an entry can be reassigned to a named customer later.
+// Always present in the roster via ensureGeneric().
+const val GENERIC_ID = "c_unspecified"
 
-// The Arabic urgency label for المواعيد.
-fun dueStatus(due: Long?, today: Long): String = when {
-    due == null -> "بلا موعد"
-    due < today -> "متأخّرة ${today - due} يوم"
-    due == today -> "مستحقة اليوم"
-    due == today + 1 -> "غداً"
-    else -> "بعد ${due - today} يوم"
-}
+fun genericCustomer(): Customer = Customer(GENERIC_ID, "زبونة غير محددة")
 
-// Keep each customer's due date consistent: set it when she first owes, clear it once paid off.
-// A snoozed (explicitly set) date is left alone while she still owes.
-fun normalizeDues(customers: List<Customer>, entries: List<DayEntry>, today: Long): List<Customer> {
-    if (today == 0L) return customers
-    return customers.map { c ->
-        val bal = customerBalance(c, entries)
-        when {
-            bal > 0 && c.dueEpochDay == null -> c.copy(dueEpochDay = firstOfNextMonth(today))
-            bal <= 0 && c.dueEpochDay != null -> c.copy(dueEpochDay = null)
-            else -> c
-        }
-    }
-}
+fun ensureGeneric(customers: List<Customer>): List<Customer> =
+    if (customers.any { it.id == GENERIC_ID }) customers else listOf(genericCustomer()) + customers
 
 fun customerBalance(c: Customer, entries: List<DayEntry>): Long =
     c.openingDebt + entries.filter { it.customerId == c.id && !it.voided }.sumOf { it.debtDelta }
@@ -324,28 +306,13 @@ fun debtors(customers: List<Customer>, entries: List<DayEntry>): List<Debtor> =
         .filter { it.balance > 0 }
         .sortedByDescending { it.balance }
 
-// The digest chases only debts that are actually due (or overdue) today — a snoozed
-// (future) due date drops out until it comes around (FR-3.2 reschedule).
-fun dueDebtors(customers: List<Customer>, entries: List<DayEntry>, today: Long): List<Debtor> =
-    debtors(customers, entries).filter { d -> d.customer.dueEpochDay?.let { it <= today } ?: true }
-
-// Everyone worth chasing in المواعيد: owes money and/or has أمانة out. Most urgent first
-// (earliest due date), then by amount.
+// Everyone worth chasing: owes money and/or has أمانة out. Most urgent = biggest (debt + trial).
 data class FollowUp(val customer: Customer, val debt: Long, val trial: Long)
 
 fun followUps(customers: List<Customer>, entries: List<DayEntry>): List<FollowUp> =
     customers.map { FollowUp(it, customerBalance(it, entries), customerTrial(it, entries)) }
         .filter { it.debt > 0 || it.trial > 0 }
-        .sortedWith(compareBy({ it.customer.dueEpochDay ?: Long.MAX_VALUE }, { -(it.debt + it.trial) }))
-
-// The daily digest notification copy (title + body), kept pure so it can be tested
-// without the worker/emulator.
-fun digestTitleAndBody(due: List<Debtor>): Pair<String, String> {
-    val total = due.sumOf { it.balance }
-    val title = "${due.size} زبائن عليهن ديون — إجمالي ${fmt(total)}"
-    val body = due.joinToString("، ") { it.customer.name + " (" + fmt(it.balance) + ")" }
-    return title to body
-}
+        .sortedByDescending { it.debt + it.trial }
 
 data class SaleLine(
     val shelfId: String,
@@ -579,6 +546,31 @@ fun itemStats(item: Shelf, sources: List<Source>, shelf: List<Shelf>, entries: L
         profit = perPieceCost?.let { rev - it * qty },
         perPieceCost = perPieceCost,
     )
+}
+
+// Most-recent sale day per shelf item, read from the ledger's sale lines in one pass (voided
+// entries are already gone from `entries`). Drives the new-entry picker's "recently sold first"
+// order — one map for the whole shelf, instead of an itemStats() scan per item.
+fun lastSoldByItem(entries: List<DayEntry>): Map<String, Long> {
+    val m = HashMap<String, Long>()
+    for (e in entries) for (l in decodeLines(e.lines)) {
+        val prev = m[l.shelfId]
+        if (prev == null || e.day > prev) m[l.shelfId] = e.day
+    }
+    return m
+}
+
+// The shelf items offered in the new-entry / withdraw picker, ordered for quick entry:
+// most-recently-sold first, then never-sold items (most stock on hand first). Out-of-stock and
+// «خلصت» (finished) items are excluded — she can't add what isn't there. When the list is long
+// the caller shows a leading slice and folds the cold tail behind «المزيد».
+fun pickerItems(shelf: List<Shelf>, entries: List<DayEntry>): List<Shelf> {
+    val last = lastSoldByItem(entries)
+    return shelf.filter { it.onHand > 0 && !it.finished }
+        .sortedWith(
+            compareByDescending<Shelf> { last[it.id] ?: Long.MIN_VALUE }
+                .thenByDescending { it.onHand },
+        )
 }
 
 fun soldBySource(shelf: List<Shelf>): Map<String, Int> {

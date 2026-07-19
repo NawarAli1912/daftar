@@ -156,9 +156,19 @@ fun StoreApp(vm: StoreViewModel = hiltViewModel()) {
                 // Undo bar (F2): inline, above the button + tabs so it never covers them;
                 // swipe sideways or ✕ to dismiss; still auto-hides after 10s.
                 if (st.undo != null && st.screen == "home") UndoBar(vm)
-                if (st.tab == "today") {
-                    Box(Modifier.fillMaxWidth().background(cBg).padding(start = 16.dp, end = 16.dp, top = 9.dp, bottom = 6.dp)) {
-                        PrimaryButton("+ قيد جديد", fontSize = fHead) { vm.openChooser() }
+                // ledger-M3: one consistent create-action per list screen — an Extended FAB in
+                // the pinned slot above the tab bar (context-aware, never scrolls away, never
+                // covers content). Resolves the old scroll-away vs pinned button inconsistency.
+                if (st.tab == "today" || st.tab == "shelf") {
+                    Box(
+                        Modifier.fillMaxWidth().background(cBg).padding(start = 16.dp, end = 16.dp, top = 9.dp, bottom = 8.dp),
+                        contentAlignment = Alignment.CenterStart, // RTL: start = right (owner wants the FAB on the right)
+                    ) {
+                        when {
+                            st.tab == "today" -> LedgerFab("قيد جديد") { vm.openChooser() }
+                            st.shelfSeg == "items" -> LedgerFab("صنف") { vm.openAddItem() }
+                            else -> LedgerFab("بالة") { vm.openAddSource() }
+                        }
                     }
                 }
                 TabBar(st, vm)
@@ -583,21 +593,12 @@ private fun PopText(text: String, fontSize: androidx.compose.ui.unit.TextUnit, c
     )
 }
 
-// ── الزبائن — the hub (v2 decision 10): urgency banner + most-urgent-first + reminders inside ──
+// ── الزبائن — the hub (v2 decision 10): biggest debt first, records inside each customer ──
 @Composable
 private fun CustScreen(st: StoreState, vm: StoreViewModel) {
     var query by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
-    PageIntro("دفتر زبائنك — الديون والتجارب والدفعات، والأعجل تسديداً أولاً.")
+    PageIntro("دفتر زبائنك — الديون والتجارب والدفعات، والأكبر ديناً أولاً.")
     val totalOwed = st.customers.sumOf { maxOf(0, customerBalance(it, st.entries)) }
-    val dueCount = st.customers.count { c ->
-        customerBalance(c, st.entries) > 0 && (c.dueEpochDay ?: Long.MAX_VALUE) <= st.today
-    }
-    if (dueCount > 0) {
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cGreenBg).border(1.dp, cGreenBorder, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 10.dp)) {
-            Text("🔔 $dueCount زبائن ديونهن مستحقة — الأعجل أولاً", fontSize = fSmall, color = cPaid)
-        }
-        Spacer(Modifier.height(12.dp))
-    }
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(horizontal = 13.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
@@ -606,7 +607,9 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
         Text(fmt(totalOwed), fontSize = fHead, fontWeight = FontWeight.Bold, color = cDebt)
     }
     Spacer(Modifier.height(12.dp))
-    if (st.customers.isEmpty()) {
+    // hide the generic «غير محددة» from the directory until she actually carries unspecified debt/trial
+    val roster = st.customers.filter { it.id != GENERIC_ID || customerBalance(it, st.entries) > 0 || customerTrial(it, st.entries) > 0 }
+    if (roster.isEmpty()) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(rLg)).background(cCard).dashedBorder(cLine, rLg).padding(vertical = 28.dp, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -618,11 +621,10 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
         // search box (restored from the prototype) — filters by name or phone
         SearchField(query, { query = it }, "بحث عن زبونة…")
         Spacer(Modifier.height(12.dp))
-        // most-urgent-first: chase-worthy (debt or أمانة) by due date then amount, then the rest
-        val sorted = st.customers.sortedWith(
+        // biggest debt first: chase-worthy (debt or أمانة) by amount, then the settled rest
+        val sorted = roster.sortedWith(
             compareBy(
                 { customerBalance(it, st.entries) <= 0 && customerTrial(it, st.entries) <= 0 },
-                { it.dueEpochDay ?: Long.MAX_VALUE },
                 { -(customerBalance(it, st.entries) + customerTrial(it, st.entries)) },
             ),
         )
@@ -636,7 +638,8 @@ private fun CustScreen(st: StoreState, vm: StoreViewModel) {
                     val trial = customerTrial(c, st.entries)
                     val amt = if (bal > 0) fmt(bal) else if (bal == 0L) "لا شيء" else "لها ${fmt(-bal)}"
                     val sub = when {
-                        bal > 0 -> "التسديد: " + dueStatus(c.dueEpochDay, st.today) + (if (trial > 0) " · تجريب ${fmt(trial)}" else "")
+                        bal > 0 && trial > 0 -> "عليها دين · تجريب ${fmt(trial)}"
+                        bal > 0 -> "عليها دين"
                         trial > 0 -> "تجريب ${fmt(trial)} — قد يُعاد"
                         else -> c.phone ?: "زبونة"
                     }
@@ -673,20 +676,8 @@ private fun StaticListRow(name: String, sub: String, amt: String, amtColor: Colo
 // ── الحساب ──
 @Composable
 private fun AccountScreen(st: StoreState, vm: StoreViewModel) {
-    // segment switcher — البضاعة moved out to its own tab; الحساب keeps money views only
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(3.dp)) {
-        SegBtn("المصادر", st.accountSeg == "sources", Modifier.weight(1f)) { vm.setSeg("sources") }
-        SegBtn("الملخّص", st.accountSeg == "sum", Modifier.weight(1f)) { vm.setSeg("sum") }
-    }
-    Spacer(Modifier.height(14.dp))
-    Swap(st.accountSeg, Modifier.fillMaxWidth()) { seg ->
-        Column(Modifier.fillMaxWidth()) {
-            when (seg) {
-                "sources" -> SourcesSeg(st, vm)
-                else -> SummarySeg(st, vm)
-            }
-        }
-    }
+    // الحساب is money-only now — المصادر moved into البضاعة, paired with its أصناف (2026-07-18).
+    SummarySeg(st, vm)
 }
 
 @Composable
@@ -705,6 +696,25 @@ private fun SegBtn(label: String, active: Boolean, modifier: Modifier, onClick: 
 // top with its red dot), a name search box, and richer rows with a sold badge.
 @Composable
 private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
+    // البضاعة now pairs its أصناف with their مصادر — one tap between an item and where it came
+    // from (2026-07-18). «+ صنف» / «+ بالة» are the context FAB above the tab bar, not inline.
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(3.dp)) {
+        SegBtn("الأصناف", st.shelfSeg == "items", Modifier.weight(1f)) { vm.setShelfSeg("items") }
+        SegBtn("المصادر", st.shelfSeg == "sources", Modifier.weight(1f)) { vm.setShelfSeg("sources") }
+    }
+    Spacer(Modifier.height(14.dp))
+    Swap(st.shelfSeg, Modifier.fillMaxWidth()) { seg ->
+        Column(Modifier.fillMaxWidth()) {
+            when (seg) {
+                "sources" -> SourcesSeg(st, vm)
+                else -> ItemsSeg(st, vm)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ItemsSeg(st: StoreState, vm: StoreViewModel) {
     var query by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     PageIntro("محلّك — ما لديك للبيع. البيع يقترح من هنا فقط.")
     SearchField(query, { query = it }, "بحث عن صنف…")
@@ -742,10 +752,6 @@ private fun ShelfSeg(st: StoreState, vm: StoreViewModel) {
             }
             Spacer(Modifier.height(12.dp))
         }
-    }
-    Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.weight(1f)) { PrimaryButton("+ صنف للمحل", fontSize = fBody, radius = rSm, vertical = 11.dp) { vm.openAddItem() } }
-        Box(Modifier.weight(1f)) { OutlineButton("+ بالة", fontSize = fBody, radius = rSm, vertical = 11.dp) { vm.openAddSource() } }
     }
 }
 
@@ -811,7 +817,7 @@ private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
     // no-source stock (null + PRE_ID + any legacy market item). No cost basis → profit «—».
     val oldRemain = st.shelf.filter { isOldStockNoSource(it, st.sources) }.sumOf { maxOf(0, it.cnt - it.sold) }
 
-    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).card().padding(horizontal = 15.dp, vertical = 13.dp)) {
+    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).card().tap { vm.openOldStock() }.padding(horizontal = 15.dp, vertical = 13.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("بضاعة قديمة — بلا مصدر", fontSize = fTitle, fontWeight = FontWeight.Bold, color = cInk, modifier = Modifier.weight(1f, fill = false))
             Box(Modifier.clip(RoundedCornerShape(rXs)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rXs)).padding(horizontal = 7.dp, vertical = 2.dp)) {
@@ -822,12 +828,12 @@ private fun SourcesSeg(st: StoreState, vm: StoreViewModel) {
             "بضاعتك القديمة وما لا تعرفين مصدره — بلا كلفة، والربح «—» بصدق. في المحل: $oldRemain قطعة",
             fontSize = fCaption, color = cDim, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),
         )
+        Text("مراجعة وتعديل الأصناف ←", fontSize = fSmall, fontWeight = FontWeight.Bold, color = cAccent, modifier = Modifier.padding(top = 8.dp))
     }
 
     views.filter { it.isBale }.forEach { sv ->
         SharedRow(visible = st.pkgId != sv.id, key = "bale-${sv.id}") { SourceCard(sv, vm) }
     }
-    OutlineButton("+ بالة جديدة", fontSize = fBodyL, radius = rMd, vertical = 13.dp, filledCard = true) { vm.openAddSource() }
 }
 
 // شراء من السوق (MarketCard/ShopRow) is hidden for this release — its card, the «+ محل جديد» row,
@@ -997,8 +1003,9 @@ internal fun MaintContent(vm: StoreViewModel) {
     Column(Modifier.fillMaxWidth().card(rMd).padding(13.dp)) {
         Text("حجم الخط والعناصر", fontSize = fBody, fontWeight = FontWeight.SemiBold, color = cInk, modifier = Modifier.padding(bottom = 8.dp))
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(rMd)).background(cBg).border(1.dp, cLine, RoundedCornerShape(rMd)).padding(3.dp)) {
-            SegBtn("عادي", st.uiScale < 1.06f, Modifier.weight(1f)) { vm.setUiScale(1f) }
-            SegBtn("كبير", st.uiScale in 1.06f..1.18f, Modifier.weight(1f)) { vm.setUiScale(1.12f) }
+            SegBtn("صغير", st.uiScale < 0.94f, Modifier.weight(1f)) { vm.setUiScale(0.85f) }
+            SegBtn("عادي", st.uiScale in 0.94f..1.06f, Modifier.weight(1f)) { vm.setUiScale(1f) }
+            SegBtn("كبير", st.uiScale in 1.061f..1.18f, Modifier.weight(1f)) { vm.setUiScale(1.12f) }
             SegBtn("أكبر", st.uiScale > 1.18f, Modifier.weight(1f)) { vm.setUiScale(1.25f) }
         }
         Spacer(Modifier.height(13.dp))
